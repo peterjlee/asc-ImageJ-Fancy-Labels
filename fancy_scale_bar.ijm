@@ -491,7 +491,7 @@ function createInnerShadowFromMask() {
 		else if (inputUnit=="mm") scaleFactor = 1E-3;
 		else if (inputUnit=="um") scaleFactor = 1E-6;
 		else if (inputUnit==(fromCharCode(181)+"m")) scaleFactor = 1E-6;
-		else if (inputUnit=="µm") scaleFactor =  1E-6;;
+		else if (inputUnit=="µm") scaleFactor =  1E-6;
 		else if (inputUnit=="nm") scaleFactor = 1E-9;
 		else if (inputUnit=="A") scaleFactor = 1E-10;
 		else if (inputUnit==fromCharCode(197)) scaleFactor = 1E-10;

@@ -1,23 +1,18 @@
 /* Inspired by the BAR ROI_Color_Coder.ijm
-
 	This macro adds a statistical summary of the analysis to the image in the selection box or at one of the corners of the image.
-
 	This version defaults to choosing units automatically
-	This version: v161017
+	This version: v170411 removes spaces in new image names to fix issue with naming new image combinations
  */
 macro "Add Summary Table to Copy of Image"{
-	// assess required conditions before proceeding
 	requires("1.47r");
 	saveSettings;
-
 	/* Set options for black objects on white background as this works better for publications */
 	run("Options...", "iterations=1 white count=1"); /* set white background */
 	run("Colors...", "foreground=black background=white selection=yellow"); /* set colors */
 	setOption("BlackBackground", false);
 	run("Appearance...", " "); /* do not use Inverting LUT */
-	// The above should be the defaults but this makes sure (black particles on a white background)
-	// http://imagejdocu.tudor.lu/doku.php?id=faq:technical:how_do_i_set_up_imagej_to_deal_with_white_particles_on_a_black_background_by_default
-
+	/*	The above should be the defaults but this makes sure (black particles on a white background)
+		http://imagejdocu.tudor.lu/doku.php?id=faq:technical:how_do_i_set_up_imagej_to_deal_with_white_particles_on_a_black_background_by_default */
 	selEType = selectionType; 
 	if (selEType>=0) {
 		getSelectionBounds(selEX, selEY, selEWidth, selEHeight);
@@ -25,18 +20,15 @@ macro "Add Summary Table to Copy of Image"{
 		// if (selEType==2 || selEType==3 || selEType==6 || selEType==7 || selEType==8|| selEType==10)
 		// getSelectionCoordinates(selEXCoords, selEYCoords);
 	}
-
 	t=getTitle();
-	// Checks to see if a Ramp legend has been selected by accident
-	if (matches(t, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + t + " ?"); 
-		setBatchMode(true);
+	/* Now checks to see if a Ramp legend has been selected by accident */
+	if (matches(t, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you really want to label " + t + " ?"); 
+	setBatchMode(true);
 	checkForResults();
 	items= nResults;
-
 	imageWidth = getWidth();
 	imageHeight = getHeight();
 	id = getImageID();
-
 	getPixelSize(unit, null, null);
 	fontSize = 22; /* default font size */
 	lineSpacing = 1.1;
@@ -45,15 +37,11 @@ macro "Add Summary Table to Copy of Image"{
 	dIShO = 5; /* default inner shadow drop: % of font size */
 	offsetX = round(1 + imageWidth/150); /* default offset of label from edge */
 	offsetY = round(1 + imageHeight/150); /* default offset of label from edge */
-
 	outlineColor = "black"; 	
 	originalImageDepth = bitDepth();
-
 	paraLabFontSize = round((imageHeight+imageWidth)/60);
-
 	decPlacesSummary = -1;	//defaults to scientific notation
 		/* Then Dialog . . . */
-
 	Dialog.create("Label Formatting Options");
 		headings = split(String.getResultsHeadings);
 		Dialog.addChoice("Measurement:", headings, "Area");
@@ -74,13 +62,11 @@ macro "Add Summary Table to Copy of Image"{
 		Dialog.addNumber("Shadow Displacement Right: ±", shadowDrop,0,3,"% of font size");
 		Dialog.addNumber("Shadow Gaussian Blur:", floor(0.75 * shadowDrop),0,3,"% of font size");
 		Dialog.addNumber("Shadow Darkness:", 75,0,3,"%\(darkest = 100%\)");
-
 		Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay scale bar");
 		Dialog.addNumber("Inner Shadow Drop: ±", dIShO,0,3,"% of font size");
 		Dialog.addNumber("Inner Displacement Right: ±", dIShO,0,3,"% of font size");
 		Dialog.addNumber("Inner Shadow Mean Blur:",floor(dIShO/2),1,3,"% of font size");
 		Dialog.addNumber("Inner Shadow Darkness:", 20,0,3,"% \(darkest = 100%\)");
-
 						
 		Dialog.show();
 		parameter = Dialog.getChoice();
@@ -95,16 +81,13 @@ macro "Add Summary Table to Copy of Image"{
 		shadowDisp = Dialog.getNumber();
 		shadowBlur = Dialog.getNumber();
 		shadowDarkness = Dialog.getNumber();
-
 		innerShadowDrop = Dialog.getNumber();
 		innerShadowDisp = Dialog.getNumber();
 		innerShadowBlur = Dialog.getNumber();
 		innerShadowDarkness = Dialog.getNumber();
-
 	// Determine parameter label
 	parameterLabel = parameter;
 	if (unitLabel=="Auto") unitLabel = unitLabelFromString(parameter, unit);
-
 	if (unitLabel=="Manual") {
 		unitLabel = unitLabelFromString(parameter, unit);
 			Dialog.create("Manual unit input");
@@ -143,10 +126,10 @@ macro "Add Summary Table to Copy of Image"{
 	innerShadowDarkness = (255/100) * (100 - (abs(innerShadowDarkness)));
 	unitLabelCheck = matches(unitLabel, ".*[A-Za-z].*");
 		if (fontStyle=="unstyled") fontStyle="";
-
 	paraLabFontSize = round((imageHeight+imageWidth)/45);
 	statsLabFontSize= round((imageHeight+imageWidth)/60);
-		// get values for chosen parameter
+	/*
+	Get values for chosen parameter */
 	values= newArray(items);
 	for (i=0; i<items; i++)
 		values[i]= getResult(parameter,i);
@@ -175,7 +158,7 @@ macro "Add Summary Table to Copy of Image"{
 		Dialog.addChoice("Location of Summary:", paraLocChoice, paraLocChoice[loc]);
 		Dialog.addChoice("Parameter Label: " + paraLabel, newArray("Yes", "No"), "Yes");
 		Dialog.addNumber("Image Label Font size:", paraLabFontSize);			
-		statsChoice = newArray("None", "Dashed line:  ---", "Number of objects:  "+items,  "Mean:  "+arrayMeanLab, "Median:  "+arrayMedianLab, "StdDev:  "+arraySDLab, "CoeffVar:  "+coeffVarLab, "Min-Max:  "+arrayMinLab+"-"+arrayMaxLab, "Minimum:  "+arrayMinLab, "Maximum:  "+arrayMaxLab, "Long dashed underline:  ___");
+		statsChoice = newArray("None", "Dashed line:  ---", "Number of objects:  "+items,  "Mean:  "+arrayMeanLab, "Median:  "+arrayMedianLab, "StdDev:  "+arraySDLab, "CoeffVar:  "+coeffVarLab, "Min-Max:  "+arrayMinLab+"-"+arrayMaxLab, "Minimum:  "+arrayMinLab, "Maximum:  "+arrayMaxLab, "6 Underlines:  ___", "12 Underlines:  ___", "18 Underlines:  ___", "24 Underlines:  ___");
 		statsChoiceLines = 8;
 		for (i=0; i<statsChoiceLines; i++)
 			Dialog.addChoice("Statistics Label Line "+(i+1)+":", statsChoice, statsChoice[i+1]);
@@ -194,7 +177,6 @@ macro "Add Summary Table to Copy of Image"{
 		statsLabFontSize = Dialog.getNumber();
 			
 	if (paraLabChoice=="Yes") labLines = 1;
-
 	else labLines = 0;
 	statsLines = 0;
 	statsLabLineText = newArray(8);
@@ -214,13 +196,15 @@ macro "Add Summary Table to Copy of Image"{
 			else if (statsLabLine[i]=="Min-Max") statsLabLineText[i] = "Range = " + d2s(arrayMin,decPlacesSummary) + " - " + d2s(arrayMax,decPlacesSummary) + " " + unitLabel;
 			else if (statsLabLine[i]=="Minimum") statsLabLineText[i] = "Minimum = " + d2s(arrayMin,decPlacesSummary) + " " + unitLabel;
 			else if (statsLabLine[i]=="Maximum") statsLabLineText[i] = "Maximum = " + d2s(arrayMax,decPlacesSummary) + " " + unitLabel;
-			else if (statsLabLine[i]=="Long Dashed Underline:  ___") statsLabLineText[i] = "__________";
+			else if (statsLabLine[i]=="6 Underlines") statsLabLineText[i] = "______";
+			else if (statsLabLine[i]=="12 Underlines") statsLabLineText[i] = "____________";
+			else if (statsLabLine[i]=="18 Underlines") statsLabLineText[i] = "__________________";
+			else if (statsLabLine[i]=="24 Underlines") statsLabLineText[i] = "________________________";
 			if (unitLabel==fromCharCode(0x00B0)) statsLabLineText[i] = replace(statsLabLineText[i], " "+ fromCharCode(0x00B0), fromCharCode(0x00B0)); // tweak to remove space before degree symbol
 			if (getStringWidth(statsLabLineText[i])>longestStringWidth) longestStringWidth = getStringWidth(statsLabLineText[i]);
 		}
 	}
 	linesSpace = lineSpacing * ((labLines*paraLabFontSize)+(statsLines*statsLabFontSize)); // Calculate vertical space taken up by text
-
 	if (paraLabChoice=="Yes") {
 		setFont(fontName, paraLabFontSize, fontStyle);
 		if (getStringWidth(paraLabel)>longestStringWidth) longestStringWidth = getStringWidth(paraLabel);
@@ -247,11 +231,9 @@ macro "Add Summary Table to Copy of Image"{
 		msg = "Draw a box in the image where you want to center the summary labels...";
 		waitForUser(msgtitle, msg);
 		getSelectionBounds(newSelEX, newSelEY, newSelEWidth, newSelEHeight);
-
 		selEX = newSelEX + round((newSelEWidth/2) - longestStringWidth/1.5);
 		selEY = newSelEY + round((newSelEHeight/2) - (linesSpace/2));
 		if (is("Batch Mode")==false) setBatchMode(true);	// toggle batch mode back on
-
 	} else if (selEType>=0) {
 		selEX = selEX + round((selEWidth/2) - longestStringWidth/1.5);
 		selEY = selEY + round((selEHeight/2) - (linesSpace/2));
@@ -265,19 +247,17 @@ macro "Add Summary Table to Copy of Image"{
 	paraLabelX = selEX;
 	paraLabelY = selEY;
 	setColorFromColorName("white");
-
 	roiManager("show none");
 	// roiManager("Show All without labels");
 	run("Flatten");
+	if (originalImageDepth==8) run("8-bit"); /* restores to 8-bit after flatten */
 	flatImage = getTitle();
 	if (is("Batch Mode")==false) setBatchMode(true);
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
 	roiManager("show none");
 	roiManager("deselect");
 	run("Select None");
-
-	// Draw summary over top of labels
-
+	/* Draw summary over top of image */
 	if (paraLabChoice=="Yes") {
 		setFont(fontName, paraLabFontSize, fontStyle);
 		drawString(paraLabel, paraLabelX, paraLabelY);
@@ -289,22 +269,46 @@ macro "Add Summary Table to Copy of Image"{
 		if (statsLabLine[i]!="None") {
 			drawString(statsLabLineText[i], paraLabelX, paraLabelY);
 			paraLabelY += lineSpacing * statsLabFontSize;
-
 		}
 	}
-
 	setThreshold(0, 128);
 	setOption("BlackBackground", false);
 	run("Convert to Mask");
-		// Create drop shadow if desired
+	/*
+	Create drop shadow if desired */
 	if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0) {
-
-		createShadowDropFromMask();
+		showStatus("Creating drop shadow for labels . . . ");
+		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
+		getSelectionFromMask("label_mask");
+		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+		setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
+		setBackgroundColor(shadowDarkness, shadowDarkness, shadowDarkness);
+		run("Clear");
+		getSelectionFromMask("label_mask");
+		expansion = abs(shadowDisp) + abs(shadowDrop) + abs(shadowBlur);
+		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
+		if (shadowBlur>0) run("Gaussian Blur...", "sigma=[shadowBlur]");
+		run("Select None");
 	}
-	// Create inner shadow if desired
+	/*	Create inner shadow if desired */
 	if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0) {
-
-		createInnerShadowFromMask();
+		showStatus("Creating inner shadow for labels . . . ");
+		newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
+		getSelectionFromMask("label_mask");
+		setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
+		run("Clear Outside");
+		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+		setSelectionLocation(selMaskX-innerShadowDisp, selMaskY-innerShadowDrop);
+		setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
+		run("Clear Outside");
+		getSelectionFromMask("label_mask");
+		expansion = abs(innerShadowDisp) + abs(innerShadowDrop) + abs(innerShadowBlur);
+		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
+		if (innerShadowBlur>0) run("Mean...", "radius=[innerShadowBlur]"); /* Gaussian is too large */
+		if (statsLabFontSize<12) run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen effect for small font sizes */
+		imageCalculator("Max", "inner_shadow","label_mask");
+		run("Select None");
+		run("Invert");  /* create an image that can be subtracted - works better for color than min */
 	}
 	if (isOpen("shadow"))
 		imageCalculator("Subtract", flatImage,"shadow");
@@ -320,38 +324,33 @@ macro "Add Summary Table to Copy of Image"{
 	run("Select None");
 	if (isOpen("inner_shadow"))
 		imageCalculator("Subtract", flatImage,"inner_shadow");
-
 	closeImageByTitle("shadow");
 	closeImageByTitle("inner_shadow");
 	closeImageByTitle("label_mask");
-
 	selectWindow(flatImage);
 	if ((lastIndexOf(t,"."))>0)  labeledImageNameWOExt = unCleanLabel(substring(flatImage, 0, lastIndexOf(flatImage,".")));
 	else labeledImageNameWOExt = unCleanLabel(flatImage);
 	rename(labeledImageNameWOExt + "_" + parameter);
-
 	restoreSettings;
 	setBatchMode("exit & display");
-
 	showStatus("Fancy Summary Table Macro Finished");
+	
 		/* ( 8(|)   ( 8(|)  ASC Functions  ( 8(|)  ( 8(|)   */
-
-	function autoCalculateDecPlacesFromValueOnly(value){ // note this version is different from the one used for ramp legends
+	
+	function autoCalculateDecPlacesFromValueOnly(value){ /* note this version is different from the one used for ramp legends */
 		valueSci = d2s(value, -1);
 		iExp = indexOf(valueSci, "E");
 		valueExp = parseInt(substring(valueSci, iExp+1));
-
 		if (valueExp>=2) dP = 0;
 		if (valueExp<2) dP = 2-valueExp;
 		if (valueExp<-5) dP = -1; /* Scientific Notation */
-
 		if (valueExp>=4) dP = -1; /* Scientific Notation */
 		return dP;
 	}
-	function binaryCheck(windowTitle) { // for white objects on black background
+	function binaryCheck(windowTitle) { /* for black objects on white background */
 		selectWindow(windowTitle);
 		if (is("binary")==0) run("8-bit");
-		// Quick-n-dirty threshold if not previously thresholded
+		/* Quick-n-dirty threshold if not previously thresholded */
 		getThreshold(t1,t2); 
 		if (t1==-1)  {
 			run("8-bit");
@@ -360,50 +359,49 @@ macro "Add Summary Table to Copy of Image"{
 			run("Convert to Mask");
 			run("Invert");
 			}
-		// Make sure black objects on white background for consistency	
+		/* Make sure black objects on white background for consistency */
 		if (((getPixel(0, 0))==0 || (getPixel(0, 1))==0 || (getPixel(1, 0))==0 || (getPixel(1, 1))==0))
 			run("Invert"); 
-		// Sometimes the outline procedure will leave a pixel border around the outside - this next step checks for this.
-		// i.e. the corner 4 pixels should now be all black, if not, we have a "border issue".
+		/*	Sometimes the outline procedure will leave a pixel border around the outside - this next step checks for this.
+			i.e. the corner 4 pixels should now be all black, if not, we have a "border issue". */
 		if (((getPixel(0, 0))+(getPixel(0, 1))+(getPixel(1, 0))+(getPixel(1, 1))) != 4*(getPixel(0, 0)) ) 
 				restoreExit("Border Issue"); 	
 	}
 	function checkForResults() {
-		if (nResults==0)	{
+		nROIs = roiManager("count");
+		nRES = nResults;
+		if (nRES==0)	{
 			Dialog.create("No Results to Work With");
 			Dialog.addCheckbox("Run Analyze-particles to generate table?", true);
-			Dialog.addMessage("This macro requires a Results table to analyze.");
+			Dialog.addMessage("This macro requires a Results table to analyze.\n \nThere are   " + nRES +"   results.\nThere are    " + nROIs +"   ROIs.");
 			Dialog.show();
-			analyzeNow = Dialog.getCheckbox(); //if (analyzeNow==true) ImageJ analyze particles will be performed, otherwise exit;
+			analyzeNow = Dialog.getCheckbox(); /* if (analyzeNow==true) ImageJ analyze particles will be performed, otherwise exit; */
 			if (analyzeNow==true) {
 				if (roiManager("count")!=0) {
 					roiManager("deselect")
 					roiManager("delete"); 
 				}
 				setOption("BlackBackground", false);
-
-				run("Analyze Particles...", "display clear add");
-
+				run("Analyze Particles..."); /* let user select settings */
 			}
-			else restoreExit();
+			else restoreExit("Goodbye, your previous setting will be restored.");
 		}
 	}
 	function cleanLabel(string) {
-		string= replace(string, "\\^2", fromCharCode(178)); // superscript 2 
-		string= replace(string, "\\^3", fromCharCode(179)); // superscript 3 UTF-16 (decimal)
-		string= replace(string, "\\^-1", fromCharCode(0x207B) + fromCharCode(185)); // superscript -1
-		string= replace(string, "\\^-2", fromCharCode(0x207B) + fromCharCode(178)); // superscript -2
-		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); // superscript -1
-		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); // superscript -2
-		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); // micrometer units
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); // angstrom symbol
-
-		string= replace(string, "  ", " "); // double spaces
-		string= replace(string, "_", fromCharCode(0x2009)); // replace underlines with thin spaces
-		string= replace(string, "px", "pixels"); // expand pixel abbreviation
-
-		string= replace(string, " " + fromCharCode(0x00B0), fromCharCode(0x00B0)); // remove space before degree symbol
-		string= replace(string, " °", fromCharCode(0x00B0)); // remove space before degree symbol
+		/* v161104 */
+		string= replace(string, "\\^2", fromCharCode(178)); /* superscript 2 */
+		string= replace(string, "\\^3", fromCharCode(179)); /* superscript 3 UTF-16 (decimal) */
+		string= replace(string, "\\^-1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
+		string= replace(string, "\\^-2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
+		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); /*	superscript -1 */
+		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); /*	superscript -2 */
+		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micrometer units*/
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* angstrom symbol*/
+		string= replace(string, "  ", " "); /* double spaces*/
+		string= replace(string, "_", fromCharCode(0x2009)); /* replace underlines with thin spaces*/
+		string= replace(string, "px", "pixels"); /* expand pixel abbreviate*/
+		string = replace(string, " " + fromCharCode(0x00B0), fromCharCode(0x00B0)); /*	remove space before degree symbol */
+		string= replace(string, " °", fromCharCode(0x2009)+"°"); /*	remove space before degree symbol */
 		return string;
 	}
 	function closeImageByTitle(windowTitle) {  /* cannot be used with tables */
@@ -411,39 +409,6 @@ macro "Add Summary Table to Copy of Image"{
 		selectWindow(windowTitle);
         close();
 		}
-	}
-	function createInnerShadowFromMask() {
-		showStatus("Creating inner shadow for labels . . . ");
-		newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
-		getSelectionFromMask("label_mask");
-		setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
-		run("Clear Outside");
-		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-		setSelectionLocation(selMaskX-innerShadowDisp, selMaskY-innerShadowDrop);
-		setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
-		run("Clear Outside");
-		getSelectionFromMask("label_mask");
-		expansion = abs(innerShadowDisp) + abs(innerShadowDrop) + abs(innerShadowBlur);
-		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
-		if (innerShadowBlur>0) run("Mean...", "radius=[innerShadowBlur]"); //Gaussian is too large
-		if (fontSize<12) run("Unsharp Mask...", "radius=0.5 mask=0.2"); // A tweak to sharpen effect for small font sizes
-		imageCalculator("Max", "inner_shadow","label_mask");
-		run("Select None");
-		run("Invert");  /* create an image that can be subtracted - works better for color than min */
-	}
-	function createShadowDropFromMask() {
-		showStatus("Creating drop shadow for labels . . . ");
-		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
-		getSelectionFromMask("label_mask");
-		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-		setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
-		setBackgroundColor(shadowDarkness, shadowDarkness, shadowDarkness);
-		run("Clear");
-		getSelectionFromMask("label_mask");
-		expansion = abs(shadowDisp) + abs(shadowDrop) + abs(shadowBlur);
-		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
-		if (shadowBlur>0) run("Gaussian Blur...", "sigma=[shadowBlur]");
-		run("Select None");
 	}
 	/* ASC Color Functions */
 	function getColorArrayFromColorName(colorName) {
@@ -486,28 +451,28 @@ macro "Add Summary Table to Copy of Image"{
 		colorArray = getColorArrayFromColorName(colorName);
 		setBackgroundColor(colorArray[0], colorArray[1], colorArray[2]);
 	}
+	/* Hex conversion below adapted from T.Ferreira, 20010.01 http://imagejdocu.tudor.lu/doku.php?id=macro:rgbtohex */
 	function pad(n) {
 		n= toString(n); if (lengthOf(n)==1) n= "0"+n; return n;
 	}
 		/* End ASC Color Functions */
-		
-	function expandLabel(string) {  // mostly for better looking summary tables
+	function expandLabel(string) {  /* mostly for better looking summary tables */
 		string = replace(string, "Raw Int Den", "Raw Int. Density");
 		string = replace(string, "FeretAngle", "Feret Angle");
-		string = replace(string, "FiberThAnn", "Fiber Thickn. from Annulus");
+		string = replace(string, "FiberThAnn", "Fiber Thckn. from Annulus");
+		string = replace(string, "FiberLAnn", "Fiber Length from Annulus");
 		string = replace(string, "FiberLR", "Fiber Length R");
 		string = replace(string, "Da", "Diam:area");
 		string = replace(string, "Dp", "Diam:perim.");
 		string = replace(string, "equiv", "equiv.");
 		string = replace(string, "_", " ");
 		string = replace(string, "°", "degrees");
-		string = replace(string, "0-90", "0-90°"); // put this here as an exception to the above
-		string = replace(string, "°, degrees", "°"); // that would be otherwise too many degrees
-		string= replace(string, fromCharCode(0x00C2), ""); // remove mystery Â
-		string = replace(string, " ", fromCharCode(0x2009)); // use this last so all spaces converted
+		string = replace(string, "0-90", "0-90°"); /* put this here as an exception to the above */
+		string = replace(string, "°, degrees", "°"); /* that would be otherwise too many degrees */
+		string = replace(string, fromCharCode(0x00C2), ""); /* remove mystery Â */
+		string = replace(string, " ", fromCharCode(0x2009)); /* use this last so all spaces converted */
 		return string;
-	}		
-
+	}
 	function getSelectionFromMask(selection_Mask){
 		tempTitle = getTitle();
 		selectWindow(selection_Mask);
@@ -516,7 +481,7 @@ macro "Add Summary Table to Copy of Image"{
 		selectWindow(tempTitle);
 		run("Restore Selection");
 	}
-	function removeTrailingZerosAndPeriod(string) { //removes trailing zeros after period
+	function removeTrailingZerosAndPeriod(string) { /* removes trailing zeros after period */
 		while (endsWith(string,".0")) {
 			string=substring(string,0, lastIndexOf(string, ".0"));
 		}
@@ -525,18 +490,18 @@ macro "Add Summary Table to Copy of Image"{
 		}
 		return string;
 	}
-	function restoreExit(message){ // clean up before aborting macro then exit
-		restoreSettings(); //clean up before exiting
-		setBatchMode("exit & display"); // not sure if this does anything useful if exiting gracefully but otherwise harmless
+	function restoreExit(message){ /* clean up before aborting macro then exit */
+		restoreSettings(); /* clean up before exiting */
+		setBatchMode("exit & display"); /* not sure if this does anything useful if exiting gracefully but otherwise harmless */
 		exit(message);
 	}
 	function stripUnitFromString(string) {
-		if (endsWith(string,"\)")) { // label with units from string string if available
+		if (endsWith(string,"\)")) { /* label with units from string string if available */
 			unitIndexStart = lastIndexOf(string, "\(");
 			unitIndexEnd = lastIndexOf(string, "\)");
 			stringUnit = substring(string, unitIndexStart+1, unitIndexEnd);
 			unitCheck = matches(stringUnit, ".*[0-9].*");
-			if (unitCheck==0) {  //if it contains a number it probably isn't a unit
+			if (unitCheck==0) {  /* if it contains a number it probably isn't a unit */
 				stringLabel = substring(string, 0, unitIndexStart);
 			}
 			else stringLabel = string;
@@ -544,29 +509,30 @@ macro "Add Summary Table to Copy of Image"{
 		else stringLabel = string;
 		return stringLabel;
 	}
-	function unCleanLabel(string) { // this function replaces special characters with standard characters for file system compatible filenames
-		string= replace(string, fromCharCode(178), "\\^2"); // superscript 2 
-		string= replace(string, fromCharCode(179), "\\^3"); // superscript 3 UTF-16 (decimal)
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); // superscript -1
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); // superscript -2
-		string= replace(string, fromCharCode(181), "u"); // micrometer units
-		string= replace(string, fromCharCode(197), "Angstrom"); // angstrom symbol
-		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); // replace thin spaces degrees combination
-
-		string= replace(string, fromCharCode(0x2009), "_"); // replace thin spaces
+	function unCleanLabel(string) { 
+	/* v161104 This function replaces special characters with standard characters for file system compatible filenames */
+	/* mod 041117 to remove spaces as well */
+		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
+		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
+		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); /* superscript -1 */
+		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); /* superscript -2 */
+		string= replace(string, fromCharCode(181), "u"); /* micrometer units */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* angstrom symbol */
+		string= replace(string, fromCharCode(0x2009)+"fromCharCode(0x00B0)", "deg"); /* replace thin spaces degrees combination */
+		string= replace(string, fromCharCode(0x2009), "_"); /* replace thin spaces  */
+		string= replace(string, " ", "_"); /* replace spaces - these can be a problem with image combination */
 		string= replace(string, "_\\+", "\\+"); /* clean up autofilenames */
 		string= replace(string, "\\+\\+", "\\+"); /* clean up autofilenames */
 		string= replace(string, "__", "_"); /* clean up autofilenames */
-		 /* clean up autofilenames */
 		return string;
 	}
 	function unitLabelFromString(string, imageUnit) {
-	if (endsWith(string,"\)")) { // label with units from string string if available
+	if (endsWith(string,"\)")) { /* label with units from string string if available */
 		unitIndexStart = lastIndexOf(string, "\(");
 		unitIndexEnd = lastIndexOf(string, "\)");
 		stringUnit = substring(string, unitIndexStart+1, unitIndexEnd);
 		unitCheck = matches(stringUnit, ".*[0-9].*");
-		if (unitCheck==0) {  //if it contains a number it probably isn't a unit
+		if (unitCheck==0) {  /* if it contains a number it probably isn't a unit */
 			unitLabel = stringUnit;
 		}
 		else {

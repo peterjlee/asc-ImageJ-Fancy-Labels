@@ -1,7 +1,7 @@
 macro "Add Multiple Lines of Fancy Text To Image" {
 	/* This macro adds multiple lines of text to a copy of the image
 		Peter J. Lee Applied Superconductivity Center at National High Magnetic Field Laboratory
-		Version v161104
+		Version v170411 removes spaces in new image names to fix issue with new ombination images
 	 */
 	requires("1.47r");
 	saveSettings;
@@ -12,6 +12,11 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	}
 	else selectionExists = 0;
 	t=getTitle();
+	/*	Set options for black objects on white background as this works better for publications */
+	run("Options...", "iterations=1 white count=1"); /* set white background */
+	run("Colors...", "foreground=black background=white selection=yellow"); /* set colors */
+	setOption("BlackBackground", false);
+	run("Appearance...", " "); /* do not use Inverting LUT *
 	/* Check to see if a Ramp legend rather than the image has been selected by accident */
 	if (matches(t, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + t + " ?"); 
 	setBatchMode(true);
@@ -23,12 +28,12 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	fontSize = round(imageDims/40); /* default font size */
 	if (fontSize < 10) fontSize = 10; /* set minimum default font size as 10 */
 	lineSpacing = 1.1;
-	outlineStroke = 6; /* default outline stroke: % of font size */
-	shadowDrop = 8;  /* default outer shadow drop: % of font size */
-	dIShO = 4; /* default inner shadow drop: % of font size */
+	outlineStroke = 8; /* default outline stroke: % of font size */
+	shadowDrop = 16;  /* default outer shadow drop: % of font size */
+	dIShO = 5; /* default inner shadow drop: % of font size */
 	shadowDisp = shadowDrop;
-	shadowBlur = 1.1* shadowDrop;
-	shadowDarkness = 50;
+	shadowBlur = floor(0.6 * shadowDrop);
+	shadowDarkness = 100;
 	innerShadowDrop = dIShO;
 	innerShadowDisp = dIShO;
 	innerShadowBlur = floor(dIShO/2);
@@ -88,13 +93,13 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			
 	if (tweakFormat=="Yes") {	
 		Dialog.create("Advanced Formatting Options");
-		Dialog.addNumber("Line Spacing", lineSpacing,0,3,"\(default 1\)");
+		Dialog.addNumber("Line Spacing", lineSpacing,1,3,"\(default 1\)");
 		Dialog.addNumber("Outline Stroke:", outlineStroke,0,3,"% of font size");
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
 		Dialog.addNumber("Shadow Drop: ±", shadowDrop,0,3,"% of font size");
 		Dialog.addNumber("Shadow Displacement Right: ±", shadowDrop,0,3,"% of font size");
-		Dialog.addNumber("Shadow Gaussian Blur:", floor(0.75 * shadowDrop),0,3,"% of font size");
-		Dialog.addNumber("Shadow Darkness:", 75,0,3,"%\(darkest = 100%\)");
+		Dialog.addNumber("Shadow Gaussian Blur:", floor(0.4 * shadowDrop),0,3,"% of font size");
+		Dialog.addNumber("Shadow Darkness:", 100,0,3,"%\(darkest = 100%\)");
 		// Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay Labels");
 		Dialog.addNumber("Inner Shadow Drop: ±", dIShO,0,3,"% of font size");
 		Dialog.addNumber("Inner Displacement Right: ±", dIShO,0,3,"% of font size");
@@ -113,7 +118,9 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		innerShadowDisp = Dialog.getNumber();
 		innerShadowBlur = Dialog.getNumber();
 		innerShadowDarkness = Dialog.getNumber();
-	}				
+	}		
+	shadowDarkness = (255/100) * (abs(shadowDarkness));
+	innerShadowDarkness = (255/100) * (100 - (abs(innerShadowDarkness)));	
 	negAdj = 0.5;  /* negative offsets appear exaggerated at full displacement */
 	if (shadowDrop<0) shadowDrop *= negAdj;
 	if (shadowDisp<0) shadowDisp *= negAdj;
@@ -204,26 +211,64 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	setOption("BlackBackground", false);
 	run("Convert to Mask");
 	/* Create drop shadow if desired */
-	if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0)
-		createShadowDropFromMask();
-	/* Create inner shadow if desired */
-	if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0)
-		createInnerShadowFromMask();
-	if (isOpen("shadow"))
+	if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0) {
+		showStatus("Creating drop shadow for labels . . . ");
+		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
+		getSelectionFromMask("label_mask");
+		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+		setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
+		setBackgroundColor(shadowDarkness, shadowDarkness, shadowDarkness);
+		// setBackgroundColor(255, 255, 255);
+		run("Clear");
+		getSelectionFromMask("label_mask");
+		expansion = abs(shadowDisp) + abs(shadowDrop) + abs(shadowBlur);
+		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
+		if (shadowBlur>0) run("Gaussian Blur...", "sigma=[shadowBlur]");
+		run("Select None");
+	}
+	/*	Create inner shadow if desired */
+	if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0) {
+		showStatus("Creating inner shadow for labels . . . ");
+		newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
+		getSelectionFromMask("label_mask");
+		setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
+		run("Clear Outside");
+		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+		setSelectionLocation(selMaskX-innerShadowDisp, selMaskY-innerShadowDrop);
+		setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
+		run("Clear Outside");
+		getSelectionFromMask("label_mask");
+		expansion = abs(innerShadowDisp) + abs(innerShadowDrop) + abs(innerShadowBlur);
+		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
+		if (innerShadowBlur>0) run("Mean...", "radius=[innerShadowBlur]"); /* Gaussian is too large */
+		if (fontSize<12) run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen effect for small font sizes */
+		imageCalculator("Max", "inner_shadow","label_mask");
+		run("Select None");
+		run("Invert");  /* create an image that can be subtracted - works better for color than min */
+	}
+	if (isOpen("shadow") && shadowDarkness>0)		
 		imageCalculator("Subtract", labeledImage,"shadow");
+	else if (isOpen("shadow") && shadowDarkness<0)		
+		imageCalculator("Add", labeledImage,"shadow");
 	run("Select None");
+	/* Create outline around text */
 	getSelectionFromMask("label_mask");
 	run("Enlarge...", "enlarge=[outlineStroke] pixel");
-	setBackgroundFromColorName(outlineColor);
+	setBackgroundFromColorName(outlineColor); // functionoutlineColor]")
 	run("Clear");
 	run("Select None");
+	/* Create text */
 	getSelectionFromMask("label_mask");
 	setBackgroundFromColorName(selColor);
 	run("Clear");
 	run("Select None");
-	if (isOpen("inner_shadow"))
+	/* Create inner shadow or glow if requested */
+	if (isOpen("inner_shadow") && innerShadowDarkness>0)
 		imageCalculator("Subtract", labeledImage,"inner_shadow");
-	closeImageByTitle("shadow");
+	else if (isOpen("inner_shadow") && innerShadowDarkness<0)
+		imageCalculator("Add", labeledImage,"inner_shadow");
+	
+		closeImageByTitle("shadow");
 	closeImageByTitle("inner_shadow");
 	closeImageByTitle("label_mask");
 	selectWindow(labeledImage);
@@ -256,62 +301,6 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		selectWindow(windowTitle);
         close();
 		}
-	}
-	function createInnerShadowFromMask() {
-		/* requires previous run of:  originalImageDepth = bitDepth();
-		because this version works with different bitDepths
-		v161104 */
-		showStatus("Creating inner shadow for labels . . . ");
-		newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
-		getSelectionFromMask("label_mask");
-		setBackgroundColor(0,0,0);
-		run("Clear Outside");
-		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-		setSelectionLocation(selMaskX-innerShadowDisp, selMaskY-innerShadowDrop);
-		setBackgroundColor(0,0,0);
-		run("Clear Outside");
-		getSelectionFromMask("label_mask");
-		expansion = abs(innerShadowDisp) + abs(innerShadowDrop) + abs(innerShadowBlur);
-		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
-		if (innerShadowBlur>0) run("Gaussian Blur...", "sigma=[innerShadowBlur]");
-		run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen the effect for small font sizes */
-		imageCalculator("Max", "inner_shadow","label_mask");
-		run("Select None");
-		/* The following are needed for different bit depths */
-		if (originalImageDepth==16 || originalImageDepth==32) run(originalImageDepth + "-bit");
-		run("Enhance Contrast...", "saturated=0 normalize");
-		run("Invert");  /* create an image that can be subtracted - works better for color than min */
-		divider = (100/abs(innerShadowDarkness));
-		run("Divide...", "value=[divider]");
-	}
-	function createShadowDropFromMask() {
-		/* requires previous run of:  originalImageDepth = bitDepth();
-		because this version works with different bitDepths
-		v161104 */
-		showStatus("Creating drop shadow for labels . . . ");
-		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
-		getSelectionFromMask("label_mask");
-		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-		setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
-		setBackgroundColor(255,255,255);
-		if (outlineStroke>0) run("Enlarge...", "enlarge=[outlineStroke] pixel"); /* adjust so shadow extends beyond stroke thickness */
-		run("Clear");
-		run("Select None");
-		if (shadowBlur>0) {
-			run("Gaussian Blur...", "sigma=[shadowBlur]");
-			// run("Unsharp Mask...", "radius=[shadowBlur] mask=0.4"); // Make Gaussian shadow edge a little less fuzzy
-		}
-		/* Now make sure shadow of glow does not impact outline */
-		getSelectionFromMask("label_mask");
-		if (outlineStroke>0) run("Enlarge...", "enlarge=[outlineStroke] pixel");
-		setBackgroundColor(0,0,0);
-		run("Clear");
-		run("Select None");
-		/* The following are needed for different bit depths */
-		if (originalImageDepth==16 || originalImageDepth==32) run(originalImageDepth + "-bit");
-		run("Enhance Contrast...", "saturated=0 normalize");
-		divider = (100/abs(shadowDarkness));
-		run("Divide...", "value=[divider]");
 	}
 	function getSelectionFromMask(selection_Mask){
 		tempTitle = getTitle();
@@ -369,7 +358,9 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	function pad(n) {
 		n= toString(n); if (lengthOf(n)==1) n= "0"+n; return n;
 	}
-	function unCleanLabel(string) { /* this function replaces special characters with standard characters for file system compatible filenames */
+	function unCleanLabel(string) { 
+	/* v161104 This function replaces special characters with standard characters for file system compatible filenames */
+	/* mod 041117 to remove spaces as well */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
 		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); /* superscript -1 */
@@ -378,6 +369,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, fromCharCode(197), "Angstrom"); /* angstrom symbol */
 		string= replace(string, fromCharCode(0x2009)+"fromCharCode(0x00B0)", "deg"); /* replace thin spaces degrees combination */
 		string= replace(string, fromCharCode(0x2009), "_"); /* replace thin spaces  */
+		string= replace(string, " ", "_"); /* replace spaces - these can be a problem with image combination */
 		string= replace(string, "_\\+", "\\+"); /* clean up autofilenames */
 		string= replace(string, "\\+\\+", "\\+"); /* clean up autofilenames */
 		string= replace(string, "__", "_"); /* clean up autofilenames */

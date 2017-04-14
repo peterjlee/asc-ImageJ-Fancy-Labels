@@ -2,36 +2,31 @@
 	IJ BAR: https://github.com/tferr/Scripts#scripts
 	http://imagejdocu.tudor.lu/doku.php?id=macro:roi_color_coder
 	Tiago Ferreira, v.5.2 2015.08.13 -	v.5.3 2016.05.1 + pjl mods 6/16-30/2016 to automate defaults and add labels to ROIs
-
 	This macro adds scaled result labels to each ROI object as well as a summary.
 	This version: 10/13/2016
+	This version: 3/16/2017 Add labelling by ID number and additional image label locations
  */
 macro "Add scaled value labels to each ROI object and add summary"{
-	// assess required conditions before proceeding
 	requires("1.47r");
 	saveSettings;
-	// Some cleanup
+	/* Some cleanup */
 	run("Select None");
-
 	/* Set options for black objects on white background as this works better for publications */
 	run("Options...", "iterations=1 white count=1"); /* set white background */
 	run("Colors...", "foreground=black background=white selection=yellow"); /* set colors */
 	setOption("BlackBackground", false);
 	run("Appearance...", " "); /* do not use Inverting LUT */
-	// The above should be the defaults but this makes sure (black particles on a white background)
-	// http://imagejdocu.tudor.lu/doku.php?id=faq:technical:how_do_i_set_up_imagej_to_deal_with_white_particles_on_a_black_background_by_default
-
+	/*	The above should be the defaults but this makes sure (black particles on a white background)
+		http://imagejdocu.tudor.lu/doku.php?id=faq:technical:how_do_i_set_up_imagej_to_deal_with_white_particles_on_a_black_background_by_default */
 	t=getTitle();
-	// Checks to see if a Ramp legend rather than the image has been selected by accident
+	/* Now checks to see if a Ramp legend has been selected by accident */
 	if (matches(t, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + t + " ?"); 
-
 	checkForRoiManager(); // macro requires that the objects are in the ROI manager
 		
 	setBatchMode(true);
 	nROIs= roiManager("count");
 	nRES= nResults;
 	// get id of image and number of ROIs
-
 	nMismatch = nROIs-nRES;
 	items = nROIs;
 	if (nMismatch>0) {
@@ -47,14 +42,15 @@ macro "Add scaled value labels to each ROI object and add summary"{
 				else restoreExit("ROI mismatch not to your liking; will exit macro");
 				}
 	}
-
-	id = getImageID();
 	roiManager("Show All without labels");
-	imageHeight = getHeight();
+	id = getImageID();
 	imageWidth = getWidth();
-	imageDims = imageHeight + imageWidth;
+	imageHeight = getHeight();
+	imageDims = imageWidth + imageHeight;
+	originalImageDepth = bitDepth();
 	getPixelSize(unit, pixelWidth, pixelHeight);
-	fontS = round(imageDims/160);
+	/* Set default label settings */
+	fontSize = round(imageDims/160);
 	outlineStroke = 8; /* default outline stroke: % of font size */
 	shadowDrop = 12;  /* default outer shadow drop: % of font size */
 	dIShO = 5; /* default inner shadow drop: % of font size */
@@ -63,10 +59,9 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	selColor = "white";
 	outlineColor = "black"; 	
 	originalImageDepth = bitDepth();
-	paraLabfontS = round(imageDims/50);
-	statsLabfontS = round(imageDims/60);
-
-	headings = split(String.getResultsHeadings);
+	paraLabFontSize = round(imageDims/50);
+	statsLabFontSize = round(imageDims/60);
+	headings = split(String.getResultsHeadings, "\t"); /* the tab specificity avoids problems with unusual column titles */
 	headingsWithRange= newArray(headings.length);
 	for (i=0; i<headings.length; i++) {
 		resultsColumn = newArray(items);
@@ -75,6 +70,8 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		Array.getStatistics(resultsColumn, min, max, null, null); 
 		headingsWithRange[i] = headings[i] + ":  " + min + " - " + max;
 	}
+		if (headingsWithRange[0]==" :  Infinity - -Infinity")
+		headingsWithRange[0] = "ID" + ":  1 - " + items; /* relabels ImageJ ID column */
 	// create the dialog prompt
 	Dialog.create("Feature Label Options: "+ getTitle);
 		Dialog.addChoice("Measurement", headingsWithRange, headingsWithRange[0]);
@@ -82,12 +79,12 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		Dialog.setInsets(-40, 320, 0);
 		Dialog.addMessage("^2 & um etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m...\n If units are part of the parameter\n label, within \(...\) i.e. \(unit\) they will \noverride this selection:");
 		// Dialog.addMessage("^2 and um etc. replaced by " + fromCharCode(178) + " and " + fromCharCode(181) + "m etc.");
-		Dialog.addChoice("Decimal Places:", newArray("Auto", "Manual", "Scientific"), "Auto");
+		Dialog.addChoice("Decimal places:", newArray("Auto", "Manual", "Scientific", "0", "1", "2", "3", "4"), "Auto");
 		fontStyleChoice = newArray("bold", "bold antialiased", "italic", "italic antialiased", "bold italic", "bold italic antialiased", "unstyled");
 		Dialog.addChoice("Font style:", fontStyleChoice, fontStyleChoice[1]);
 		fontNameChoice = newArray("SansSerif", "Serif", "Monospaced");
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
-		Dialog.addNumber("Font_size:", fontS, 0, 3, "pt \(ROI manager\)");
+		Dialog.addNumber("Font_size:", fontSize, 0, 3, "pt \(ROI manager\)");
 		if (originalImageDepth==24)
 			colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern"); 
 		else colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray");
@@ -95,12 +92,10 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		Dialog.addNumber("Font scaling % of Auto", 66);
 		Dialog.addNumber("Minimum Label Font Size", round(imageDims/90));
 		Dialog.addNumber("Maximum Label Font Size", round(imageDims/16));
-
 		fontStyleChoice = newArray("bold", "bold antialiased", "italic", "bold italic", "unstyled");
 		Dialog.addChoice("Font style:", fontStyleChoice, fontStyleChoice[1]);
 		fontNameChoice = newArray("SansSerif", "Serif", "Monospaced");
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
-
 		Dialog.addNumber("Outline Stroke:", outlineStroke,0,3,"% of font size");
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
 		Dialog.addNumber("Shadow Drop: ±", shadowDrop,0,3,"% of font size");
@@ -119,11 +114,9 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			Dialog.addMessage("If selected, Morphological Centers will be added to the Results table.");
 		}
 		else Dialog.addRadioButtonGroup("Object Label At:", newArray("ROI Center", "Morphological Center"), 1, 2, "Morphological Center");
-
 		Dialog.addRadioButtonGroup("Add statistical summary?", newArray("No", "Yes", "Parameter Label Only"), 1, 2, "Yes"); 
 			
 	Dialog.show;
-
 		parameterWithLabel= Dialog.getChoice;
 		parameter= substring(parameterWithLabel, 0, indexOf(parameterWithLabel, ":  "));
 		unitLabel = Dialog.getString;
@@ -131,14 +124,13 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		fontStyle = Dialog.getChoice;
 			if (fontStyle=="unstyled") fontStyle="";
 		fontName = Dialog.getChoice;
-		fontS = Dialog.getNumber;
+		fontSize = Dialog.getNumber;
 		/* Then Dialog . . . */
 		selColor = Dialog.getChoice();
-		fontSCorrection =  Dialog.getNumber()/100;
+		fontSizeCorrection =  Dialog.getNumber()/100;
 		minLFontS = Dialog.getNumber(); 
 		maxLFontS = Dialog.getNumber(); 
 		fontStyle = Dialog.getChoice();
-
 		fontName = Dialog.getChoice();
 		outlineStroke = Dialog.getNumber();
 		outlineColor = Dialog.getChoice();
@@ -153,16 +145,15 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		innerShadowDarkness = Dialog.getNumber();
 		ctrChoice = Dialog.getRadioButton();
 		summaryChoice = Dialog.getRadioButton();
-
 		if (summaryChoice=="Yes") statsChoiceLines = 7;
 		else statsChoiceLines = 0;
 		if (isNaN(getResult("mc_X\(px\)",0)) && ctrChoice=="Morphological Center") 
 			AddMCsToResultsTable ();
-
-	// get values for chosen parameter
+	/*
+	Get values for chosen parameter */
 	values= newArray(items);
-	for (i=0; i<items; i++)
-		values[i]= getResult(parameter,i);
+	if (parameter=="ID") for (i=0; i<items; i++) values[i]= i+1;
+	else for (i=0; i<items; i++) values[i]= getResult(parameter,i);
 	Array.getStatistics(values, arrayMin, arrayMax, arrayMean, arraySD); 
 	if (isNaN(min)) min= arrayMin;
 	if (isNaN(max)) max= arrayMax;
@@ -170,7 +161,6 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	sortedValues = Array.copy(values);
 	sortedValues = Array.sort(sortedValues);
 	arrayMedian = sortedValues[round(items/2)];
-
 	if ((lastIndexOf(t,"."))>0) imageNameWOExt = unCleanLabel(substring(t, 0, lastIndexOf(t,".")));
 	else imageNameWOExt = unCleanLabel(t);
 	// parse symbols in unit and draw final unitLabel below ramp
@@ -196,12 +186,13 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	selectWindow(t);
 	shadowDarkness = (255/100) * (abs(shadowDarkness));
 	innerShadowDarkness = (255/100) * (100 - (abs(innerShadowDarkness)));
-	decPlaces = -1;	//defaults to scientific notation
-	if (dpChoice=="Auto")
-		decPlaces = autoCalculateDecPlacesFromValueOnly(decPlaces);
+	decPlaces = -1;	/* defaults to scientific notation */
 	if (dpChoice=="Manual") 
-		decPlaces=getNumber("Choose Number of Decimal Places", 0);
-
+		decPlaces = getNumber("Choose Number of Decimal Places", decPlaces);
+	else if (dpChoice=="scientific") 
+		decPlaces = -1;
+	else if (dpChoice!="Auto")
+		decPlaces = dpChoice;
 	if (fontStyle=="unstyled") fontStyle="";
 	if (summaryChoice!="No") {
 		if (summaryChoice=="Yes") {
@@ -209,25 +200,24 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			paraLocChoice = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection"); 
 			Dialog.addChoice("Location of Summary Label:", paraLocChoice, paraLocChoice[0]);
 			Dialog.addChoice("Parameter Label Too?", newArray("Yes", "No"), "Yes");
-			Dialog.addNumber("Parameter Label Font size:", paraLabfontS);			
+			Dialog.addNumber("Parameter Label Font size:", paraLabFontSize);			
 			statsChoice = newArray("None", "Dashed line:  ---", "Number of objects", "Mean", "Median", "StdDev", "CoeffVar", "Minimum", "Maximum", "Min-Max", "Long dashed underline:  ___","Blank line");
 			for (i=0; i<statsChoiceLines; i++)
 					Dialog.addChoice("Statistics Label Line "+(i+1)+":", statsChoice, statsChoice[i+2]);
-			Dialog.addNumber("Statistics Label Font size:", statsLabfontS);
+			Dialog.addNumber("Statistics Label Font size:", statsLabFontSize);
 			if (originalImageDepth==24)
 				colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern"); 
 			else colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray");
 			Dialog.addChoice("Summary and Parameter Font Color:", colorChoice, selColor);
 			Dialog.addChoice("Summary and Parameter Outline Color:", colorChoice, outlineColor);	
-
 		Dialog.show;
 			paraLabPos = Dialog.getChoice();
 			paraLabChoice = Dialog.getChoice();
-			paraLabfontS = Dialog.getNumber();
+			paraLabFontSize = Dialog.getNumber();
 			statsLabLine = newArray(statsChoiceLines);
 			for (i=0; i<statsChoiceLines; i++)
 				statsLabLine[i] = Dialog.getChoice();
-			statsLabfontS = Dialog.getNumber();
+			statsLabFontSize = Dialog.getNumber();
 			summaryFontColor = Dialog.getChoice();
 			summaryOutlineColor = Dialog.getChoice();
 		}
@@ -237,31 +227,32 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			Dialog.create("Parameter Label Options: "+ getTitle);
 				paraLocChoice = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection"); 
 				Dialog.addChoice("Location of Summary Label:", paraLocChoice, paraLocChoice[0]);
-				Dialog.addNumber("Parameter Label Font size:", paraLabfontS);	
+				Dialog.addNumber("Parameter Label Font size:", paraLabFontSize);	
 				Dialog.addChoice("Parameter Font Color:", colorChoice, selColor);
 				Dialog.addChoice("Parameter Outline Color:", colorChoice, outlineColor);				
 						
 			Dialog.show;
 				paraLabPos = Dialog.getChoice();
-				paraLabfontS = Dialog.getNumber();
+				paraLabFontSize = Dialog.getNumber();
 				statsLabLine = newArray(statsChoiceLines);
 				summaryFontColor = Dialog.getChoice();
 				summaryOutlineColor = Dialog.getChoice();
 		}
 		if (summaryChoice!="Parameter Label Only") {
-			// Count lines of summary label
+			/* Count lines of summary label */
 			if (paraLabChoice=="Yes") labLines = 1;
 			else labLines = 0;
 			statsLines = 0;
-			// Reduce decimal places - but not as much as ramp labels
-			arrayMean = d2s(arrayMean,decPlaces+2);
-			coeffVar = d2s((100/arrayMean)*arraySD,decPlaces+2);
-			arraySD = d2s(arraySD,decPlaces+2);
-			arrayMin = d2s(arrayMin,decPlaces+2);
-			arrayMax = d2s(arrayMax,decPlaces+2);
+			/* Reduce decimal places - but not as much as ramp labels */
+			if (decPlaces!=-1) decPlacesMod = 2;
+			else decPlacesMod = 0;
+			arrayMean = d2s(arrayMean,decPlaces+decPlacesMod);
+			coeffVar = d2s((100/arrayMean)*arraySD,decPlaces+decPlacesMod);
+			arraySD = d2s(arraySD,decPlaces+decPlacesMod);
+			arrayMin = d2s(arrayMin,decPlaces+decPlacesMod);
+			arrayMax = d2s(arrayMax,decPlaces+decPlacesMod);
 			statsLabLineText = newArray(statsChoiceLines);
-			setFont(fontName, statsLabfontS, fontStyle);
-
+			setFont(fontName, statsLabFontSize, fontStyle);
 			longestStringWidth = 0;
 			for (i=0; i<statsChoiceLines; i++) {
 				// if (statsLabLine[i]!="None") statsLines = statsLines + 1;
@@ -287,14 +278,14 @@ macro "Add scaled value labels to each ROI object and add summary"{
 					if (lineLength>longestStringWidth) longestStringWidth = lineLength;
 				}
 			}
-			linesSpace = 1.2 * ((labLines*paraLabfontS)+(statsLines*statsLabfontS));
+			linesSpace = 1.2 * ((labLines*paraLabFontSize)+(statsLines*statsLabFontSize));
 		}			
 		if (paraLabChoice=="Yes") {		
-			//recombine units and labels that were used in Ramp
+			/* recombine units and labels that were used in Ramp */
 			if (unitLabel!="") paraLabel = parameterLabel + ", " + unitLabel;
 			else paraLabel = parameterLabel;
 			if (paraLabChoice=="Yes") {
-				setFont(fontName,paraLabfontS, fontStyle);
+				setFont(fontName,paraLabFontSize, fontStyle);
 				if (summaryChoice!="Parameter Label Only") {
 					if (getStringWidth(paraLabel)>longestStringWidth) longestStringWidth = getStringWidth(paraLabel);
 				}
@@ -314,9 +305,8 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			} else if (paraLabPos == "Bottom Right") {
 				selEX = imageWidth - longestStringWidth - offsetX;
 				selEY = imageHeight - offsetY + linesSpace;
-
 			} else if (paraLabPos == "Center of New Selection"){
-				setBatchMode("false"); // Does not accept interaction while batch mode is on
+				setBatchMode("false"); /* Does not accept interaction while batch mode is on */
 				setTool("rectangle");
 				msgtitle="Location for the summary labels...";
 				msg = "Draw a box in the image where you want to center the summary labels...";
@@ -326,8 +316,8 @@ macro "Add scaled value labels to each ROI object and add summary"{
 				selEX = newSelEX + round((newSelEWidth - longestStringWidth)/2);
 				selEY = newSelEY + round((newSelEHeight - linesSpace)/2);
 				setBatchMode("true");	// toggle batch mode back on
-			} if (selEY<=1.5*paraLabfontS)
-				selEY += paraLabfontS;
+			} if (selEY<=1.5*paraLabFontSize)
+				selEY += paraLabFontSize;
 			if (selEX<offsetX) selEX = offsetX;
 			endX = selEX + longestStringWidth;
 			if ((endX+offsetX)>imageWidth) selEX = imageWidth - longestStringWidth - offsetX;
@@ -341,7 +331,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	if (is("Batch Mode")==false) setBatchMode(true);
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
 	// roiManager("show none");
-	// iterate through the ROI Manager list and colorize ROIs and rename ROIs and draw scaled labels
+	/* iterate through the ROI Manager list and colorize ROIs and rename ROIs and draw scaled labels */
 	fontArray = newArray(items);
 	for (i=0; i<items; i++) {
 		showStatus("Creating labels for object " + i + ", " + (roiManager("count")-i) + " more to go");
@@ -349,12 +339,12 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		labelValue = values[i];
 		if (dpChoice=="Auto")
 			decPlaces = autoCalculateDecPlacesFromValueOnly(labelValue);
-		labelString = d2s(labelValue,decPlaces); // Reduce Decimal places for labeling - move these two lines to below the labels you prefer
+		labelString = d2s(labelValue,decPlaces); /* Reduce Decimal places for labeling - move these two lines to below the labels you prefer */
 		Roi.getBounds(roiX, roiY, roiWidth, roiHeight);
 		roiMin = roiWidth;
-		lFontS = fontS; /* initial estimate */
+		lFontS = fontSize; /* initial estimate */
 		setFont(fontName,lFontS, fontStyle);
-		lFontS = fontSCorrection * fontS * roiMin/(getStringWidth(labelString));
+		lFontS = fontSizeCorrection * fontSize * roiMin/(getStringWidth(labelString));
 		if (lFontS>maxLFontS) lFontS = maxLFontS; 
 		if (lFontS<minLFontS) lFontS = minLFontS;
 		setFont(fontName,lFontS, fontStyle);
@@ -365,9 +355,9 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		if (ctrChoice=="ROI Center")
 			drawString(labelString, textOffset, roiY+roiHeight/2 + lFontS/2);
 		else drawString(labelString, textOffset, getResult("mc_Y\(px\)",i) + lFontS/2);	
-			fontArray[i] = lFontS; // to generate statistics for mean shadow drop
+			fontArray[i] = lFontS; /* to generate statistics for mean shadow drop */
 	}
-		Array.getStatistics(fontArray, null, null, meanfontS, null);
+		Array.getStatistics(fontArray, null, null, meanfontSize, null);
 		negAdj = 0.5;  /* negative offsets appear exaggerated at full displacement */
 	if (shadowDrop<0) shadowDrop *= negAdj;
 	if (shadowDisp<0) shadowDisp *= negAdj;
@@ -375,7 +365,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	if (innerShadowDrop<0) innerShadowDrop *= negAdj;
 	if (innerShadowDisp<0) innerShadowDisp *= negAdj;
 	if (innerShadowBlur<0) innerShadowBlur *= negAdj;
-	fontPC = meanfontS/100;
+	fontPC = meanfontSize/100;
 	outlineStroke = round(fontPC * outlineStroke);
 	shadowDrop = floor(fontPC * shadowDrop);
 	shadowDisp = floor(fontPC * shadowDisp);
@@ -387,20 +377,48 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	setThreshold(0, 128);
 	setOption("BlackBackground", false);
 	run("Convert to Mask");
-		// Create drop shadow if desired
+/*
+	Create drop shadow if desired */
 	if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0) {
-		createShadowDropFromMask();
+		showStatus("Creating drop shadow for labels . . . ");
+		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
+		getSelectionFromMask("label_mask");
+		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+		setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
+		setBackgroundColor(shadowDarkness, shadowDarkness, shadowDarkness);
+		run("Clear");
+		getSelectionFromMask("label_mask");
+		expansion = abs(shadowDisp) + abs(shadowDrop) + abs(shadowBlur);
+		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
+		if (shadowBlur>0) run("Gaussian Blur...", "sigma=[shadowBlur]");
+		run("Select None");
 	}
-	// Create inner shadow if desired
+	/*	Create inner shadow if desired */
 	if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0) {
-		createInnerShadowFromMask();
+		showStatus("Creating inner shadow for labels . . . ");
+		newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
+		getSelectionFromMask("label_mask");
+		setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
+		run("Clear Outside");
+		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+		setSelectionLocation(selMaskX-innerShadowDisp, selMaskY-innerShadowDrop);
+		setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
+		run("Clear Outside");
+		getSelectionFromMask("label_mask");
+		expansion = abs(innerShadowDisp) + abs(innerShadowDrop) + abs(innerShadowBlur);
+		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
+		if (innerShadowBlur>0) run("Mean...", "radius=[innerShadowBlur]"); /* Gaussian is too large */
+		if (statsLabFontSize<12) run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen effect for small font sizes */
+		imageCalculator("Max", "inner_shadow","label_mask");
+		run("Select None");
+		run("Invert");  /* create an image that can be subtracted - works better for color than min */
 	}
 	if (isOpen("shadow"))		
 		imageCalculator("Subtract", flatImage,"shadow");
 	run("Select None");
 	getSelectionFromMask("label_mask");
 	run("Enlarge...", "enlarge=[outlineStroke] pixel");
-	setBackgroundFromColorName(outlineColor); // functionoutlineColor]")
+	setBackgroundFromColorName(outlineColor);
 	run("Clear");
 	run("Select None");
 	getSelectionFromMask("label_mask");
@@ -412,36 +430,62 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		closeImageByTitle("shadow");
 	closeImageByTitle("inner_shadow");
 	closeImageByTitle("label_mask");
-
-	// Draw summary over top of object labels
+	/* Draw summary over top of object labels */
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
 	setColorFromColorName("white");
 	if (summaryChoice!="No") {
 		if (paraLabChoice=="Yes") {
-			setFont(fontName,paraLabfontS, fontStyle);
+			setFont(fontName,paraLabFontSize, fontStyle);
 			drawString(paraLabel, paraLabelX, paraLabelY);
-			paraLabelY += round(1.2 * paraLabfontS);
+			paraLabelY += round(1.2 * paraLabFontSize);
 		}
-		setFont(fontName,statsLabfontS, fontStyle);
+		setFont(fontName,statsLabFontSize, fontStyle);
 		for (i=0; i<statsLines; i++) {
 			// if (statsLabLine[i]!="None") statsLines = statsLines + 1;
 			if (statsLabLine[i]!="None") {
 				drawString(statsLabLineText[i], paraLabelX, paraLabelY);
-				paraLabelY += round(1.2 * statsLabfontS);			
+				paraLabelY += round(1.2 * statsLabFontSize);			
 			}
 		}
 	}
 	setThreshold(0, 128);
 	setOption("BlackBackground", false);
 	run("Convert to Mask");
-
-	// Create drop shadow if desired
+/*
+	Create drop shadow if desired */
 	if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0) {
-		createShadowDropFromMask();
+		showStatus("Creating drop shadow for labels . . . ");
+		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
+		getSelectionFromMask("label_mask");
+		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+		setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
+		setBackgroundColor(shadowDarkness, shadowDarkness, shadowDarkness);
+		run("Clear");
+		getSelectionFromMask("label_mask");
+		expansion = abs(shadowDisp) + abs(shadowDrop) + abs(shadowBlur);
+		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
+		if (shadowBlur>0) run("Gaussian Blur...", "sigma=[shadowBlur]");
+		run("Select None");
 	}
-	// Create inner shadow if desired
+	/*	Create inner shadow if desired */
 	if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0) {
-		createInnerShadowFromMask();
+		showStatus("Creating inner shadow for labels . . . ");
+		newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
+		getSelectionFromMask("label_mask");
+		setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
+		run("Clear Outside");
+		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+		setSelectionLocation(selMaskX-innerShadowDisp, selMaskY-innerShadowDrop);
+		setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
+		run("Clear Outside");
+		getSelectionFromMask("label_mask");
+		expansion = abs(innerShadowDisp) + abs(innerShadowDrop) + abs(innerShadowBlur);
+		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
+		if (innerShadowBlur>0) run("Mean...", "radius=[innerShadowBlur]"); /* Gaussian is too large */
+		if (statsLabFontSize<12) run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen effect for small font sizes */
+		imageCalculator("Max", "inner_shadow","label_mask");
+		run("Select None");
+		run("Invert");  /* create an image that can be subtracted - works better for color than min */
 	}
 	if (isOpen("shadow"))		
 		imageCalculator("Subtract", flatImage,"shadow");
@@ -472,9 +516,9 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		restoreSettings;
 	setBatchMode("exit & display");
 	showStatus("Labeling Macro Finished");
-
+	
 	/*   ( 8(|)  ( 8(|) Functions ( 8(|)  ( 8(|)   */
-
+	
 	function AddMCsToResultsTable () {
 /* 	Based on "MCentroids.txt" Morphological centroids by thinning assumes white particles: G.Landini
 	http://imagejdocu.tudor.lu/doku.php?id=plugin:morphology:morphological_operators_for_imagej:start
@@ -492,7 +536,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	binaryCheck(workingTitle);
 	checkForRoiManager();
 	roiOriginalCount = roiManager("count");
-	setBatchMode(true); //batch mode on
+	setBatchMode(true); /* batch mode on */
 	start = getTime();
 	getPixelSize(selectedUnit, pixelWidth, pixelHeight);
 	lcf=(pixelWidth+pixelHeight)/2;
@@ -507,29 +551,29 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		Roi.getBounds(Rx, Ry, Rwidth, Rheight);
 		setResult("ROIctr_X\(px\)", i, round(Rx + Rwidth/2));
 		setResult("ROIctr_Y\(px\)", i, round(Ry + Rheight/2));
-		Roi.getContainedPoints(RPx, RPy); // this includes holes when ROIs are used so no hole filling is needed
-		newImage("Contained Points "+i,"8-bit black",Rwidth,Rheight,1); // give each sub-image a unique name for debugging purposes
+		Roi.getContainedPoints(RPx, RPy); /* this includes holes when ROIs are used so no hole filling is needed */
+		newImage("Contained Points "+i,"8-bit black",Rwidth,Rheight,1); /* give each sub-image a unique name for debugging purposes */
 		for (j=0; j<RPx.length; j++)
 			setPixel(RPx[j]-Rx, RPy[j]-Ry, 255);
 		selectWindow("Contained Points "+i);
 		run("BinaryThin2 ", "kernel_a='0 2 2 0 1 1 0 0 2 ' kernel_b='0 0 2 0 1 1 0 2 2 ' rotations='rotate 45' iterations=-1 white");
 		if (lcf==1) {
 			for (RPx=1; RPx<(Rwidth-1); RPx++){
-				for (RPy=1; RPy<(Rheight-1); RPy++){ // start at "1" because there should not be a pixel at the border
+				for (RPy=1; RPy<(Rheight-1); RPy++){ /* start at "1" because there should not be a pixel at the border */
 					if((getPixel(RPx, RPy))==255) {  
 						setResult("mc_X\(px\)", i, RPx+Rx);
 						setResult("mc_Y\(px\)", i, RPy+Ry);
 						setResult("mc_offsetX\(px\)", i, getResult("X",i)-(RPx+Rx));
 						setResult("mc_offsetY\(px\)", i, getResult("Y",i)-(RPy+Ry));
 						RPy = Rheight;
-						RPx = Rwidth; // one point and done
+						RPx = Rwidth; /* one point and done */
 					}
 				}
 			}
 		}
 		else if (lcf!=1) {
 			for (RPx=1; RPx<(Rwidth-1); RPx++){
-				for (RPy=1; RPy<(Rheight-1); RPy++){ // start at "1" because there should not be a pixel at the border
+				for (RPy=1; RPy<(Rheight-1); RPy++){ /* start at "1" because there should not be a pixel at the border */
 					if((getPixel(RPx, RPy))==255) {
 						setResult("mc_X\(px\)", i, RPx+Rx);
 						setResult("mc_Y\(px\)", i, RPy+Ry);					
@@ -538,7 +582,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 						setResult("mc_offsetX\(px\)", i, round((getResult("X",i)/lcf-(RPx+Rx))));
 						setResult("mc_offsetY\(px\)", i, round((getResult("Y",i)/lcf-(RPy+Ry))));
 						RPy = Rheight;
-						RPx = Rwidth; // one point and done
+						RPx = Rwidth; /* one point and done */
 					}
 				}
 			}
@@ -551,7 +595,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	restoreSettings();
 	showStatus("MC macro Finished: " + roiManager("count") + " objects analyzed in " + (getTime()-start)/1000 + "s.");
 	beep(); wait(300); beep(); wait(300); beep();
-}
+	}
 	function autoCalculateDecPlacesFromValueOnly(value){
 		valueSci = d2s(value, -1);
 		iExp = indexOf(valueSci, "E");
@@ -562,10 +606,10 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		if (valueExp>=4) dP = -1; /* Scientific Notation */
 		return dP;
 	}
-	function binaryCheck(windowTitle) { // for white objects on black background
+	function binaryCheck(windowTitle) { /* for black objects on white background */
 		selectWindow(windowTitle);
 		if (is("binary")==0) run("8-bit");
-		// Quick-n-dirty threshold if not previously thresholded
+		/* Quick-n-dirty threshold if not previously thresholded */
 		getThreshold(t1,t2); 
 		if (t1==-1)  {
 			run("8-bit");
@@ -574,11 +618,11 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			run("Convert to Mask");
 			run("Invert");
 			}
-		// Make sure black objects on white background for consistency	
+		/* Make sure black objects on white background for consistency */
 		if (((getPixel(0, 0))==0 || (getPixel(0, 1))==0 || (getPixel(1, 0))==0 || (getPixel(1, 1))==0))
 			run("Invert"); 
-		// Sometimes the outline procedure will leave a pixel border around the outside - this next step checks for this.
-		// i.e. the corner 4 pixels should now be all black, if not, we have a "border issue".
+		/*	Sometimes the outline procedure will leave a pixel border around the outside - this next step checks for this.
+			i.e. the corner 4 pixels should now be all black, if not, we have a "border issue". */
 		if (((getPixel(0, 0))+(getPixel(0, 1))+(getPixel(1, 0))+(getPixel(1, 1))) != 4*(getPixel(0, 0)) ) 
 				restoreExit("Border Issue"); 	
 	}
@@ -626,17 +670,20 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		}
 	}	
 	function cleanLabel(string) {
-		string= replace(string, "\\^2", fromCharCode(178)); // superscript 2 
-		string= replace(string, "\\^3", fromCharCode(179)); // superscript 3 UTF-16 (decimal)
-		string= replace(string, "\\^-1", fromCharCode(0x207B) + fromCharCode(185)); // superscript -1
-		string= replace(string, "\\^-2", fromCharCode(0x207B) + fromCharCode(178)); // superscript -2
-		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); // superscript -1
-		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); // superscript -2
-		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); // micrometer units
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); // angstrom symbol
-		string= replace(string, "  ", " "); // double spaces
-		string= replace(string, "_", fromCharCode(0x2009)); // replace underlines with thin spaces
-		string= replace(string, "px", "pixels"); // expand pixel abbreviation
+		/* v161104 */
+		string= replace(string, "\\^2", fromCharCode(178)); /* superscript 2 */
+		string= replace(string, "\\^3", fromCharCode(179)); /* superscript 3 UTF-16 (decimal) */
+		string= replace(string, "\\^-1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
+		string= replace(string, "\\^-2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
+		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); /*	superscript -1 */
+		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); /*	superscript -2 */
+		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micrometer units*/
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* angstrom symbol*/
+		string= replace(string, "  ", " "); /* double spaces*/
+		string= replace(string, "_", fromCharCode(0x2009)); /* replace underlines with thin spaces*/
+		string= replace(string, "px", "pixels"); /* expand pixel abbreviate*/
+		string = replace(string, " " + fromCharCode(0x00B0), fromCharCode(0x00B0)); /*	remove space before degree symbol */
+		string= replace(string, " °", fromCharCode(0x2009)+"°"); /*	remove space before degree symbol */
 		return string;
 	}	
 	function closeImageByTitle(windowTitle) {  /* cannot be used with tables */
@@ -645,41 +692,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
         close();
 		}
 	}
-	function createShadowDropFromMask() {
-		showStatus("Creating drop shadow for labels . . . ");
-		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
-		getSelectionFromMask("label_mask");
-		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-		setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
-		setBackgroundColor(shadowDarkness, shadowDarkness, shadowDarkness);
-		run("Clear");
-		getSelectionFromMask("label_mask");
-		expansion = abs(shadowDisp) + abs(shadowDrop) + abs(shadowBlur);
-		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
-		if (shadowBlur>0) run("Gaussian Blur...", "sigma=[shadowBlur]");
-		run("Select None");
-	}
-	function createInnerShadowFromMask() {
-		showStatus("Creating inner shadow for labels . . . ");
-		newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
-		getSelectionFromMask("label_mask");
-		setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
-		run("Clear Outside");
-		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-		setSelectionLocation(selMaskX-innerShadowDisp, selMaskY-innerShadowDrop);
-		setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
-		run("Clear Outside");
-		getSelectionFromMask("label_mask");
-		expansion = abs(innerShadowDisp) + abs(innerShadowDrop) + abs(innerShadowBlur);
-		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
-		if (innerShadowBlur>0) run("Mean...", "radius=[innerShadowBlur]"); //Gaussian is too large
-		if (fontSize<12) run("Unsharp Mask...", "radius=0.5 mask=0.2"); // A tweak to sharpen effect for small font sizes
-		imageCalculator("Max", "inner_shadow","label_mask");
-		run("Select None");
-		run("Invert");  /* create an image that can be subtracted - works better for color than min */
-	}
 	/* ASC Color Functions */
-
 	function getColorArrayFromColorName(colorName) {
 		cA = newArray(255,255,255);
 		if (colorName == "white") cA = newArray(255,255,255);
@@ -740,24 +753,27 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		selectWindow(tempTitle);
 		run("Restore Selection");
 	}
-		function unCleanLabel(string) {
-		string= replace(string, fromCharCode(178), "\\^2"); // superscript 2 
-		string= replace(string, fromCharCode(179), "\\^3"); // superscript 3 UTF-16 (decimal)
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); // superscript -1
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); // superscript -2
-		string= replace(string, fromCharCode(181), "u"); // micrometer units
-		string= replace(string, fromCharCode(197), "Angstrom"); // angstrom symbol
-		string= replace(string, fromCharCode(0x2009), "_"); // replace underlines with thin spaces
+	function restoreExit(message){ /* clean up before aborting macro then exit */
+		restoreSettings(); /* clean up before exiting */
+		setBatchMode("exit & display"); /* not sure if this does anything useful if exiting gracefully but otherwise harmless */
+		exit(message);
+	}
+	function unCleanLabel(string) { 
+	/* v161104 This function replaces special characters with standard characters for file system compatible filenames */
+	/* mod 041117 to remove spaces as well */
+		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
+		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
+		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); /* superscript -1 */
+		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); /* superscript -2 */
+		string= replace(string, fromCharCode(181), "u"); /* micrometer units */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* angstrom symbol */
+		string= replace(string, fromCharCode(0x2009)+"fromCharCode(0x00B0)", "deg"); /* replace thin spaces degrees combination */
+		string= replace(string, fromCharCode(0x2009), "_"); /* replace thin spaces  */
+		string= replace(string, " ", "_"); /* replace spaces - these can be a problem with image combination */
 		string= replace(string, "_\\+", "\\+"); /* clean up autofilenames */
 		string= replace(string, "\\+\\+", "\\+"); /* clean up autofilenames */
 		string= replace(string, "__", "_"); /* clean up autofilenames */
-		 /* clean up autofilenames */
 		return string;
-	}
-	function restoreExit(message){ // clean up before aborting macro then exit
-		restoreSettings(); //clean up before exiting
-		setBatchMode("exit & display"); // not sure if this does anything useful if exiting gracefully but otherwise harmless
-		exit(message);
 	}
 	function writeLabel(labelColor){
 		setColorFromColorName(labelColor);
@@ -768,7 +784,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		labelValue = getResult(parameter,i);
 		if (dpChoice=="Auto")
 			decPlaces = autoCalculateDecPlacesFromValueOnly(labelValue);
-		labelString = d2s(labelValue,decPlaces); // Reduce Decimal places for labeling - move these two lines to below the labels you prefer
+		labelString = d2s(labelValue,decPlaces); /* Reduce Decimal places for labeling - move these two lines to below the labels you prefer */
 		Roi.getBounds(roiX, roiY, roiWidth, roiHeight);
 		lFontSize = fontSize; /* initial estimate */
 		setFont(font,lFontSize,fontStyle);

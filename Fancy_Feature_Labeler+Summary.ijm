@@ -21,12 +21,12 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	t=getTitle();
 	/* Now checks to see if a Ramp legend has been selected by accident */
 	if (matches(t, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + t + " ?"); 
-	checkForRoiManager(); // macro requires that the objects are in the ROI manager
+	checkForRoiManager(); /* macro requires that the objects are in the ROI manager */
 		
 	setBatchMode(true);
 	nROIs= roiManager("count");
 	nRES= nResults;
-	// get id of image and number of ROIs
+	/* get id of image and number of ROIs */
 	nMismatch = nROIs-nRES;
 	items = nROIs;
 	if (nMismatch>0) {
@@ -51,16 +51,16 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	getPixelSize(unit, pixelWidth, pixelHeight);
 	/* Set default label settings */
 	fontSize = round(imageDims/160);
+	paraLabFontSize = round(imageDims/50);
+	statsLabFontSize = round(imageDims/60);
 	outlineStroke = 8; /* default outline stroke: % of font size */
 	shadowDrop = 12;  /* default outer shadow drop: % of font size */
 	dIShO = 5; /* default inner shadow drop: % of font size */
 	offsetX = round(1 + imageWidth/150); /* default offset of label from edge */
 	offsetY = round(1 + imageHeight/150); /* default offset of label from edge */
-	selColor = "white";
+	decPlaces = -1;	/* defaults to scientific notation */
+	fontColor = "white";
 	outlineColor = "black"; 	
-	originalImageDepth = bitDepth();
-	paraLabFontSize = round(imageDims/50);
-	statsLabFontSize = round(imageDims/60);
 	headings = split(String.getResultsHeadings, "\t"); /* the tab specificity avoids problems with unusual column titles */
 	headingsWithRange= newArray(headings.length);
 	for (i=0; i<headings.length; i++) {
@@ -70,10 +70,12 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		Array.getStatistics(resultsColumn, min, max, null, null); 
 		headingsWithRange[i] = headings[i] + ":  " + min + " - " + max;
 	}
-		if (headingsWithRange[0]==" :  Infinity - -Infinity")
-		headingsWithRange[0] = "ID" + ":  1 - " + items; /* relabels ImageJ ID column */
-	// create the dialog prompt
-	Dialog.create("Feature Label Options: "+ getTitle);
+	/* Object number column has to be replaced, default column does not work for labelling */
+	if (headingsWithRange[0]==" :  Infinity - -Infinity")
+		headingsWithRange[0] = "Object#" + ":  1 - " + items; /* relabels ImageJ ID column */
+	/*
+	Feature Label Formatting Dialog */
+	Dialog.create("Feature Label Formatting Options: "+ getTitle);
 		Dialog.addChoice("Measurement", headingsWithRange, headingsWithRange[0]);
 		Dialog.addString("Label:", unit+"^2", 4);
 		Dialog.setInsets(-40, 320, 0);
@@ -92,10 +94,6 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		Dialog.addNumber("Font scaling % of Auto", 66);
 		Dialog.addNumber("Minimum Label Font Size", round(imageDims/90));
 		Dialog.addNumber("Maximum Label Font Size", round(imageDims/16));
-		fontStyleChoice = newArray("bold", "bold antialiased", "italic", "bold italic", "unstyled");
-		Dialog.addChoice("Font style:", fontStyleChoice, fontStyleChoice[1]);
-		fontNameChoice = newArray("SansSerif", "Serif", "Monospaced");
-		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addNumber("Outline Stroke:", outlineStroke,0,3,"% of font size");
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
 		Dialog.addNumber("Shadow Drop: ±", shadowDrop,0,3,"% of font size");
@@ -126,12 +124,10 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		fontName = Dialog.getChoice;
 		fontSize = Dialog.getNumber;
 		/* Then Dialog . . . */
-		selColor = Dialog.getChoice();
+		fontColor = Dialog.getChoice();
 		fontSizeCorrection =  Dialog.getNumber()/100;
 		minLFontS = Dialog.getNumber(); 
 		maxLFontS = Dialog.getNumber(); 
-		fontStyle = Dialog.getChoice();
-		fontName = Dialog.getChoice();
 		outlineStroke = Dialog.getNumber();
 		outlineColor = Dialog.getChoice();
 		shadowDrop = Dialog.getNumber();
@@ -152,7 +148,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	/*
 	Get values for chosen parameter */
 	values= newArray(items);
-	if (parameter=="ID") for (i=0; i<items; i++) values[i]= i+1;
+	if (parameter=="Object#") for (i=0; i<items; i++) values[i]= i+1;
 	else for (i=0; i<items; i++) values[i]= getResult(parameter,i);
 	Array.getStatistics(values, arrayMin, arrayMax, arrayMean, arraySD); 
 	if (isNaN(min)) min= arrayMin;
@@ -208,7 +204,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			if (originalImageDepth==24)
 				colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern"); 
 			else colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray");
-			Dialog.addChoice("Summary and Parameter Font Color:", colorChoice, selColor);
+			Dialog.addChoice("Summary and Parameter Font Color:", colorChoice, fontColor);
 			Dialog.addChoice("Summary and Parameter Outline Color:", colorChoice, outlineColor);	
 		Dialog.show;
 			paraLabPos = Dialog.getChoice();
@@ -228,7 +224,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 				paraLocChoice = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection"); 
 				Dialog.addChoice("Location of Summary Label:", paraLocChoice, paraLocChoice[0]);
 				Dialog.addNumber("Parameter Label Font size:", paraLabFontSize);	
-				Dialog.addChoice("Parameter Font Color:", colorChoice, selColor);
+				Dialog.addChoice("Parameter Font Color:", colorChoice, fontColor);
 				Dialog.addChoice("Parameter Outline Color:", colorChoice, outlineColor);				
 						
 			Dialog.show;
@@ -422,7 +418,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	run("Clear");
 	run("Select None");
 	getSelectionFromMask("label_mask");
-	setBackgroundFromColorName(selColor);
+	setBackgroundFromColorName(fontColor);
 	run("Clear");
 	run("Select None");
 	if (isOpen("inner_shadow"))
@@ -595,16 +591,17 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	restoreSettings();
 	showStatus("MC macro Finished: " + roiManager("count") + " objects analyzed in " + (getTime()-start)/1000 + "s.");
 	beep(); wait(300); beep(); wait(300); beep();
+	run("Collect Garbage"); 
 	}
 	function autoCalculateDecPlacesFromValueOnly(value){
 		valueSci = d2s(value, -1);
 		iExp = indexOf(valueSci, "E");
 		valueExp = parseInt(substring(valueSci, iExp+1));
-		if (valueExp>=2) dP = 0;
-		if (valueExp<2) dP = 2-valueExp;
-		if (valueExp<-5) dP = -1; /* Scientific Notation */
-		if (valueExp>=4) dP = -1; /* Scientific Notation */
-		return dP;
+		if (valueExp>=2) decPlaces = 0;
+		if (valueExp<2) decPlaces = 2-valueExp;
+		if (valueExp<-5) decPlaces = -1; /* Scientific Notation */
+		if (valueExp>=4) decPlaces = -1; /* Scientific Notation */
+		return decPlaces;
 	}
 	function binaryCheck(windowTitle) { /* for black objects on white background */
 		selectWindow(windowTitle);
@@ -627,12 +624,13 @@ macro "Add scaled value labels to each ROI object and add summary"{
 				restoreExit("Border Issue"); 	
 	}
 	function checkForPlugin(pluginName) {
-		var pluginCheck = 0, subFolderCount = 0;
+		/* v161102 changed to true-false */
+		var pluginCheck = false, subFolderCount = 0;
 		if (getDirectory("plugins") == "") restoreExit("Failure to find any plugins!");
 		else pluginDir = getDirectory("plugins");
 		if (!endsWith(pluginName, ".jar")) pluginName = pluginName + ".jar";
 		if (File.exists(pluginDir + pluginName)) {
-				pluginCheck = 1;
+				pluginCheck = true;
 				showStatus(pluginName + "found in: "  + pluginDir);
 		}
 		else {
@@ -647,7 +645,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			subFolderList = Array.slice(subFolderList, 0, subFolderCount);
 			for (i=0; i<subFolderList.length; i++) {
 				if (File.exists(pluginDir + subFolderList[i] +  "\\" + pluginName)) {
-					pluginCheck = 1;
+					pluginCheck = true;
 					showStatus(pluginName + " found in: " + pluginDir + subFolderList[i]);
 					i = subFolderList.length;
 				}
@@ -656,18 +654,29 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		return pluginCheck;
 	}
 	function checkForRoiManager() {
-		if (roiManager("count")==0)  {
-			Dialog.create("No ROI");
-			Dialog.addCheckbox("Run Analyze-particles to generate roiManager values?", true);
-			Dialog.addMessage("This macro requires that all objects have been loaded into the roi manager.");
+		/* v161109 adds the return of the updated ROI count and also adds dialog if there are already entries just in case . . */
+		nROIs = roiManager("count");
+		nRES = nResults; /* not really needed except to provide useful information below */
+		if (nROIs==0) runAnalyze = true;
+		else runAnalyze = getBoolean("There are already " + nROIs + " in the ROI manager; do you want to clear the ROI manager and reanalyze?");
+		if (runAnalyze) {
+			roiManager("reset");
+			Dialog.create("Analysis check");
+			Dialog.addCheckbox("Run Analyze-particles to generate new roiManager values?", true);
+			Dialog.addMessage("This macro requires that all objects have been loaded into the roi manager.\n \nThere are   " + nRES +"   results.\nThere are   " + nROIs +"   ROIs.");
 			Dialog.show();
-			analyzeNow = Dialog.getCheckbox(); //if (analyzeNow==true) ImageJ analyze particles will be performed, otherwise exit;
-			if (analyzeNow==true) {
+			analyzeNow = Dialog.getCheckbox();
+			if (analyzeNow) {
 				setOption("BlackBackground", false);
-				run("Analyze Particles...", "display clear add");
+				if (nResults==0)
+					run("Analyze Particles...", "display add");
+				else run("Analyze Particles..."); /* let user select settings */
+				if (nResults!=roiManager("count"))
+					restoreExit("Results and ROI Manager counts do not match!");
 			}
-			else restoreExit();
+			else restoreExit("Goodbye, your previous setting will be restored.");
 		}
+		return roiManager("count"); /* returns the new count of entries */
 	}	
 	function cleanLabel(string) {
 		/* v161104 */

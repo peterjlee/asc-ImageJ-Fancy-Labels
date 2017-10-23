@@ -334,8 +334,9 @@ macro "Add Summary Table to Copy of Image"{
 	restoreSettings;
 	setBatchMode("exit & display");
 	showStatus("Fancy Summary Table Macro Finished");
+	run("Collect Garbage"); 
 	
-		/* ( 8(|)   ( 8(|)  ASC Functions  ( 8(|)  ( 8(|)   */
+	/* ( 8(|)   ( 8(|)  ASC Functions  ( 8(|)  ( 8(|)   */
 	
 	function autoCalculateDecPlacesFromValueOnly(value){ /* note this version is different from the one used for ramp legends */
 		valueSci = d2s(value, -1);

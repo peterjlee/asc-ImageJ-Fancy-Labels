@@ -30,8 +30,8 @@ v161105 improved offset guesses
 	dIShO = 4; /* default inner shadow drop: % of font size */
 	sF = getScaleFactor(selectedUnit);
 	if (sF!=0) {
-		nSF = newArray(1,sF/(1E-2),sF/(1E-3),sF/(1E-6),sF/(1E-9),sF/(1E-10),sF/(1E-12), sF/(2.54E-2), sF/(1E-4));
-		overrideUnitChoice = newArray(selectedUnit, "cm", "mm", "µm", "nm", "Å", "pm", "inches", "human hairs");
+		nSF = newArray(1,sF/(1E-2),sF/(1E-3),sF/(1E-6),sF/(1E-6),sF/(1E-9),sF/(1E-10),sF/(1E-12), sF/(2.54E-2), sF/(1E-4));
+		overrideUnitChoice = newArray(selectedUnit, "cm", "mm", "µm", "microns", "nm", "Å", "pm", "inches", "human hairs");
 	}
 	if (selEType>=0) {	
 		sbWidth = lcf*selEWidth;
@@ -49,7 +49,7 @@ v161105 improved offset guesses
 	Dialog.create("Scale Bar Parameters");
 		Dialog.addNumber("Length of scale bar in " + selectedUnit + "s:", sbWidth, 3, 10, selectedUnit);
 		if (sF!=0) {
-			newUnit = newArray(""+selectedUnit+" Length x1", "cm \(Length x"+nSF[1]+"\)","mm \(Length x"+nSF[2]+"\)","µm \(Length x"+nSF[3]+"\)", "nm \(Length x"+nSF[4]+"\)", "Å \(Length x"+nSF[5]+"\)", "pm \(Length x"+nSF[6]+"\)", "inches \(Length x"+nSF[7]+"\)", "human hair \(Length x"+nSF[8]+"\)");
+			newUnit = newArray(""+selectedUnit+" Length x1", "cm \(Length x"+nSF[1]+"\)","mm \(Length x"+nSF[2]+"\)","µm \(Length x"+nSF[3]+"\)","microns \(Length x"+nSF[4]+"\)", "nm \(Length x"+nSF[5]+"\)", "Å \(Length x"+nSF[6]+"\)", "pm \(Length x"+nSF[7]+"\)", "inches \(Length x"+nSF[8]+"\)", "human hair \(Length x"+nSF[9]+"\)");
 			Dialog.addChoice("Override unit with new choice?", newUnit, newUnit[0]);
 		}
 		Dialog.addNumber("Height of scale bar;", sbHeight);
@@ -367,9 +367,9 @@ v161105 improved offset guesses
 		}
 	}
 	function closeImageByTitle(windowTitle) {  /* cannot be used with tables */
-        if (isOpen(windowTitle)) {
+		if (isOpen(windowTitle)) {
 		selectWindow(windowTitle);
-        close();
+		close();
 		}
 	}
 function createInnerShadowFromMask() {
@@ -492,6 +492,7 @@ function createInnerShadowFromMask() {
 		else if (inputUnit=="um") scaleFactor = 1E-6;
 		else if (inputUnit==(fromCharCode(181)+"m")) scaleFactor = 1E-6;
 		else if (inputUnit=="µm") scaleFactor =  1E-6;
+		else if (inputUnit=="microns") scaleFactor =  1E-6; /* Preferred by Bio-Formats over µm but beware: Bio-Formats import of Ziess >1024 wide is incorrect */
 		else if (inputUnit=="nm") scaleFactor = 1E-9;
 		else if (inputUnit=="A") scaleFactor = 1E-10;
 		else if (inputUnit==fromCharCode(197)) scaleFactor = 1E-10;

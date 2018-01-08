@@ -1,11 +1,12 @@
 macro "Fancy Scale Bar"{
 /* Original code by Wayne Rasband, improved by Frank Sprenger and deposited on the ImageJ mailing server: (http:imagej.588099.n2.nabble.com/Overlay-Scalebar-Plugins-td6380378.html#a6394996). KS added choice of font size, scale bar height, + any position for scale bar and some options that allow to set the image calibration (only for overlay, not in Meta data). Kees Straatman, CBS, University of Leicester, May 2011
-Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects
-6/22/16-7/7/16  Add unit override option 7/13/2016 syntax updated 7/28/2016
-Centered scale bar in new selection 8/9/2016 and tweaked manual location 8/10/2016
-v161012 adds unified ASC function list and add 100 µm diameter human hair. v161031 adds "glow" option and sharpens shadow/glow edge
-v161101 minor fixes v161104 now works with images other than 8-bit too
-v161105 improved offset guesses
+Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects.
+6/22/16-7/7/16  Add unit override option 7/13/2016 syntax updated 7/28/2016.
+Centered scale bar in new selection 8/9/2016 and tweaked manual location 8/10/2016.
+v161012 adds unified ASC function list and add 100 µm diameter human hair. v161031 adds "glow" option and sharpens shadow/glow edge.
+v161101 minor fixes v161104 now works with images other than 8-bit too.
+v161105 improved offset guesses.
+v180108 set outline to at least 1 pixel if desired, updated functions and fixed typos.
 */
 	saveSettings(); /* To restore settings at the end */
 	setBatchMode(true);
@@ -88,29 +89,29 @@ v161105 improved offset guesses
 		overwriteChoice = newArray("Destructive overwrite    ", "New Image", "Overlay");
 		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, 3, overwriteChoice[1]); 
 	Dialog.show();
-		selLengthInUnits = Dialog.getNumber();
-		if (sF!=0) overrideUnit = Dialog.getChoice();
-		selHeight = Dialog.getNumber();
-		selColor = Dialog.getChoice();
-		selPos = Dialog.getChoice();
-		if (Dialog.getCheckbox()==true) ht=1;
+		selLengthInUnits = Dialog.getNumber;
+		if (sF!=0) overrideUnit = Dialog.getChoice;
+		selHeight = Dialog.getNumber;
+		selColor = Dialog.getChoice;
+		selPos = Dialog.getChoice;
+		if (Dialog.getCheckbox==true) ht=1;
 		else ht=0;
-		fontSize =  Dialog.getNumber();
-		selOffsetX = Dialog.getNumber();
-		selOffsetY = Dialog.getNumber();
-		fontStyle = Dialog.getChoice();
-		fontName = Dialog.getChoice();
-		outlineStroke = Dialog.getNumber();
-		outlineColor = Dialog.getChoice();
-		shadowDrop = Dialog.getNumber();
-		shadowDisp = Dialog.getNumber();
-		shadowBlur = Dialog.getNumber();
-		shadowDarkness = Dialog.getNumber();
-		shadowColor = Dialog.getChoice();
-		innerShadowDrop = Dialog.getNumber();
-		innerShadowDisp = Dialog.getNumber();
-		innerShadowBlur = Dialog.getNumber();
-		innerShadowDarkness = Dialog.getNumber();
+		fontSize =  Dialog.getNumber;
+		selOffsetX = Dialog.getNumber;
+		selOffsetY = Dialog.getNumber;
+		fontStyle = Dialog.getChoice;
+		fontName = Dialog.getChoice;
+		outlineStroke = Dialog.getNumber;
+		outlineColor = Dialog.getChoice;
+		shadowDrop = Dialog.getNumber;
+		shadowDisp = Dialog.getNumber;
+		shadowBlur = Dialog.getNumber;
+		shadowDarkness = Dialog.getNumber;
+		shadowColor = Dialog.getChoice;
+		innerShadowDrop = Dialog.getNumber;
+		innerShadowDisp = Dialog.getNumber;
+		innerShadowBlur = Dialog.getNumber;
+		innerShadowDarkness = Dialog.getNumber;
 		overWrite = Dialog.getRadioButton;
 		
 		if (sF!=0) { 
@@ -131,10 +132,10 @@ v161105 improved offset guesses
 		if (innerShadowBlur<0) innerShadowBlur *= negAdj;
 		
 		fontFactor = fontSize/100;
-		outlineStroke = floor(fontFactor * outlineStroke);
-		shadowDrop = floor(fontFactor * shadowDrop);
-		shadowDisp = floor(fontFactor * shadowDisp);
-		shadowBlur = floor(fontFactor * shadowBlur);
+		if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
+		if (shadowDrop!=0) shadowDrop = maxOf(1, round(fontFactor * shadowDrop));
+		if (shadowDisp!=0) shadowDisp = maxOf(1, round(fontFactor * shadowDisp));
+		if (shadowBlur!=0) shadowBlur = maxOf(1, round(fontFactor * shadowBlur));
 		innerShadowDrop = floor(fontFactor * innerShadowDrop);
 		innerShadowDisp = floor(fontFactor * innerShadowDisp);
 		innerShadowBlur = floor(fontFactor * innerShadowBlur);
@@ -251,7 +252,7 @@ v161105 improved offset guesses
 			setBackgroundFromColorName(selColor);
 			run("Clear");
 			run("Select None");
-			if (ht==0) writeLabel("selColor"); // restore antialiasing
+			if (ht==0) writeLabel("selColor"); /* restore antialiasing */
 			if (isOpen("inner_shadow"))
 				imageCalculator("Subtract", originalImage,"inner_shadow");
 		}
@@ -271,7 +272,7 @@ v161105 improved offset guesses
 			setBackgroundFromColorName(selColor);
 			run("Clear");
 			run("Select None");
-			/* Now add the innder shadow to provide some depth */
+			/* Now add the inner shadow to provide some depth */
 			if (isOpen("inner_shadow") && innerShadowDarkness>0)
 				imageCalculator("Subtract", "Result of " + originalImage,"inner_shadow");
 			if (isOpen("inner_shadow") && innerShadowDarkness<0)
@@ -292,20 +293,20 @@ v161105 improved offset guesses
 	/*
 		( 8(|)  ( 8(|)  Functions	@@@@@:-)	@@@@@:-)
 	*/
-	function autoCalculateDecPlacesFromValueOnly(value){
+	function autoCalculateDecPlacesFromValueOnly(value){ /* note this version is different from the one used for ramp legends */
 		valueSci = d2s(value, -1);
 		iExp = indexOf(valueSci, "E");
 		valueExp = parseInt(substring(valueSci, iExp+1));
-		if (valueExp>=4) dP = 0;
-		if (valueExp<4) dP = 4-valueExp;
-		if (valueExp<-7) dP = -1; /* Scientific Notation */
-		if (valueExp>=5) dP = -1; /* Scientific Notation */
+		if (valueExp>=2) dP = 0;
+		if (valueExp<2) dP = 2-valueExp;
+		if (valueExp<-5) dP = -1; /* Scientific Notation */
+		if (valueExp>=4) dP = -1; /* Scientific Notation */
 		return dP;
 	}
 	function checkForPlugin(pluginName) {
-		/* v161102 */
+		/* v161102 changed to true-false */
 		var pluginCheck = false, subFolderCount = 0;
-		if (getDirectory("plugins") == "") exit ("Failure to find any plugins!");
+		if (getDirectory("plugins") == "") restoreExit("Failure to find any plugins!");
 		else pluginDir = getDirectory("plugins");
 		if (!endsWith(pluginName, ".jar")) pluginName = pluginName + ".jar";
 		if (File.exists(pluginDir + pluginName)) {
@@ -332,20 +333,23 @@ v161105 improved offset guesses
 		}
 		return pluginCheck;
 	}
-	function checkForUnits() {
-		/* v161104 */
+	function checkForUnits() {  /* With CZSEM check Version
+		/* v161108 (adds inches to possible reasons for checking calibration)
+			This version requires these functions:
+			checkForPlugin, setScaleFromCZSemHeader
+		*/
 		getPixelSize(unit, pixelWidth, pixelHeight);
-		if (pixelWidth!=pixelHeight || pixelWidth==1 || unit==""){
+		if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches"){
 			Dialog.create("No Units");
 			tiff = matches(getInfo("image.filename"),".*[tT][iI][fF].*");
 			if (matches(getInfo("image.filename"),".*[tT][iI][fF].*") && (checkForPlugin("tiff_tags.jar"))) {
-				Dialog.addCheckbox("Unit asymmetry or pixels units; do you want to try and import scale for CZ SEM tag?", true);
+				Dialog.addCheckbox("Unit asymmetry, pixel units or dpi remnants; do you want to try and import scale for CZ SEM tag?", true);
 				Dialog.show();
 				setCZScale = Dialog.getCheckbox;
 				if (setCZScale) { /* based in macro here: https://rsb.info.nih.gov/ij/macros/SetScaleFromTiffTag.txt */
 					setScaleFromCZSemHeader();
 					getPixelSize(unit, pixelWidth, pixelHeight);
-					if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="") setCZScale=false;
+					if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches") setCZScale=false;
 				}
 				if(!setCZScale) {
 					Dialog.create("No Units Still");
@@ -356,9 +360,9 @@ v161105 improved offset guesses
 					run("Set Scale...");
 				}
 			}
-			else if (pixelWidth!=pixelHeight || pixelWidth==1 || unit==""){
-				Dialog.create("No Units Still");
-				Dialog.addCheckbox("Unit asymmetry or pixels units; do you want to define units for this image?", true);
+			else if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches"){
+				Dialog.create("No Sensible Units Still");
+				Dialog.addCheckbox("Unit asymmetry, pixel units or dpi remnants; do you want to define units for this image?", true);
 				Dialog.show();
 				setScale = Dialog.getCheckbox;
 				if (setScale)
@@ -414,7 +418,7 @@ function createInnerShadowFromMask() {
 		run("Select None");
 		if (shadowBlur>0) {
 			run("Gaussian Blur...", "sigma=[shadowBlur]");
-			// run("Unsharp Mask...", "radius=[shadowBlur] mask=0.4"); // Make Gaussian shadow edge a little less fuzzy
+			// run("Unsharp Mask...", "radius=[shadowBlur] mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
 		}
 		/* Now make sure shadow of glow does not impact outline */
 		getSelectionFromMask("label_mask");
@@ -485,6 +489,7 @@ function createInnerShadowFromMask() {
 		 return hexName;
 	}
 	function getScaleFactor(inputUnit){
+		/* v171024 */
 		if (inputUnit=="km") scaleFactor = 1e3;
 		else if (inputUnit=="m") scaleFactor = 1;
 		else if (inputUnit=="cm") scaleFactor = 1E-2;
@@ -503,13 +508,16 @@ function createInnerShadowFromMask() {
 		else restoreExit("No recognized units defined; macro will exit");
 		return scaleFactor;
 	}
-	function getSelectionFromMask(label_mask){
+	function getSelectionFromMask(selection_Mask){
+		batchMode = is("Batch Mode"); /* Store batch status mode before toggling */
+		if (!batchMode) setBatchMode(true); /* Toggle batch mode on if previously off */
 		tempTitle = getTitle();
-		selectWindow(label_mask);
-		run("Create Selection"); /*selection inverted perhaps because mask has inverted lut? */
+		selectWindow(selection_Mask);
+		run("Create Selection"); /* selection inverted perhaps because mask has inverted lut? */
 		run("Make Inverse");
 		selectWindow(tempTitle);
 		run("Restore Selection");
+		if (!batchMode) setBatchMode(false); /* return to original batch mode */
 	}
 	function indexOfArray(array, value) {
 	   for (i=0; i<array.length; i++)
@@ -522,16 +530,17 @@ function createInnerShadowFromMask() {
 		return string;
 	}
 	function restoreExit(message){ /* clean up before aborting macro then exit */
+		/* 9/9/2017 added Garbage clean up suggested by Luc LaLonde - LBNL */
 		restoreSettings(); /* clean up before exiting */
 		setBatchMode("exit & display"); /* not sure if this does anything useful if exiting gracefully but otherwise harmless */
+		run("Collect Garbage");
 		exit(message);
 	}
 	function setScaleFromCZSemHeader() {
 	/*	This very simple function sets the scale for SEM images taken with the Carl Zeiss SmartSEM program. It requires the tiff_tags plugin written by Joachim Wesner. It can be downloaded from http://rsbweb.nih.gov/ij/plugins/tiff-tags.html
 	 There is an example image available at http://rsbweb.nih.gov/ij/images/SmartSEMSample.tif
 	 This is the number of the VERY long tag that stores all the SEM information See original Nabble post by Pablo Manuel Jais: http://imagej.1557.x6.nabble.com/Importing-SEM-images-with-scale-td3689900.html imageJ version: https://rsb.info.nih.gov/ij/macros/SetScaleFromTiffTag.txt
-	 This version v161103 with minor tweaks by Peter J. Lee National High Magnetic Field Laboratory
-	*/
+	 This version v161103 with minor tweaks by Peter J. Lee National High Magnetic Field Laboratory	*/
 	/* Gets the path+name of the active image */
 	path = getDirectory("image");
 	if (path=="") exit ("path not available");
@@ -555,7 +564,9 @@ function createInnerShadowFromMask() {
 	splits=split(text);
 	setVoxelSize(splits[0], splits[0], 1, splits[1]);
 	}
-	function unCleanLabel(string) { /* this function replaces special characters with standard characters for file system compatible filenames */
+	function unCleanLabel(string) {
+	/* v161104 This function replaces special characters with standard characters for file system compatible filenames */
+	/* mod 041117 to remove spaces as well */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
 		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); /* superscript -1 */
@@ -564,9 +575,9 @@ function createInnerShadowFromMask() {
 		string= replace(string, fromCharCode(197), "Angstrom"); /* angstrom symbol */
 		string= replace(string, fromCharCode(0x2009)+"fromCharCode(0x00B0)", "deg"); /* replace thin spaces degrees combination */
 		string= replace(string, fromCharCode(0x2009), "_"); /* replace thin spaces  */
+		string= replace(string, " ", "_"); /* replace spaces - these can be a problem with image combination */
 		string= replace(string, "_\\+", "\\+"); /* clean up autofilenames */
 		string= replace(string, "\\+\\+", "\\+"); /* clean up autofilenames */
 		string= replace(string, "__", "_"); /* clean up autofilenames */
 		return string;
-	}
 }

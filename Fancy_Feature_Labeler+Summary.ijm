@@ -62,8 +62,8 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	fontColor = "white";
 	outlineColor = "black"; 	
 	headings = split(String.getResultsHeadings, "\t"); /* the tab specificity avoids problems with unusual column titles */
-	headingsWithRange= newArray(headings.length);
-	for (i=0; i<headings.length; i++) {
+	headingsWithRange= newArray(lengthOf(headings));
+	for (i=0; i<lengthOf(headings); i++) {
 		resultsColumn = newArray(items);
 		for (j=0; j<items; j++)
 			resultsColumn[j] = getResult(headings[i], j);
@@ -549,7 +549,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		setResult("ROIctr_Y\(px\)", i, round(Ry + Rheight/2));
 		Roi.getContainedPoints(RPx, RPy); /* this includes holes when ROIs are used so no hole filling is needed */
 		newImage("Contained Points "+i,"8-bit black",Rwidth,Rheight,1); /* give each sub-image a unique name for debugging purposes */
-		for (j=0; j<RPx.length; j++)
+		for (j=0; j<lengthOf(RPx); j++)
 			setPixel(RPx[j]-Rx, RPy[j]-Ry, 255);
 		selectWindow("Contained Points "+i);
 		run("BinaryThin2 ", "kernel_a='0 2 2 0 1 1 0 0 2 ' kernel_b='0 0 2 0 1 1 0 2 2 ' rotations='rotate 45' iterations=-1 white");
@@ -635,19 +635,19 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		}
 		else {
 			pluginList = getFileList(pluginDir);
-			subFolderList = newArray(pluginList.length);
-			for (i=0; i<pluginList.length; i++) {
+			subFolderList = newArray(lengthOf(pluginList));
+			for (i=0; i<lengthOf(pluginList); i++) {
 				if (endsWith(pluginList[i], "/")) {
 					subFolderList[subFolderCount] = pluginList[i];
 					subFolderCount = subFolderCount +1;
 				}
 			}
 			subFolderList = Array.slice(subFolderList, 0, subFolderCount);
-			for (i=0; i<subFolderList.length; i++) {
+			for (i=0; i<lengthOf(subFolderList); i++) {
 				if (File.exists(pluginDir + subFolderList[i] +  "\\" + pluginName)) {
 					pluginCheck = true;
 					showStatus(pluginName + " found in: " + pluginDir + subFolderList[i]);
-					i = subFolderList.length;
+					i = lengthOf(subFolderList);
 				}
 			}
 		}

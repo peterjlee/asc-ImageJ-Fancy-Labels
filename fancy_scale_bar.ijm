@@ -315,19 +315,19 @@ v180108 set outline to at least 1 pixel if desired, updated functions and fixed 
 		}
 		else {
 			pluginList = getFileList(pluginDir);
-			subFolderList = newArray(pluginList.length);
-			for (i=0; i<pluginList.length; i++) {
+			subFolderList = newArray(lengthOf(pluginList));
+			for (i=0; i<lengthOf(pluginList); i++) {
 				if (endsWith(pluginList[i], "/")) {
 					subFolderList[subFolderCount] = pluginList[i];
 					subFolderCount = subFolderCount +1;
 				}
 			}
 			subFolderList = Array.slice(subFolderList, 0, subFolderCount);
-			for (i=0; i<subFolderList.length; i++) {
+			for (i=0; i<lengthOf(subFolderList); i++) {
 				if (File.exists(pluginDir + subFolderList[i] +  "\\" + pluginName)) {
 					pluginCheck = true;
 					showStatus(pluginName + " found in: " + pluginDir + subFolderList[i]);
-					i = subFolderList.length;
+					i = lengthOf(subFolderList);
 				}
 			}
 		}
@@ -520,7 +520,7 @@ function createInnerShadowFromMask() {
 		if (!batchMode) setBatchMode(false); /* return to original batch mode */
 	}
 	function indexOfArray(array, value) {
-	   for (i=0; i<array.length; i++)
+	   for (i=0; i<lengthOf(array); i++)
           if (array[i]==value) return i;
       return -1;
 	}

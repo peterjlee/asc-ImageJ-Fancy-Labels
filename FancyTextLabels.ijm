@@ -1,7 +1,9 @@
 macro "Add Multiple Lines of Fancy Text To Image" {
-	/* This macro adds multiple lines of text to a copy of the image
-		Peter J. Lee Applied Superconductivity Center at National High Magnetic Field Laboratory
-		Version v170411 removes spaces in new image names to fix issue with new ombination images
+	/* This macro adds multiple lines of text to a copy of the image.
+		Peter J. Lee Applied Superconductivity Center at National High Magnetic Field Laboratory.
+		Version v170411 removes spaces in new image names to fix issue with new ombination images.
+		v180306 cosmetic changes to text.
+		v180308 added non-destructive overlay option (overlay can be saved in TIFF header).
 	 */
 	requires("1.47r");
 	saveSettings;
@@ -11,14 +13,14 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		getSelectionBounds(selEX, selEY, selEWidth, selEHeight);
 	}
 	else selectionExists = 0;
-	t=getTitle();
+	originalImage = getTitle();
 	/*	Set options for black objects on white background as this works better for publications */
 	run("Options...", "iterations=1 white count=1"); /* set white background */
 	run("Colors...", "foreground=black background=white selection=yellow"); /* set colors */
 	setOption("BlackBackground", false);
 	run("Appearance...", " "); /* do not use Inverting LUT *
 	/* Check to see if a Ramp legend rather than the image has been selected by accident */
-	if (matches(t, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + t + " ?"); 
+	if (matches(originalImage, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + originalImage + " ?"); 
 	setBatchMode(true);
 	imageWidth = getWidth();
 	imageHeight = getHeight();
@@ -28,23 +30,23 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	fontSize = round(imageDims/40); /* default font size */
 	if (fontSize < 10) fontSize = 10; /* set minimum default font size as 10 */
 	lineSpacing = 1.1;
-	outlineStroke = 8; /* default outline stroke: % of font size */
-	shadowDrop = 16;  /* default outer shadow drop: % of font size */
+	outlineStroke = 7; /* default outline stroke: % of font size */
+	shadowDrop = 10;  /* default outer shadow drop: % of font size */
 	dIShO = 5; /* default inner shadow drop: % of font size */
 	shadowDisp = shadowDrop;
 	shadowBlur = floor(0.6 * shadowDrop);
-	shadowDarkness = 100;
+	shadowDarkness = 50;
 	innerShadowDrop = dIShO;
 	innerShadowDisp = dIShO;
 	innerShadowBlur = floor(dIShO/2);
-	innerShadowDarkness = 20;
+	innerShadowDarkness = 16;
 	offsetX = round(1 + imageWidth/150); /* default offset of label from edge */
 	offsetY = round(1 + imageHeight/150); /* default offset of label from edge */
 		
 	/* Then Dialog . . . */
 	Dialog.create("Basic Label Options");
 		if (selectionExists==1) {
-			textLocChoices = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection", "At Selection"); 
+			textLocChoices = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection", "Center of Selection"); 
 			loc = 6;
 		} else {
 			textLocChoices = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection"); 
@@ -72,6 +74,9 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		for (i=0; i<textChoiceLines; i++)
 			Dialog.addString("Label Line "+(i+1)+":","-blank-", 30);
 		Dialog.addRadioButtonGroup("Tweak the Formatting? ", newArray("Yes", "No"), 1, 2, "No");
+		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New Image", "Add Overlay");
+		else overwriteChoice = newArray("Destructive overwrite", "New Image", "Overlay: Add", "Overlay: Replace Current");
+		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 2, 2, overwriteChoice[2]); 
 								
 		Dialog.show();
 		textLocChoice = Dialog.getChoice();
@@ -82,7 +87,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			selEHeight =  Dialog.getNumber();
 		}
 		fontSize =  Dialog.getNumber();
-		selColor = Dialog.getChoice();
+		fontColor = Dialog.getChoice();
 		fontStyle = Dialog.getChoice();
 		fontName = Dialog.getChoice();
 		outlineColor = Dialog.getChoice();
@@ -90,6 +95,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		for (i=0; i<textChoiceLines; i++)
 			textInputLines[i] = Dialog.getString();
 		tweakFormat = Dialog.getRadioButton();
+		overWrite = Dialog.getRadioButton;
 			
 	if (tweakFormat=="Yes") {	
 		Dialog.create("Advanced Formatting Options");
@@ -118,7 +124,11 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		innerShadowDisp = Dialog.getNumber();
 		innerShadowBlur = Dialog.getNumber();
 		innerShadowDarkness = Dialog.getNumber();
-	}		
+	}
+	fontColorArray = getColorArrayFromColorName(fontColor);
+	Array.getStatistics(fontColorArray,null,null,fontInt,null);
+	outlineColorArray = getColorArrayFromColorName(outlineColor);
+	Array.getStatistics(outlineColorArray,null,null,outlineInt,null);
 	shadowDarkness = (255/100) * (abs(shadowDarkness));
 	innerShadowDarkness = (255/100) * (100 - (abs(innerShadowDarkness)));	
 	negAdj = 0.5;  /* negative offsets appear exaggerated at full displacement */
@@ -174,11 +184,11 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		msg = "Draw a box in the image where you want to center the text labels...";
 		waitForUser(msgtitle, msg);
 		getSelectionBounds(newSelEX, newSelEY, newSelEWidth, newSelEHeight);
-		selEX = newSelEX + round((newSelEWidth/2) - longestStringWidth/1.5);
+		selEX = newSelEX + round((newSelEWidth/2) - longestStringWidth/2);
 		selEY = newSelEY + round((newSelEHeight/2) - (linesSpace/2));
 		if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
 	} else if (selectionExists==1) {
-		selEX = selEX + round((selEWidth/2) - longestStringWidth/1.5);
+		selEX = selEX + round((selEWidth/2) - longestStringWidth/2);
 		selEY = selEY + round((selEHeight/2) - (linesSpace/2));
 	}
 	run("Select None");
@@ -192,92 +202,172 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	setColorFromColorName("white");
 	roiManager("show none");
 	// run("Flatten"); /* changes bit depth */
-	run("Duplicate...", t+"+text");
-	labeledImage = getTitle();
+	if (startsWith(overWrite,"New")) run("Duplicate...", "title=" + getTitle() + "+text");
+	flatImage = getTitle();
 	if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
 	roiManager("deselect");
 	run("Select None");
 	/* Draw summary over top of labels */
 	setFont(fontName,fontSize, fontStyle);
+	textLabelLineY = textLabelY;
 	for (i=0; i<textOutNumber; i++) {
 		if (textInputLines[i]!="-blank-") {
-			drawString(textInputLinesText[i], textLabelX, textLabelY);
-			textLabelY += lineSpacing * fontSize;
+			drawString(textInputLinesText[i], textLabelX, textLabelLineY);
+			textLabelLineY += lineSpacing * fontSize;
 		}
-		else textLabelY += lineSpacing * fontSize;
+		else textLabelLineY += lineSpacing * fontSize;
 	}
+	textLabelLineY = textLabelY;
+	if(outlineColor=="black" && fontColor=="white") run("Duplicate...", "title=antiAliased");
+	else {
+		selectWindow(flatImage);
+		run("Duplicate...", "title=antiAliased");
+		run("Select All");
+		setColorFromColorName(outlineColor);
+		fill();
+		roiManager("deselect");
+		run("Select None");
+		setColorFromColorName(fontColor);
+		/* Draw summary over top of labels */
+		setFont(fontName,fontSize, fontStyle);
+		for (i=0; i<textOutNumber; i++) {
+			if (textInputLines[i]!="-blank-") {
+				drawString(textInputLinesText[i], textLabelX, textLabelLineY);
+				textLabelLineY += lineSpacing * fontSize;
+			}
+			else textLabelLineY += lineSpacing * fontSize;
+		}
+		// if (outlineStroke>0) {
+			// fakeAntialias = outlineStroke/2;
+			// run("Gaussian Blur...", "sigma=[fakeAntialias]");
+		// }
+	}	
+	selectWindow("label_mask");
 	setThreshold(0, 128);
 	setOption("BlackBackground", false);
 	run("Convert to Mask");
-	/* Create drop shadow if desired */
-	if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0) {
-		showStatus("Creating drop shadow for labels . . . ");
-		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
+	if (startsWith(overWrite,"Overlay:")) {
+		selectWindow(originalImage);
+		if (endsWith(overWrite,"Current")) Overlay.remove;
+		grayHex = toHex(round(255*shadowDarkness/100));
+		shadowHex = "#" + ""+pad(grayHex) + ""+pad(grayHex) + ""+pad(grayHex);
+		fontColorHex = getHexColorFromRGBArray(fontColor);
+		outlineColorHex = getHexColorFromRGBArray(outlineColor);
+		run("Select None");
 		getSelectionFromMask("label_mask");
 		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
 		setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
-		setBackgroundColor(shadowDarkness, shadowDarkness, shadowDarkness);
-		// setBackgroundColor(255, 255, 255);
+		Overlay.addSelection(shadowHex, outlineStroke, shadowHex);
+		run("Select None");
+		getSelectionFromMask("label_mask");
+		run("Enlarge...", "enlarge=[outlineStroke] pixel");
+		Overlay.addSelection(outlineColorHex,outlineStroke,outlineColorHex);
+		run("Select None");
+		setColorFromColorName(fontColor);
+		textLabelLineY = textLabelY;
+		for (i=0; i<textOutNumber; i++) {
+			if (textInputLines[i]!="-blank-") {
+				Overlay.drawString(textInputLinesText[i], textLabelX, textLabelLineY);
+				textLabelLineY += lineSpacing * fontSize;
+			}
+			else textLabelLineY += lineSpacing * fontSize;
+		}
+		run("Select None");
+		Overlay.show;
+	}		
+	else {
+		selectWindow("antiAliased");
+		getSelectionFromMask("label_mask");
+		run("Make Inverse");
+		if (fontInt>=outlineInt) setColorFromColorName("white");
+		else setColorFromColorName("black");
+		fill();
+		run("Select None");
+		// selectWindow("label_mask");
+		/* Create drop shadow if desired */
+		if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0) {
+			showStatus("Creating drop shadow for labels . . . ");
+			newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
+			getSelectionFromMask("label_mask");
+			getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+			setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
+			setBackgroundColor(shadowDarkness, shadowDarkness, shadowDarkness);
+			// setBackgroundColor(255, 255, 255);
+			run("Clear");
+			getSelectionFromMask("label_mask");
+			expansion = abs(shadowDisp) + abs(shadowDrop) + abs(shadowBlur);
+			if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
+			if (shadowBlur>0) run("Gaussian Blur...", "sigma=[shadowBlur]");
+			run("Select None");
+		}
+		/*	Create inner shadow if desired */
+		if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0) {
+			showStatus("Creating inner shadow for labels . . . ");
+			newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
+			getSelectionFromMask("label_mask");
+			setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
+			run("Clear Outside");
+			getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+			setSelectionLocation(selMaskX-innerShadowDisp, selMaskY-innerShadowDrop);
+			setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
+			run("Clear Outside");
+			getSelectionFromMask("label_mask");
+			expansion = abs(innerShadowDisp) + abs(innerShadowDrop) + abs(innerShadowBlur);
+			if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
+			if (innerShadowBlur>0) run("Mean...", "radius=[innerShadowBlur]"); /* Gaussian is too large */
+			if (fontSize<12) run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen effect for small font sizes */
+			imageCalculator("Max", "inner_shadow","label_mask");
+			run("Select None");
+			run("Invert");  /* create an image that can be subtracted - works better for color than min */
+		}
+		if (isOpen("shadow") && shadowDarkness>0)		
+			imageCalculator("Subtract", flatImage,"shadow");
+		else if (isOpen("shadow") && shadowDarkness<0)		
+			imageCalculator("Add", flatImage,"shadow");
+		run("Select None");
+		/* Create outline around text */
+		selectWindow(flatImage);
+		getSelectionFromMask("label_mask");
+		getSelectionBounds(maskX, maskY, null, null);
+		outlineStrokeOffset = minOf(round(shadowDisp/2), round(maxOf(0,(outlineStroke/2)-1)));
+		setSelectionLocation(maskX+outlineStrokeOffset, maskY+outlineStrokeOffset); /* offset selection to create shadow effect */
+		run("Enlarge...", "enlarge=[outlineStroke] pixel");
+		setBackgroundFromColorName(outlineColor);
 		run("Clear");
-		getSelectionFromMask("label_mask");
-		expansion = abs(shadowDisp) + abs(shadowDrop) + abs(shadowBlur);
-		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
-		if (shadowBlur>0) run("Gaussian Blur...", "sigma=[shadowBlur]");
+		outlineStrokeOffsetMod = outlineStrokeOffset/2;
+		run("Enlarge...", "enlarge=[outlineStrokeOffsetMod] pixel");
+		run("Gaussian Blur...", "sigma=[outlineStrokeOffsetMod]");
 		run("Select None");
-	}
-	/*	Create inner shadow if desired */
-	if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0) {
-		showStatus("Creating inner shadow for labels . . . ");
-		newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
+		/* Create text */
 		getSelectionFromMask("label_mask");
-		setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
-		run("Clear Outside");
-		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-		setSelectionLocation(selMaskX-innerShadowDisp, selMaskY-innerShadowDrop);
-		setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
-		run("Clear Outside");
-		getSelectionFromMask("label_mask");
-		expansion = abs(innerShadowDisp) + abs(innerShadowDrop) + abs(innerShadowBlur);
-		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
-		if (innerShadowBlur>0) run("Mean...", "radius=[innerShadowBlur]"); /* Gaussian is too large */
-		if (fontSize<12) run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen effect for small font sizes */
-		imageCalculator("Max", "inner_shadow","label_mask");
+		setBackgroundFromColorName(fontColor);
+		run("Clear");
 		run("Select None");
-		run("Invert");  /* create an image that can be subtracted - works better for color than min */
+		if (isOpen("antiAliased")) {
+			if (fontInt>=outlineInt) imageCalculator("Min",flatImage,"antiAliased");
+			else imageCalculator("Max",flatImage,"antiAliased");
+		}
+		/* Create inner shadow or glow if requested */
+		if (isOpen("inner_shadow") && innerShadowDarkness>0)
+			imageCalculator("Subtract", flatImage,"inner_shadow");
+		else if (isOpen("inner_shadow") && innerShadowDarkness<0)
+			imageCalculator("Add", flatImage,"inner_shadow");
 	}
-	if (isOpen("shadow") && shadowDarkness>0)		
-		imageCalculator("Subtract", labeledImage,"shadow");
-	else if (isOpen("shadow") && shadowDarkness<0)		
-		imageCalculator("Add", labeledImage,"shadow");
-	run("Select None");
-	/* Create outline around text */
-	getSelectionFromMask("label_mask");
-	run("Enlarge...", "enlarge=[outlineStroke] pixel");
-	setBackgroundFromColorName(outlineColor); // functionoutlineColor]")
-	run("Clear");
-	run("Select None");
-	/* Create text */
-	getSelectionFromMask("label_mask");
-	setBackgroundFromColorName(selColor);
-	run("Clear");
-	run("Select None");
-	/* Create inner shadow or glow if requested */
-	if (isOpen("inner_shadow") && innerShadowDarkness>0)
-		imageCalculator("Subtract", labeledImage,"inner_shadow");
-	else if (isOpen("inner_shadow") && innerShadowDarkness<0)
-		imageCalculator("Add", labeledImage,"inner_shadow");
-	
-		closeImageByTitle("shadow");
+	closeImageByTitle("shadow");
 	closeImageByTitle("inner_shadow");
 	closeImageByTitle("label_mask");
-	selectWindow(labeledImage);
-	if ((lastIndexOf(t,"."))>0)  labeledImageNameWOExt = unCleanLabel(substring(labeledImage, 0, lastIndexOf(labeledImage,".")));
-	else labeledImageNameWOExt = unCleanLabel(labeledImage);
-	rename(labeledImageNameWOExt + "+text");
+	closeImageByTitle("antiAliased");
+	selectWindow(flatImage);
+	if (startsWith(overWrite, "New"))  {
+		if ((lastIndexOf(originalImage,"."))>0)  flatImageNameWOExt = unCleanLabel(substring(flatImage, 0, lastIndexOf(flatImage,".")));
+		else flatImageNameWOExt = unCleanLabel(flatImage);
+		rename(flatImageNameWOExt + "+text");
+	}
 	restoreSettings;
 	setBatchMode("exit & display");
 	showStatus("Fancy Text Labels Finished");
+	run("Collect Garbage"); 
 	/* 
 	( 8(|)   ( 8(|)  Functions  ( 8(|)  ( 8(|)
 	*/
@@ -342,6 +432,12 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		else if (colorName == "yellow_modern") cA = newArray(247,238,69);
 		return cA;
 	}
+	function getHexColorFromRGBArray(colorNameString) {
+		colorArray = getColorArrayFromColorName(colorNameString);
+		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);
+		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);
+		 return hexName;
+	}
 	function setColorFromColorName(colorName) {
 		colorArray = getColorArrayFromColorName(colorName);
 		setColor(colorArray[0], colorArray[1], colorArray[2]);
@@ -349,11 +445,6 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	function setBackgroundFromColorName(colorName) {
 		colorArray = getColorArrayFromColorName(colorName);
 		setBackgroundColor(colorArray[0], colorArray[1], colorArray[2]);
-	function getHexColorFromRGBArray(colorNameString) {
-		colorArray = getColorArrayFromColorName(colorNameString);
-		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);
-		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);
-		 return hexName;
 	}
 	function pad(n) {
 		n= toString(n); if (lengthOf(n)==1) n= "0"+n; return n;

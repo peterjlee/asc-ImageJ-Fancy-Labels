@@ -520,21 +520,20 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	http://imagejdocu.tudor.lu/doku.php?id=plugin:morphology:morphological_operators_for_imagej:start
 	http://www.mecourse.com/landinig/software/software.html
 	Modified to add coordinates to Results Table: Peter J. Lee NHMFL  7/20-29/2016
-	v161012
+	v180102	fixed typos and updated functions.
+	v180104 removed unnecessary changes to settings.
+	v180312 Add minimum and maximum morphological radii.
 */
-	saveSettings();
-	run("Options...", "iterations=1 white count=1"); /* set white background */
-	setOption("BlackBackground", false);
-	run("Colors...", "foreground=black background=white selection=yellow"); /* set colors */
-	run("Appearance...", " "); /* do not use Inverting LUT */
 	workingTitle = getTitle();
-	if (checkForPlugin("morphology_collection")==0) restoreExit("Exiting: Gabriel Landini's morphology suite is needed to run this macro.");
-	binaryCheck(workingTitle);
-	checkForRoiManager();
+	if (!checkForPlugin("morphology_collection")) restoreExit("Exiting: Gabriel Landini's morphology suite is needed to run this macro.");
+	binaryCheck(workingTitle); /* Makes sure image is binary and sets to white background, black objects */
+	checkForRoiManager(); /* This macro uses ROIs and a Results table that matches in count */
 	roiOriginalCount = roiManager("count");
-	setBatchMode(true); /* batch mode on */
+	addRadii = getBoolean("Do you also want to add the min and max M-Centroid radii to the Results table?");
+	batchMode = is("Batch Mode"); /* Store batch status mode before toggling */
+	if (!batchMode) setBatchMode(true); /* Toggle batch mode on if previously off */
 	start = getTime();
-	getPixelSize(selectedUnit, pixelWidth, pixelHeight);
+	getPixelSize(unit, pixelWidth, pixelHeight);
 	lcf=(pixelWidth+pixelHeight)/2;
 	objects = roiManager("count");
 	mcImageWidth = getWidth();
@@ -544,52 +543,57 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		showProgress(-i, roiManager("count"));
 		selectWindow(workingTitle);
 		roiManager("select", i);
+		if(addRadii) run("Interpolate", "interval=1");	getSelectionCoordinates(xPoints, yPoints); /* place border coordinates in array for radius measurements - Wayne Rasband: http://imagej.1557.x6.nabble.com/List-all-pixel-coordinates-in-ROI-td3705127.html */
 		Roi.getBounds(Rx, Ry, Rwidth, Rheight);
-		setResult("ROIctr_X\(px\)", i, round(Rx + Rwidth/2));
-		setResult("ROIctr_Y\(px\)", i, round(Ry + Rheight/2));
+		setResult("ROIctr_X\(px\)", i, Rx + Rwidth/2);
+		setResult("ROIctr_Y\(px\)", i, Ry + Rheight/2);
 		Roi.getContainedPoints(RPx, RPy); /* this includes holes when ROIs are used so no hole filling is needed */
-		newImage("Contained Points "+i,"8-bit black",Rwidth,Rheight,1); /* give each sub-image a unique name for debugging purposes */
+		newImage("Contained Points","8-bit black",Rwidth,Rheight,1); /* give each sub-image a unique name for debugging purposes */
 		for (j=0; j<lengthOf(RPx); j++)
 			setPixel(RPx[j]-Rx, RPy[j]-Ry, 255);
-		selectWindow("Contained Points "+i);
+		selectWindow("Contained Points");
 		run("BinaryThin2 ", "kernel_a='0 2 2 0 1 1 0 0 2 ' kernel_b='0 0 2 0 1 1 0 2 2 ' rotations='rotate 45' iterations=-1 white");
-		if (lcf==1) {
-			for (RPx=1; RPx<(Rwidth-1); RPx++){
-				for (RPy=1; RPy<(Rheight-1); RPy++){ /* start at "1" because there should not be a pixel at the border */
-					if((getPixel(RPx, RPy))==255) {  
-						setResult("mc_X\(px\)", i, RPx+Rx);
-						setResult("mc_Y\(px\)", i, RPy+Ry);
-						setResult("mc_offsetX\(px\)", i, getResult("X",i)-(RPx+Rx));
-						setResult("mc_offsetY\(px\)", i, getResult("Y",i)-(RPy+Ry));
-						RPy = Rheight;
-						RPx = Rwidth; /* one point and done */
-					}
-				}
+		for (j=0; j<lengthOf(RPx); j++){
+			if((getPixel(RPx[j]-Rx, RPy[j]-Ry))==255) {
+				centroidX = RPx[j]; centroidY = RPy[j];
+				setResult("mc_X\(px\)", i, centroidX);
+				setResult("mc_Y\(px\)", i, centroidY);
+				setResult("mc_offsetX\(px\)", i, getResult("X",i)/lcf-(centroidX));
+				setResult("mc_offsetY\(px\)", i, getResult("Y",i)/lcf-(centroidY));
+				// if (lcf!=1) {
+					// setResult("mc_X\(" + unit + "\)", i, (centroidX)*lcf); /* perhaps not too useful */
+					// setResult("mc_Y\(" + unit + "\)", i, (centroidY)*lcf); /* perhaps not too useful */	
+				// }
+				j = lengthOf(RPx); /* one point and done */
 			}
 		}
-		else if (lcf!=1) {
-			for (RPx=1; RPx<(Rwidth-1); RPx++){
-				for (RPy=1; RPy<(Rheight-1); RPy++){ /* start at "1" because there should not be a pixel at the border */
-					if((getPixel(RPx, RPy))==255) {
-						setResult("mc_X\(px\)", i, RPx+Rx);
-						setResult("mc_Y\(px\)", i, RPy+Ry);					
-						// setResult("mc_X\(" + selectedUnit + "\)", i, (RPx+Rx)*lcf); //perhaps not too useful
-						// setResult("mc_Y\(" + selectedUnit + "\)", i, (RPy+Ry)*lcf); //
-						setResult("mc_offsetX\(px\)", i, round((getResult("X",i)/lcf-(RPx+Rx))));
-						setResult("mc_offsetY\(px\)", i, round((getResult("Y",i)/lcf-(RPy+Ry))));
-						RPy = Rheight;
-						RPx = Rwidth; /* one point and done */
-					}
-				}
+		closeImageByTitle("Contained Points");
+		if(addRadii) {
+			/* Now measure min and max radii from M-Centroid */
+			rMin = Rwidth + Rheight; rMax = 0;
+			for (j=0 ; j<(lengthOf(xPoints)); j++) {
+				dist = sqrt((centroidX-xPoints[j])*(centroidX-xPoints[j])+(centroidY-yPoints[j])*(centroidY-yPoints[j]));
+				if (dist < rMin) { rMin = dist; rMinX = xPoints[j]; rMinY = yPoints[j];}
+				if (dist > rMax) { rMax = dist; rMaxX = xPoints[j]; rMaxY = yPoints[j];}
+			}
+			if (rMin == 0) rMin = 0.5; /* Correct for 1 pixel width objects and interpolate error */
+			setResult("mc_minRadX", i, rMinX);
+			setResult("mc_minRadY", i, rMinY);
+			setResult("mc_maxRadX", i, rMaxX);
+			setResult("mc_maxRadY", i, rMaxY);
+			setResult("mc_minRad\(px\)", i, rMin);
+			setResult("mc_maxRad\(px\)", i, rMax);
+			setResult("mc_AR", i, rMax/rMin);
+			if (lcf!=1) {
+				setResult('mc_minRad' + "\(" + unit + "\)", i, rMin*lcf);
+				setResult('mc_maxRad' + "\(" + unit + "\)", i, rMax*lcf);
 			}
 		}
-		closeImageByTitle("Contained Points "+i);
 	}
 	updateResults();
 	run("Select None");
-	setBatchMode("exit & display"); /* exit batch mode */
-	restoreSettings();
-	showStatus("MC macro Finished: " + roiManager("count") + " objects analyzed in " + (getTime()-start)/1000 + "s.");
+	if (!batchMode) setBatchMode(false); /* Toggle batch mode off */
+	showStatus("MC Function Finished: " + roiManager("count") + " objects analyzed in " + (getTime()-start)/1000 + "s.");
 	beep(); wait(300); beep(); wait(300); beep();
 	run("Collect Garbage"); 
 	}

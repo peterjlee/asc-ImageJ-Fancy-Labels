@@ -1,4 +1,4 @@
-macro "Fancy Scale Bar"{
+macro "Fancy Scale Bar" {
 /* Original code by Wayne Rasband, improved by Frank Sprenger and deposited on the ImageJ mailing server: (http:imagej.588099.n2.nabble.com/Overlay-Scalebar-Plugins-td6380378.html#a6394996). KS added choice of font size, scale bar height, + any position for scale bar and some options that allow to set the image calibration (only for overlay, not in Meta data). Kees Straatman, CBS, University of Leicester, May 2011
 Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects.
 6/22/16-7/7/16  Add unit override option 7/13/2016 syntax updated 7/28/2016.
@@ -8,6 +8,7 @@ v161101 minor fixes v161104 now works with images other than 8-bit too.
 v161105 improved offset guesses.
 v180108 set outline to at least 1 pixel if desired, updated functions and fixed typos.
 v180611 replaced run("Clear" with run("Clear", "slice").
+v180613 works for multiple slices.
 */
 	saveSettings(); /* To restore settings at the end */
 	setBatchMode(true);
@@ -18,8 +19,8 @@ v180611 replaced run("Clear" with run("Clear", "slice").
 	originalImageDepth = bitDepth();
 	checkForUnits();
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
-	sliceNumber = getSliceNumber();
-	remSlices = slices-sliceNumber;
+	startSliceNumber = getSliceNumber();
+	remSlices = slices-startSliceNumber;
 	imageDims = imageHeight+imageWidth;
 	sbHeight = round(imageDims / 320); /* default scale bar height */
 	if (sbHeight < 2) sbHeight = 2; /*  set minimum default bar height as 2 pixels */
@@ -89,7 +90,8 @@ v180611 replaced run("Clear" with run("Clear", "slice").
 		Dialog.addNumber("Inner Shadow Mean Blur:",floor(dIShO/2),1,2,"% of font size");
 		Dialog.addNumber("Inner Shadow Darkness \(darkest = 100%\):", 20,0,3,"% \(negative = glow\)");
 		overwriteChoice = newArray("Destructive overwrite    ", "New Image", "Overlay");
-		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, 3, overwriteChoice[1]); 
+		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, 3, overwriteChoice[1]);
+		if (remSlices>0) Dialog.addRadioButtonGroup("Add the same labels to this and next " + remSlices + " slices? ", newArray("Yes", "No"), 1, 2, "No");	
 	Dialog.show();
 		selLengthInUnits = Dialog.getNumber;
 		if (sF!=0) overrideUnit = Dialog.getChoice;
@@ -115,13 +117,14 @@ v180611 replaced run("Clear" with run("Clear", "slice").
 		innerShadowBlur = Dialog.getNumber;
 		innerShadowDarkness = Dialog.getNumber;
 		overWrite = Dialog.getRadioButton;
-		
+		if (remSlices>0) labelRest = Dialog.getRadioButton;
+		else labelRest = "No";
 		if (sF!=0) { 
 			oU = indexOfArray(newUnit, overrideUnit);
 			oSF = nSF[oU];
 			selectedUnit = overrideUnitChoice[oU];
 		}
-		
+
 		selLengthInPixels = selLengthInUnits / lcf;
 		if (sF!=0) selLengthInUnits *= oSF; /* now safe to change units */
 		
@@ -146,7 +149,7 @@ v180611 replaced run("Clear" with run("Clear", "slice").
 	if (selOffsetY<(shadowDrop+shadowBlur+1)) selOffsetY += (shadowDrop+shadowBlur+1);
 	
 	if (fontStyle=="unstyled") fontStyle="";
-	
+
 	if (selPos == "Top Left") {
 		selEX = selOffsetX;
 		selEY = selOffsetY; // + fontSize;
@@ -215,24 +218,30 @@ v180611 replaced run("Clear" with run("Clear", "slice").
 		}
 		else {
 			selectWindow(originalImage);
-			run("Select None");
-			getSelectionFromMask("label_mask");
-			getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-			setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
-			Overlay.addSelection(shadowColorHex, outlineStroke, shadowColorHex);
-			run("Select None");
-			getSelectionFromMask("label_mask");
-			run("Enlarge...", "enlarge=[outlineStroke] pixel");
-			Overlay.addSelection(outlineColorHex,outlineStroke,outlineColorHex);
-			run("Select None");
-			makeRectangle(selEX, selEY, selLengthInPixels, selHeight);
-			Overlay.addSelection("", 0, selColorHex);
-			setColorFromColorName(selColor);
-			Overlay.drawString(finalLabel, finalLabelX, finalLabelY); 
-			run("Select None");
-			Overlay.show;
+			if (slices==1) remSlices =1;
+			for (o=1; o<remSlices+1; o++) {
+				if (slices>1) setSlice(startSliceNumber + o);
+				else setSlice(1);
+				run("Select None");
+				getSelectionFromMask("label_mask");
+				getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+				setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
+				Overlay.addSelection(shadowColorHex, outlineStroke, shadowColorHex);
+				run("Select None");
+				getSelectionFromMask("label_mask");
+				run("Enlarge...", "enlarge=[outlineStroke] pixel");
+				Overlay.addSelection(outlineColorHex,outlineStroke,outlineColorHex);
+				run("Select None");
+				makeRectangle(selEX, selEY, selLengthInPixels, selHeight);
+				Overlay.addSelection("", 0, selColorHex);
+				setColorFromColorName(selColor);
+				Overlay.drawString(finalLabel, finalLabelX, finalLabelY); 
+				run("Select None");
+				Overlay.show;
+				if (labelRest=="No") o = remSlices+1;
+			}
 		}
-	}		
+	}
 	else {
 		/* Create drop shadow if desired */
 		if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0)
@@ -242,48 +251,58 @@ v180611 replaced run("Clear" with run("Clear", "slice").
 			createInnerShadowFromMask();
 			
 		if (startsWith(overWrite,"Destructive overwrite")) {
-			if (isOpen("shadow") && shadowDarkness>0) imageCalculator("Subtract", originalImage,"shadow");
-			if (isOpen("shadow") && shadowDarkness<0) imageCalculator("Add", originalImage,"shadow"); /* glow */
-			run("Select None");
-			getSelectionFromMask("label_mask");
-			run("Enlarge...", "enlarge=[outlineStroke] pixel");
-			setBackgroundFromColorName(outlineColor);
-			run("Clear", "slice");
-			run("Select None");
-			getSelectionFromMask("label_mask");
-			setBackgroundFromColorName(selColor);
-			run("Clear", "slice");
-			run("Select None");
-			if (ht==0) writeLabel("selColor"); /* restore antialiasing */
-			if (isOpen("inner_shadow"))
-				imageCalculator("Subtract", originalImage,"inner_shadow");
+			if (labelRest=="No") frames = 1;
+			else frames = remSlices +1;
+			for (j=0; j<frames; j++) {
+				if (isOpen("shadow") && shadowDarkness>0) imageCalculator("Subtract", originalImage,"shadow");
+				if (isOpen("shadow") && shadowDarkness<0) imageCalculator("Add", originalImage,"shadow"); /* glow */
+				run("Select None");
+				getSelectionFromMask("label_mask");
+				run("Enlarge...", "enlarge=[outlineStroke] pixel");
+				setBackgroundFromColorName(outlineColor);
+				run("Clear", "slice");
+				run("Select None");
+				getSelectionFromMask("label_mask");
+				setBackgroundFromColorName(selColor);
+				run("Clear", "slice");
+				run("Select None");
+				if (ht==0) writeLabel("selColor"); /* restore antialiasing */
+				if (isOpen("inner_shadow")) imageCalculator("Subtract", originalImage,"inner_shadow");
+				if (labelRest=="Yes") run("Next Slice [>]");
+			}
 		}
 		else {
-			if (isOpen("shadow")&& shadowDarkness>0) imageCalculator("Subtract create", originalImage,"shadow");
-			else if (isOpen("shadow")&& shadowDarkness<0) imageCalculator("Add create", originalImage,"shadow"); /* glow */
-			else imageCalculator("Copy create", originalImage, originalImage);  /* even if you don't want a shadow you may want an outline */
-			/* apply outline around label */
-			run("Select None");
-			getSelectionFromMask("label_mask");
-			run("Enlarge...", "enlarge=[outlineStroke] pixel");
-			setBackgroundFromColorName(outlineColor);
-			run("Clear", "slice");
-			run("Select None");
-			/* Now the actual label */
-			getSelectionFromMask("label_mask");
-			setBackgroundFromColorName(selColor);
-			run("Clear", "slice");
-			run("Select None");
-			/* Now add the inner shadow to provide some depth */
-			if (isOpen("inner_shadow") && innerShadowDarkness>0)
-				imageCalculator("Subtract", "Result of " + originalImage,"inner_shadow");
-			if (isOpen("inner_shadow") && innerShadowDarkness<0)
-				imageCalculator("Add", "Result of " + originalImage,"inner_shadow"); /* glow */
-			/* Now rename the copy */
-			if (lastIndexOf(originalImage,".")>0)
-				originalImageNameWOExt = substring(originalImage, 0, lastIndexOf(originalImage,"."));
-			else originalImageNameWOExt = originalImage;
-			rename(unCleanLabel(originalImageNameWOExt + "\+scale"));
+			if (labelRest=="No") frames = 1;
+			else frames = remSlices +1;
+			for (j=0; j<frames; j++) {
+				if (isOpen("shadow")&& shadowDarkness>0) imageCalculator("Subtract create", originalImage,"shadow");
+				else if (isOpen("shadow")&& shadowDarkness<0) imageCalculator("Add create", originalImage,"shadow"); /* glow */
+				else imageCalculator("Copy create", originalImage, originalImage);  /* even if you don't want a shadow you may want an outline */
+				/* apply outline around label */
+				run("Select None");
+				getSelectionFromMask("label_mask");
+				run("Enlarge...", "enlarge=[outlineStroke] pixel");
+				setBackgroundFromColorName(outlineColor);
+				run("Clear", "slice");
+				run("Select None");
+				/* Now the actual label */
+				getSelectionFromMask("label_mask");
+				setBackgroundFromColorName(selColor);
+				run("Clear", "slice");
+				run("Select None");
+				/* Now add the inner shadow to provide some depth */
+				if (isOpen("inner_shadow") && innerShadowDarkness>0)
+					imageCalculator("Subtract", "Result of " + originalImage,"inner_shadow");
+				if (isOpen("inner_shadow") && innerShadowDarkness<0)
+					imageCalculator("Add", "Result of " + originalImage,"inner_shadow"); /* glow */
+				/* Now rename the copy */
+				if (lastIndexOf(originalImage,".")>0)
+					originalImageNameWOExt = substring(originalImage, 0, lastIndexOf(originalImage,"."));
+				else originalImageNameWOExt = originalImage;
+				rename(unCleanLabel(originalImageNameWOExt + "\+scale"));
+				selectWindow(originalImage);
+				if (labelRest=="Yes") run("Next Slice [>]");
+			}
 		}
 	}
 	closeImageByTitle("shadow");
@@ -292,6 +311,7 @@ v180611 replaced run("Clear" with run("Clear", "slice").
 	restoreSettings();
 	setBatchMode("exit & display"); /* exit batch mode */
 	showStatus("Fancy Scale Bar Added");
+}
 	/*
 		( 8(|)  ( 8(|)  Functions	@@@@@:-)	@@@@@:-)
 	*/
@@ -378,7 +398,7 @@ v180611 replaced run("Clear" with run("Clear", "slice").
 		close();
 		}
 	}
-function createInnerShadowFromMask() {
+	function createInnerShadowFromMask() {
 		/* Requires previous run of: originalImageDepth = bitDepth();
 		because this version works with different bitDepths
 		v161104 */
@@ -575,11 +595,11 @@ function createInnerShadowFromMask() {
 		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); /* superscript -2 */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
 		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
-		string= replace(string, fromCharCode(0x2009)+"fromCharCode(0x00B0)", "deg"); /* replace thin spaces degrees combination */
+		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */
 		string= replace(string, "_\\+", "\\+"); /* Clean up autofilenames */
 		string= replace(string, "\\+\\+", "\\+"); /* Clean up autofilenames */
 		string= replace(string, "__", "_"); /* Clean up autofilenames */
 		return string;
-}
+	}

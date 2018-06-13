@@ -3,7 +3,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		Peter J. Lee Applied Superconductivity Center at National High Magnetic Field Laboratory.
 		Version v170411 removes spaces in new image names to fix issue with new combination images.
 		v180306 cosmetic changes to text.
-		v180308 added non-destructive overlay option (overlay can be saved in TIFF header) and fixed overlay.
+		v180308 added non-destructive overlay option (overlay can be saved in TIFF header).
+		v180611 Fixed stack labeling and fixed overlay.
 	 */
 	requires("1.47r");
 	saveSettings;
@@ -27,6 +28,18 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	remSlices = slices-sliceNumber;
 	imageDims = imageHeight + imageWidth;
 	originalImageDepth = bitDepth();
+	if (originalImageDepth==16) {
+		Dialog.create("Bit depth conversion");
+		Dialog.addMessage("This macro does not work well with 16-bit images");
+		conversionChoice = newArray("RGB Color", "8-bit Gray", "Exit");
+		Dialog.addRadioButtonGroup("Choose:", conversionChoice, 3, 1, "8-bit Gray");
+		
+		Dialog.show();
+		convertTo = Dialog.getRadioButton();
+		if (convertTo=="8-bit Gray") run("8-bit");
+		else if (convertTo=="RGB Color") run("RGB Color");
+		else restoreExit("Goodbye");
+	}
 	id = getImageID();
 	fontSize = round(imageDims/40); /* default font size */
 	if (fontSize < 10) fontSize = 10; /* set minimum default font size as 10 */
@@ -70,8 +83,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		fontNameChoice = newArray("SansSerif", "Serif", "Monospaced");
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
-		Dialog.addMessage("^2 & um etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. If the units are in the parameter\n label, within \(...\) i.e. \(unit\) they will override this selection.\ndegreeC will be replaced with °C");
-		textChoiceLines = 8;
+		Dialog.addMessage("^2 & um etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. If the units are in the parameter\n label, within \(...\) i.e. \(unit\) they will override this selection.\ndegreeC will be replaced with " + fromCharCode(0x00B0) + "C");
+		textChoiceLines = 8;   
 		for (i=0; i<textChoiceLines; i++)
 			Dialog.addString("Label Line "+(i+1)+":","-blank-", 30);
 		Dialog.addRadioButtonGroup("Tweak the Formatting? ", newArray("Yes", "No"), 1, 2, "No");
@@ -95,7 +108,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		textInputLines = newArray(textChoiceLines);
 		for (i=0; i<textChoiceLines; i++) {
 			textInputLines[i] = Dialog.getString();
-			textInputLines[i] = replace(textInputLines[i], "degreeC", "°C"); /* Use degree symbol */
+			textInputLines[i] = replace(textInputLines[i], "degreeC", fromCharCode(0x00B0) + "C"); /* Use degree symbol */
 		}
 		tweakFormat = Dialog.getRadioButton();
 		overWrite = Dialog.getRadioButton;
@@ -106,13 +119,13 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		Dialog.addNumber("Line Spacing", lineSpacing,1,3,"\(default 1\)");
 		Dialog.addNumber("Outline Stroke:", outlineStroke,0,3,"% of font size");
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
-		Dialog.addNumber("Shadow Drop: ±", shadowDrop,0,3,"% of font size");
-		Dialog.addNumber("Shadow Displacement Right: ±", shadowDrop,0,3,"% of font size");
+		Dialog.addNumber("Shadow Drop: ï¿½", shadowDrop,0,3,"% of font size");
+		Dialog.addNumber("Shadow Displacement Right: ï¿½", shadowDrop,0,3,"% of font size");
 		Dialog.addNumber("Shadow Gaussian Blur:", floor(0.4 * shadowDrop),0,3,"% of font size");
 		Dialog.addNumber("Shadow Darkness:", 100,0,3,"%\(darkest = 100%\)");
 		// Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay Labels");
-		Dialog.addNumber("Inner Shadow Drop: ±", dIShO,0,3,"% of font size");
-		Dialog.addNumber("Inner Displacement Right: ±", dIShO,0,3,"% of font size");
+		Dialog.addNumber("Inner Shadow Drop: ï¿½", dIShO,0,3,"% of font size");
+		Dialog.addNumber("Inner Displacement Right: ï¿½", dIShO,0,3,"% of font size");
 		Dialog.addNumber("Inner Shadow Mean Blur:",floor(dIShO/2),1,3,"% of font size");
 		Dialog.addNumber("Inner Shadow Darkness:", 20,0,3,"% \(darkest = 100%\)");
 						
@@ -400,7 +413,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 				else if (isOpen("inner_shadow") && innerShadowDarkness<0)
 					imageCalculator("Add", flatImage,"inner_shadow");
 			}
-		}			
+		}
 		closeImageByTitle("shadow");
 		closeImageByTitle("inner_shadow");
 		closeImageByTitle("label_mask");
@@ -420,7 +433,6 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	( 8(|)   ( 8(|)  Functions  ( 8(|)  ( 8(|)
 	*/
 	function cleanLabel(string) {
-		/* v180611 added "degreeC" */
 		string= replace(string, "\\^2", fromCharCode(178)); /* superscript 2 */
 		string= replace(string, "\\^3", fromCharCode(179)); /* superscript 3 UTF-16 (decimal) */
 		string= replace(string, "\\^-1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
@@ -428,14 +440,13 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
 		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
 		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micron units */
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ångström unit symbol */
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* ï¿½ngstrï¿½m unit symbol */
 		string= replace(string, "  ", " "); /* Replace double spaces with single spaces */
 		string= replace(string, "_", fromCharCode(0x2009)); /* Replace underlines with thin spaces */
 		string= replace(string, "px", "pixels"); /* Expand pixel abbreviation */
-		string= replace(string, "degreeC", "°C"); /* Remove space before degree symbol */
-		string= replace(string, " °", fromCharCode(0x2009)+"°"); /* Remove space before degree symbol */
+		string= replace(string, "sigma", fromCharCode(0x03C3)); /* sigma for tight spaces */
 		return string;
-	}
+	}	
 	function closeImageByTitle(windowTitle) {  /* Cannot be used with tables */
         if (isOpen(windowTitle)) {
 		selectWindow(windowTitle);
@@ -507,8 +518,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); /* superscript -1 */
 		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); /* superscript -2 */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
-		string= replace(string, fromCharCode(0x2009)+"fromCharCode(0x00B0)", "deg"); /* replace thin spaces degrees combination */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* ï¿½ngstrï¿½m unit symbol */
+		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */
 		string= replace(string, "_\\+", "\\+"); /* Clean up autofilenames */

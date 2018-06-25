@@ -5,6 +5,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		v180306 cosmetic changes to text.
 		v180308 added non-destructive overlay option (overlay can be saved in TIFF header).
 		v180611 Fixed stack labeling and fixed overlay.
+		v180618	Added restore selection option (useful for multiple slices) and fixed label vertical location for selected options.
 	 */
 	requires("1.47r");
 	saveSettings;
@@ -72,6 +73,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			Dialog.addNumber("Selection Bounds: Y start = ", selEY);
 			Dialog.addNumber("Selection Bounds: Width = ", selEWidth);
 			Dialog.addNumber("Selection Bounds: Height = ", selEHeight);
+			Dialog.addCheckbox("Restore selection after macro?", true);
 		}
 		Dialog.addNumber("Image Label Font size:", fontSize);
 		if (originalImageDepth==24)
@@ -83,7 +85,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		fontNameChoice = newArray("SansSerif", "Serif", "Monospaced");
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
-		Dialog.addMessage("^2 & um etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. If the units are in the parameter\n label, within \(...\) i.e. \(unit\) they will override this selection.\ndegreeC will be replaced with " + fromCharCode(0x00B0) + "C");
+		Dialog.addMessage("^2 & um etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. If the units are in the parameter\n label, within \(...\) i.e. \(unit\) they will override this selection.\ndegreeC will be replaced with " + fromCharCode(0x00B0) + "C, symbol-Greek letter by symbol");
 		textChoiceLines = 8;   
 		for (i=0; i<textChoiceLines; i++)
 			Dialog.addString("Label Line "+(i+1)+":","-blank-", 30);
@@ -99,6 +101,13 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			selEY =  Dialog.getNumber();
 			selEWidth =  Dialog.getNumber();
 			selEHeight =  Dialog.getNumber();
+			restoreSelection = Dialog.getCheckbox();
+			if (restoreSelection) {
+				orSelEX = selEX;
+				orSelEY = selEY;
+				orSelEWidth = selEWidth;
+				orSelEHeight = selEHeight;
+			}
 		}
 		fontSize =  Dialog.getNumber();
 		fontColor = Dialog.getChoice();
@@ -108,7 +117,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		textInputLines = newArray(textChoiceLines);
 		for (i=0; i<textChoiceLines; i++) {
 			textInputLines[i] = Dialog.getString();
-			textInputLines[i] = replace(textInputLines[i], "degreeC", fromCharCode(0x00B0) + "C"); /* Use degree symbol */
+			textInputLines[i] = "" + convertToSymbols(textInputLines[i]); /* Use degree symbol */
 		}
 		tweakFormat = Dialog.getRadioButton();
 		overWrite = Dialog.getRadioButton;
@@ -178,7 +187,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			if (getStringWidth(textInputLinesText[i])>longestStringWidth) longestStringWidth = getStringWidth(textInputLines[i]);
 		}
 	}
-	linesSpace = lineSpacing * (textOutNumber-1) * fontSize;
+	linesSpace = lineSpacing * textOutNumber * fontSize;
 		if (textLocChoice == "Top Left") {
 		selEX = offsetX;
 		selEY = offsetY;
@@ -193,7 +202,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		selEY = imageHeight - (offsetY + linesSpace); 
 	} else if (textLocChoice == "Bottom Right") {
 		selEX = imageWidth - longestStringWidth - offsetX;
-		selEY = imageHeight - (offsetY + linesSpace);
+		selEY = imageHeight - (offsetY - linesSpace);
 	} else if (textLocChoice == "Center of New Selection"){
 		if (is("Batch Mode")==true) setBatchMode(false); /* Does not accept interaction while batch mode is on */
 		setTool("rectangle");
@@ -202,11 +211,19 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		waitForUser(msgtitle, msg);
 		getSelectionBounds(newSelEX, newSelEY, newSelEWidth, newSelEHeight);
 		selEX = newSelEX + round((newSelEWidth/2) - longestStringWidth/2);
-		selEY = newSelEY + round((newSelEHeight/2) - (linesSpace/2));
+		selEY = newSelEY + round((newSelEHeight/2) - (linesSpace/2) + fontSize);
+		restoreSelection = getBoolean("Restore this selection at the end of the macro?");
+		if (restoreSelection) {
+			orSelEX = newSelEX;
+			orSelEY = newSelEY;
+			orSelEWidth = newSelEWidth;
+			orSelEHeight = newSelEHeight;
+		}
 		if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
 	} else if (selectionExists==1) {
 		selEX = selEX + round((selEWidth/2) - longestStringWidth/2);
-		selEY = selEY + round((selEHeight/2) - (linesSpace/2));
+		selEY = selEY + round((selEHeight/2) - (linesSpace/2) + fontSize);
+		// selEY = selEY + round((selEHeight/2));
 	}
 	run("Select None");
 	if (selEY<=1.5*fontSize)
@@ -294,10 +311,12 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 				}
 				else textLabelLineY += lineSpacing * fontSize;
 			}
-			run("Select None");
 			Overlay.show;
 			if (labelRest=="No") o = remSlices+1;
 		}
+		if (restoreSelection==true)
+			makeRectangle(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
+		else run("Select None");
 	}		
 	else {
 		selectWindow("antiAliased");
@@ -414,18 +433,23 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 					imageCalculator("Add", flatImage,"inner_shadow");
 			}
 		}
-		closeImageByTitle("shadow");
-		closeImageByTitle("inner_shadow");
-		closeImageByTitle("label_mask");
-		closeImageByTitle("antiAliased");
-		selectWindow(flatImage);
-		if (startsWith(overWrite, "New"))  {
-			if ((lastIndexOf(originalImage,"."))>0)  flatImageNameWOExt = unCleanLabel(substring(flatImage, 0, lastIndexOf(flatImage,".")));
-			else flatImageNameWOExt = unCleanLabel(flatImage);
-			rename(flatImageNameWOExt + "+text");
+	}
+	closeImageByTitle("shadow");
+	closeImageByTitle("inner_shadow");
+	closeImageByTitle("label_mask");
+	closeImageByTitle("antiAliased");
+	selectWindow(flatImage);
+	if (startsWith(overWrite, "New"))  {
+		if ((lastIndexOf(originalImage,"."))>0)  flatImageNameWOExt = unCleanLabel(substring(flatImage, 0, lastIndexOf(flatImage,".")));
+		else flatImageNameWOExt = unCleanLabel(flatImage);
+		rename(flatImageNameWOExt + "+text");
 	}
 	restoreSettings;
 	setBatchMode("exit & display");
+	if (selectionExists==1 || textLocChoice == "Center of New Selection") {
+		if (restoreSelection==true) makeRectangle(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
+	}
+	setSlice(sliceNumber);
 	showStatus("Fancy Text Labels Finished");
 	run("Collect Garbage"); 
 }
@@ -446,12 +470,43 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, "px", "pixels"); /* Expand pixel abbreviation */
 		string= replace(string, "sigma", fromCharCode(0x03C3)); /* sigma for tight spaces */
 		return string;
-	}	
+	}
 	function closeImageByTitle(windowTitle) {  /* Cannot be used with tables */
         if (isOpen(windowTitle)) {
 		selectWindow(windowTitle);
         close();
 		}
+	}
+	function convertToSymbols(string) {
+		/* v180612 first version */
+		string= replace(string, "symbol-alpha", fromCharCode(0x03B1));
+		string= replace(string, "symbol-beta", fromCharCode(0x03B2)); /* β */
+		string= replace(string, "symbol-gamma", fromCharCode(0xD835)); /* MATHEMATICAL BOLD SMALL GAMMA */
+		string= replace(string, "symbol-delta", fromCharCode(0x1E9F)); /* δ  SMALL LETTER DELTA */
+		string= replace(string, "symbol-Delta", fromCharCode(0x0394)); /* Δ  SMALL LETTER DELTA */
+		string= replace(string, "symbol-epsilon", fromCharCode(0x03B5)); /* GREEK SMALL LETTER EPSILON */
+		string= replace(string, "symbol-zeta", fromCharCode(0x03B6)); /* ζ GREEK SMALL LETTER ZETA */
+		string= replace(string, "symbol-theta", fromCharCode(0x03B8)); /* θ    GREEK SMALL LETTER THETA */
+		string= replace(string, "symbol-iota", fromCharCode(0x03B9)); /* :ι     GREEK SMALL LETTER IOTA */
+		string= replace(string, "symbol-kappa", fromCharCode(0x03BA)); /* κ    GREEK SMALL LETTER KAPPA */
+		string= replace(string, "symbol-lambda", fromCharCode(0x03BB)); /* λ    GREEK SMALL LETTER LAMDA */
+		string= replace(string, "symbol-mu", fromCharCode(0x03BC)); /* μ   GREEK SMALL LETTER MU */
+		string= replace(string, "symbol-nu", fromCharCode(0x03BD)); /* ν    GREEK SMALL LETTER NU */
+		string= replace(string, "symbol-xi", fromCharCode(0x03BE)); /* ξ     GREEK SMALL LETTER XI */
+		string= replace(string, "symbol-pi", fromCharCode(0x03C0)); /* π    GREEK SMALL LETTER Pl */
+		string= replace(string, "symbol-rho", fromCharCode(0x03C1)); /* ρ    GREEK SMALL LETTER RHO */
+		string= replace(string, "symbol-sigma", fromCharCode(0x03C3)); /* σ    GREEK SMALL LETTER SIGMA */
+		string= replace(string, "symbol-phi", fromCharCode(0x03C6)); /* φ      GREEK SMALL LETTER PHI */
+		string= replace(string, "symbol-omega", fromCharCode(0x03C9)); /* ω   GREEK SMALL LETTER OMEGA */
+		string= replace(string, "symbol-eta", fromCharCode(0x03B7)); /*  GREEK SMALL LETTER ETA */
+		string= replace(string, "symbol-sub2", fromCharCode(0x2082)); /*  subscript 2 */
+		string= replace(string, "symbol-sub3", fromCharCode(0x2083)); /*  subscript 3 */
+		string= replace(string, "symbol-sub4", fromCharCode(0x2084)); /*  subscript 3 */
+		string= replace(string, "symbol-sub5", fromCharCode(0x2085)); /*  subscript 3 */
+		string= replace(string, "symbol-sup2", fromCharCode(0x00B2)); /*  superscript 2 */
+		string= replace(string, "symbol-sup3", fromCharCode(0x00B3)); /*  superscript 3 */
+		string= replace(string, "degreeC", fromCharCode(181)); /* micron units */
+		return string;
 	}
 	function getSelectionFromMask(selection_Mask){
 		tempTitle = getTitle();
@@ -518,8 +573,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); /* superscript -1 */
 		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); /* superscript -2 */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* �ngstr�m unit symbol */
-		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
+		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces deg */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */
 		string= replace(string, "_\\+", "\\+"); /* Clean up autofilenames */

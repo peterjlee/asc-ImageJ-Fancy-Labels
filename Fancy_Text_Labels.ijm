@@ -1,6 +1,7 @@
 macro "Add Multiple Lines of Fancy Text To Image" {
 	/* This macro adds multiple lines of text to a copy of the image.
 		Peter J. Lee Applied Superconductivity Center at National High Magnetic Field Laboratory.
+		ANSI encoded for Windows.
 		Version v170411 removes spaces in new image names to fix issue with new combination images.
 		v180306 cosmetic changes to text.
 		v180308 added non-destructive overlay option (overlay can be saved in TIFF header).
@@ -75,6 +76,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			Dialog.addNumber("Selection Bounds: Height = ", selEHeight);
 			Dialog.addCheckbox("Restore selection after macro?", true);
 		}
+		else restoreSelection = false;
 		Dialog.addNumber("Image Label Font size:", fontSize);
 		if (originalImageDepth==24)
 			colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern"); 
@@ -128,13 +130,13 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		Dialog.addNumber("Line Spacing", lineSpacing,1,3,"\(default 1\)");
 		Dialog.addNumber("Outline Stroke:", outlineStroke,0,3,"% of font size");
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
-		Dialog.addNumber("Shadow Drop: �", shadowDrop,0,3,"% of font size");
-		Dialog.addNumber("Shadow Displacement Right: �", shadowDrop,0,3,"% of font size");
+		Dialog.addNumber("Shadow Drop: ?", shadowDrop,0,3,"% of font size");
+		Dialog.addNumber("Shadow Displacement Right: ?", shadowDrop,0,3,"% of font size");
 		Dialog.addNumber("Shadow Gaussian Blur:", floor(0.4 * shadowDrop),0,3,"% of font size");
 		Dialog.addNumber("Shadow Darkness:", 100,0,3,"%\(darkest = 100%\)");
 		// Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay Labels");
-		Dialog.addNumber("Inner Shadow Drop: �", dIShO,0,3,"% of font size");
-		Dialog.addNumber("Inner Displacement Right: �", dIShO,0,3,"% of font size");
+		Dialog.addNumber("Inner Shadow Drop: ?", dIShO,0,3,"% of font size");
+		Dialog.addNumber("Inner Displacement Right: ?", dIShO,0,3,"% of font size");
 		Dialog.addNumber("Inner Shadow Mean Blur:",floor(dIShO/2),1,3,"% of font size");
 		Dialog.addNumber("Inner Shadow Darkness:", 20,0,3,"% \(darkest = 100%\)");
 						
@@ -188,7 +190,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		}
 	}
 	linesSpace = lineSpacing * textOutNumber * fontSize;
-		if (textLocChoice == "Top Left") {
+	if (textLocChoice == "Top Left") {
 		selEX = offsetX;
 		selEY = offsetY;
 	} else if (textLocChoice == "Top Right") {
@@ -196,13 +198,13 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		selEY = offsetY;
 	} else if (textLocChoice == "Center") {
 		selEX = round((imageWidth - longestStringWidth)/2);
-		selEY = round((imageHeight - linesSpace)/2);
+		selEY = round((imageHeight - linesSpace)/2 + fontSize);
 	} else if (textLocChoice == "Bottom Left") {
 		selEX = offsetX;
-		selEY = imageHeight - (offsetY + linesSpace); 
+		selEY = imageHeight - (offsetY + linesSpace) + fontSize; 
 	} else if (textLocChoice == "Bottom Right") {
 		selEX = imageWidth - longestStringWidth - offsetX;
-		selEY = imageHeight - (offsetY - linesSpace);
+		selEY = imageHeight - (offsetY + linesSpace) + fontSize;
 	} else if (textLocChoice == "Center of New Selection"){
 		if (is("Batch Mode")==true) setBatchMode(false); /* Does not accept interaction while batch mode is on */
 		setTool("rectangle");
@@ -210,6 +212,23 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		msg = "Draw a box in the image where you want to center the text labels...";
 		waitForUser(msgtitle, msg);
 		getSelectionBounds(newSelEX, newSelEY, newSelEWidth, newSelEHeight);
+		shrinkX = newSelEWidth/longestStringWidth;
+		shrinkY = newSelEHeight/linesSpace;
+		shrinkF = minOf(shrinkX, shrinkY);
+		if (shrinkF < 1) reduceFontSize = getBoolean("Text will not fit in selection, reduce font size to fit?");
+		if (reduceFontSize) {
+			fontSize = shrinkF * fontSize;
+			linesSpace = shrinkF * linesSpace;
+			longestStringWidth = shrinkF * longestStringWidth;
+			fontFactor = fontSize/100;
+			outlineStroke = floor(fontFactor * outlineStroke);
+			shadowDrop = floor(fontFactor * shadowDrop);
+			shadowDisp = floor(fontFactor * shadowDisp);
+			shadowBlur = floor(fontFactor * shadowBlur);
+			innerShadowDrop = floor(fontFactor * innerShadowDrop);
+			innerShadowDisp = floor(fontFactor * innerShadowDisp);
+			innerShadowBlur = floor(fontFactor * innerShadowBlur);
+		}
 		selEX = newSelEX + round((newSelEWidth/2) - longestStringWidth/2);
 		selEY = newSelEY + round((newSelEHeight/2) - (linesSpace/2) + fontSize);
 		restoreSelection = getBoolean("Restore this selection at the end of the macro?");
@@ -221,9 +240,25 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		}
 		if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
 	} else if (selectionExists==1) {
+		shrinkX = selEWidth/longestStringWidth;
+		shrinkY = selEHeight/linesSpace;
+		shrinkF = minOf(shrinkX, shrinkY);
+		if (shrinkF < 1) reduceFontSize = getBoolean("Text will not fit in selection, reduce font size to fit?");
+		if (reduceFontSize) {
+			fontSize = shrinkF * fontSize;
+			linesSpace = shrinkF * linesSpace;
+			longestStringWidth = shrinkF * longestStringWidth;
+			fontFactor = fontSize/100;
+			outlineStroke = floor(fontFactor * outlineStroke);
+			shadowDrop = floor(fontFactor * shadowDrop);
+			shadowDisp = floor(fontFactor * shadowDisp);
+			shadowBlur = floor(fontFactor * shadowBlur);
+			innerShadowDrop = floor(fontFactor * innerShadowDrop);
+			innerShadowDisp = floor(fontFactor * innerShadowDisp);
+			innerShadowBlur = floor(fontFactor * innerShadowBlur);
+		}
 		selEX = selEX + round((selEWidth/2) - longestStringWidth/2);
 		selEY = selEY + round((selEHeight/2) - (linesSpace/2) + fontSize);
-		// selEY = selEY + round((selEHeight/2));
 	}
 	run("Select None");
 	if (selEY<=1.5*fontSize)
@@ -464,7 +499,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
 		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
 		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micron units */
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* �ngstr�m unit symbol */
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* ?ngstr?m unit symbol */
 		string= replace(string, "  ", " "); /* Replace double spaces with single spaces */
 		string= replace(string, "_", fromCharCode(0x2009)); /* Replace underlines with thin spaces */
 		string= replace(string, "px", "pixels"); /* Expand pixel abbreviation */
@@ -480,29 +515,29 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	function convertToSymbols(string) {
 		/* v180612 first version */
 		string= replace(string, "symbol-alpha", fromCharCode(0x03B1));
-		string= replace(string, "symbol-beta", fromCharCode(0x03B2)); /* β */
+		string= replace(string, "symbol-beta", fromCharCode(0x03B2)); /* � */
 		string= replace(string, "symbol-gamma", fromCharCode(0xD835)); /* MATHEMATICAL BOLD SMALL GAMMA */
-		string= replace(string, "symbol-delta", fromCharCode(0x1E9F)); /* δ  SMALL LETTER DELTA */
-		string= replace(string, "symbol-Delta", fromCharCode(0x0394)); /* Δ  SMALL LETTER DELTA */
+		string= replace(string, "symbol-delta", fromCharCode(0x1E9F)); /*  SMALL LETTER DELTA */
+		string= replace(string, "symbol-Delta", fromCharCode(0x0394)); /* ?  Upper case LETTER DELTA */
 		string= replace(string, "symbol-epsilon", fromCharCode(0x03B5)); /* GREEK SMALL LETTER EPSILON */
-		string= replace(string, "symbol-zeta", fromCharCode(0x03B6)); /* ζ GREEK SMALL LETTER ZETA */
-		string= replace(string, "symbol-theta", fromCharCode(0x03B8)); /* θ    GREEK SMALL LETTER THETA */
-		string= replace(string, "symbol-iota", fromCharCode(0x03B9)); /* :ι     GREEK SMALL LETTER IOTA */
-		string= replace(string, "symbol-kappa", fromCharCode(0x03BA)); /* κ    GREEK SMALL LETTER KAPPA */
-		string= replace(string, "symbol-lambda", fromCharCode(0x03BB)); /* λ    GREEK SMALL LETTER LAMDA */
-		string= replace(string, "symbol-mu", fromCharCode(0x03BC)); /* μ   GREEK SMALL LETTER MU */
-		string= replace(string, "symbol-nu", fromCharCode(0x03BD)); /* ν    GREEK SMALL LETTER NU */
-		string= replace(string, "symbol-xi", fromCharCode(0x03BE)); /* ξ     GREEK SMALL LETTER XI */
-		string= replace(string, "symbol-pi", fromCharCode(0x03C0)); /* π    GREEK SMALL LETTER Pl */
-		string= replace(string, "symbol-rho", fromCharCode(0x03C1)); /* ρ    GREEK SMALL LETTER RHO */
-		string= replace(string, "symbol-sigma", fromCharCode(0x03C3)); /* σ    GREEK SMALL LETTER SIGMA */
-		string= replace(string, "symbol-phi", fromCharCode(0x03C6)); /* φ      GREEK SMALL LETTER PHI */
-		string= replace(string, "symbol-omega", fromCharCode(0x03C9)); /* ω   GREEK SMALL LETTER OMEGA */
+		string= replace(string, "symbol-zeta", fromCharCode(0x03B6)); /* GREEK SMALL LETTER ZETA */
+		string= replace(string, "symbol-theta", fromCharCode(0x03B8)); /* GREEK SMALL LETTER THETA */
+		string= replace(string, "symbol-iota", fromCharCode(0x03B9)); /* GREEK SMALL LETTER IOTA */
+		string= replace(string, "symbol-kappa", fromCharCode(0x03BA)); /* GREEK SMALL LETTER KAPPA */
+		string= replace(string, "symbol-lambda", fromCharCode(0x03BB)); /* GREEK SMALL LETTER LAMDA */
+		string= replace(string, "symbol-mu", fromCharCode(0x03BC)); /* � GREEK SMALL LETTER MU */
+		string= replace(string, "symbol-nu", fromCharCode(0x03BD)); /*  GREEK SMALL LETTER NU */
+		string= replace(string, "symbol-xi", fromCharCode(0x03BE)); /* GREEK SMALL LETTER XI */
+		string= replace(string, "symbol-pi", fromCharCode(0x03C0)); /* GREEK SMALL LETTER Pl */
+		string= replace(string, "symbol-rho", fromCharCode(0x03C1)); /* GREEK SMALL LETTER RHO */
+		string= replace(string, "symbol-sigma", fromCharCode(0x03C3)); /* GREEK SMALL LETTER SIGMA */
+		string= replace(string, "symbol-phi", fromCharCode(0x03C6)); /* GREEK SMALL LETTER PHI */
+		string= replace(string, "symbol-omega", fromCharCode(0x03C9)); /* GREEK SMALL LETTER OMEGA */
 		string= replace(string, "symbol-eta", fromCharCode(0x03B7)); /*  GREEK SMALL LETTER ETA */
 		string= replace(string, "symbol-sub2", fromCharCode(0x2082)); /*  subscript 2 */
 		string= replace(string, "symbol-sub3", fromCharCode(0x2083)); /*  subscript 3 */
-		string= replace(string, "symbol-sub4", fromCharCode(0x2084)); /*  subscript 3 */
-		string= replace(string, "symbol-sub5", fromCharCode(0x2085)); /*  subscript 3 */
+		string= replace(string, "symbol-sub4", fromCharCode(0x2084)); /*  subscript 4 */
+		string= replace(string, "symbol-sub5", fromCharCode(0x2085)); /*  subscript 5 */
 		string= replace(string, "symbol-sup2", fromCharCode(0x00B2)); /*  superscript 2 */
 		string= replace(string, "symbol-sup3", fromCharCode(0x00B3)); /*  superscript 3 */
 		string= replace(string, "degreeC", fromCharCode(181)); /* micron units */
@@ -573,7 +608,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); /* superscript -1 */
 		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); /* superscript -2 */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* �ngstr�m unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces deg */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */

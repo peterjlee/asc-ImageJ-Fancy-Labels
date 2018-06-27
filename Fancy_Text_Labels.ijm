@@ -2,18 +2,19 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	/* This macro adds multiple lines of text to a copy of the image.
 		Peter J. Lee Applied Superconductivity Center at National High Magnetic Field Laboratory.
 		ANSI encoded for Windows.
-		Version v170411 removes spaces in new image names to fix issue with new combination images.
+		Version v170411 removes spaces in New image names to fix issue with new combination images.
 		v180306 cosmetic changes to text.
 		v180308 added non-destructive overlay option (overlay can be saved in TIFF header).
 		v180611 Fixed stack labeling and fixed overlay.
 		v180618	Added restore selection option (useful for multiple slices) and fixed label vertical location for selected options.
+		v180626-7 Added text justification, added fit-to-selection, fixed override of previously selected area and added and more symbols
 	 */
 	requires("1.47r");
 	saveSettings;
 	if (selectionType>=0) {
 		selEType = selectionType; 
 		selectionExists = 1;
-		getSelectionBounds(selEX, selEY, selEWidth, selEHeight);
+		getSelectionBounds(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
 	}
 	else selectionExists = 0;
 	originalImage = getTitle();
@@ -35,7 +36,6 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		Dialog.addMessage("This macro does not work well with 16-bit images");
 		conversionChoice = newArray("RGB Color", "8-bit Gray", "Exit");
 		Dialog.addRadioButtonGroup("Choose:", conversionChoice, 3, 1, "8-bit Gray");
-		
 		Dialog.show();
 		convertTo = Dialog.getRadioButton();
 		if (convertTo=="8-bit Gray") run("8-bit");
@@ -70,14 +70,16 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		}
 		Dialog.addChoice("Location of Summary:", textLocChoices, textLocChoices[loc]);
 		if (selectionExists==1) {
-			Dialog.addNumber("Selection Bounds: X start = ", selEX);
-			Dialog.addNumber("Selection Bounds: Y start = ", selEY);
-			Dialog.addNumber("Selection Bounds: Width = ", selEWidth);
-			Dialog.addNumber("Selection Bounds: Height = ", selEHeight);
-			Dialog.addCheckbox("Restore selection after macro?", true);
+			Dialog.addNumber("Original selection X start = ", orSelEX);
+			Dialog.addNumber("Original selection Y start = ", orSelEY);
+			Dialog.addNumber("Original selection width = ", orSelEWidth);
+			Dialog.addNumber("Original selection height = ", orSelEHeight);
+			Dialog.addCheckbox("Restore this selection at macro completion?", true);
 		}
 		else restoreSelection = false;
-		Dialog.addNumber("Image Label Font size:", fontSize);
+		textJustChoices = newArray("auto", "left", "center", "right");
+		Dialog.addChoice("Text justification", textJustChoices, textJustChoices[0]);
+		Dialog.addNumber("Default font size:", fontSize);
 		if (originalImageDepth==24)
 			colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern"); 
 		else colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray");
@@ -87,30 +89,25 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		fontNameChoice = newArray("SansSerif", "Serif", "Monospaced");
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
-		Dialog.addMessage("^2 & um etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. If the units are in the parameter\n label, within \(...\) i.e. \(unit\) they will override this selection.\ndegreeC will be replaced with " + fromCharCode(0x00B0) + "C, symbol-Greek letter by symbol");
+		Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. If the units are in the\nparameter label, within \(...\) i.e. \(unit\) they will override this\nselection. \"degreeC\" will be replaced with " + fromCharCode(0x00B0)+fromCharCode(0x2009) + "C,\n\"symbol-Greek letter\" by the Greek letter, i.e. \"symbol-omega\" \ntranslates to " + fromCharCode(0x03C9) + ",\"symbol-Omega\" to " + fromCharCode(0x03A9) + " and \"symbol->=\" to " + fromCharCode(0x2265) + " etc.\nArrows: \"arrow-up\" " + fromCharCode(0x21E7) + " \"arrow-left\" " + fromCharCode(0x21E6) + " etc.");
 		textChoiceLines = 8;   
 		for (i=0; i<textChoiceLines; i++)
-			Dialog.addString("Label Line "+(i+1)+":","-blank-", 30);
+			Dialog.addString("Label line "+(i+1)+":","-blank-", 30);
 		Dialog.addRadioButtonGroup("Tweak the Formatting? ", newArray("Yes", "No"), 1, 2, "No");
-		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New Image", "Add Overlay");
-		else overwriteChoice = newArray("Destructive overwrite", "New Image", "Overlay: Add", "Overlay: Replace Current");
-		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 3, 1, overwriteChoice[2]); 
-		if (remSlices>0) Dialog.addRadioButtonGroup("Add the same labels to this and next " + remSlices + " slices? ", newArray("Yes", "No"), 1, 2, "No");					
+		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlay");
+		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlay", "Replace overlay");
+		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 3, 1, overwriteChoice[2]);
 		Dialog.show();
+		
 		textLocChoice = Dialog.getChoice();
 		if (selectionExists==1) {
-			selEX =  Dialog.getNumber();
+			selEX =  Dialog.getNumber(); /* Allows user to tweak pre-selection using dialog boxes */
 			selEY =  Dialog.getNumber();
 			selEWidth =  Dialog.getNumber();
 			selEHeight =  Dialog.getNumber();
 			restoreSelection = Dialog.getCheckbox();
-			if (restoreSelection) {
-				orSelEX = selEX;
-				orSelEY = selEY;
-				orSelEWidth = selEWidth;
-				orSelEHeight = selEHeight;
-			}
 		}
+		just = Dialog.getChoice();
 		fontSize =  Dialog.getNumber();
 		fontColor = Dialog.getChoice();
 		fontStyle = Dialog.getChoice();
@@ -122,9 +119,10 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			textInputLines[i] = "" + convertToSymbols(textInputLines[i]); /* Use degree symbol */
 		}
 		tweakFormat = Dialog.getRadioButton();
-		overWrite = Dialog.getRadioButton;
-		if (remSlices>0) labelRest = Dialog.getRadioButton;
-		else labelRest = "No";
+		overWrite = Dialog.getRadioButton();
+		
+	if (remSlices>0 && !endsWith(overWrite,"overlay")) labelRest = getBoolean("Add the same labels to this and next " + remSlices + " slices?");					
+	else labelRest = false;
 	if (tweakFormat=="Yes") {	
 		Dialog.create("Advanced Formatting Options");
 		Dialog.addNumber("Line Spacing", lineSpacing,1,3,"\(default 1\)");
@@ -154,11 +152,11 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		innerShadowDarkness = Dialog.getNumber();
 	}
 	fontColorArray = getColorArrayFromColorName(fontColor);
-	Array.getStatistics(fontColorArray,null,null,fontInt,null);
+	Array.getStatistics(fontColorArray,fontIntMean);
+	fontInt = floor(fontIntMean);
 	outlineColorArray = getColorArrayFromColorName(outlineColor);
-	Array.getStatistics(outlineColorArray,null,null,outlineInt,null);
-	shadowDarkness = (255/100) * (abs(shadowDarkness));
-	innerShadowDarkness = (255/100) * (100 - (abs(innerShadowDarkness)));	
+	Array.getStatistics(outlineColorArray,outlineIntMean);
+	outlineInt = floor(outlineIntMean);
 	negAdj = 0.5;  /* negative offsets appear exaggerated at full displacement */
 	if (shadowDrop<0) shadowDrop *= negAdj;
 	if (shadowDisp<0) shadowDisp *= negAdj;
@@ -174,7 +172,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	innerShadowDrop = floor(fontFactor * innerShadowDrop);
 	innerShadowDisp = floor(fontFactor * innerShadowDisp);
 	innerShadowBlur = floor(fontFactor * innerShadowBlur);
-		if (offsetX<(shadowDisp+shadowBlur+1)) offsetX = (shadowDisp+shadowBlur+1);  /* make sure shadow does not run off edge of image */
+	if (offsetX<(shadowDisp+shadowBlur+1)) offsetX = (shadowDisp+shadowBlur+1);  /* make sure shadow does not run off edge of image */
 	if (offsetY<(shadowDrop+shadowBlur+1)) offsetY = (shadowDrop+shadowBlur+1);
 	if (fontStyle=="unstyled") fontStyle="";
 /*  */			
@@ -193,29 +191,35 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	if (textLocChoice == "Top Left") {
 		selEX = offsetX;
 		selEY = offsetY;
+		if (just=="auto") just = "left";
 	} else if (textLocChoice == "Top Right") {
 		selEX = imageWidth - longestStringWidth - offsetX;
 		selEY = offsetY;
+		if (just=="auto") just = "right";
 	} else if (textLocChoice == "Center") {
 		selEX = round((imageWidth - longestStringWidth)/2);
 		selEY = round((imageHeight - linesSpace)/2 + fontSize);
+		if (just=="auto") just = "center";
 	} else if (textLocChoice == "Bottom Left") {
 		selEX = offsetX;
 		selEY = imageHeight - (offsetY + linesSpace) + fontSize; 
+		if (just=="auto") just = "left";
 	} else if (textLocChoice == "Bottom Right") {
 		selEX = imageWidth - longestStringWidth - offsetX;
 		selEY = imageHeight - (offsetY + linesSpace) + fontSize;
+		if (just=="auto") just = "right";
 	} else if (textLocChoice == "Center of New Selection"){
 		if (is("Batch Mode")==true) setBatchMode(false); /* Does not accept interaction while batch mode is on */
 		setTool("rectangle");
 		msgtitle="Location for the text labels...";
 		msg = "Draw a box in the image where you want to center the text labels...";
 		waitForUser(msgtitle, msg);
-		getSelectionBounds(newSelEX, newSelEY, newSelEWidth, newSelEHeight);
-		shrinkX = newSelEWidth/longestStringWidth;
-		shrinkY = newSelEHeight/linesSpace;
+		getSelectionBounds(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
+		shrinkX = orSelEWidth/longestStringWidth;
+		shrinkY = orSelEHeight/linesSpace;
 		shrinkF = minOf(shrinkX, shrinkY);
 		if (shrinkF < 1) reduceFontSize = getBoolean("Text will not fit in selection, reduce font size to fit?");
+		else reduceFontSize = false;
 		if (reduceFontSize) {
 			fontSize = shrinkF * fontSize;
 			linesSpace = shrinkF * linesSpace;
@@ -229,17 +233,16 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			innerShadowDisp = floor(fontFactor * innerShadowDisp);
 			innerShadowBlur = floor(fontFactor * innerShadowBlur);
 		}
-		selEX = newSelEX + round((newSelEWidth/2) - longestStringWidth/2);
-		selEY = newSelEY + round((newSelEHeight/2) - (linesSpace/2) + fontSize);
+		selEX = orSelEX + round((orSelEWidth/2) - longestStringWidth/2);
+		selEY = orSelEY + round((orSelEHeight/2) - (linesSpace/2) + fontSize);
 		restoreSelection = getBoolean("Restore this selection at the end of the macro?");
-		if (restoreSelection) {
-			orSelEX = newSelEX;
-			orSelEY = newSelEY;
-			orSelEWidth = newSelEWidth;
-			orSelEHeight = newSelEHeight;
-		}
 		if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
-	} else if (selectionExists==1) {
+		if (just=="auto") {
+			if (selEX<imageWidth*0.4) just = "left";
+			else if (selEX>imageWidth*0.6) just = "right";
+			else just = "center";
+		}
+	} else if (selectionExists==1 && endsWith(textLocChoice, "election")) {
 		shrinkX = selEWidth/longestStringWidth;
 		shrinkY = selEHeight/linesSpace;
 		shrinkF = minOf(shrinkX, shrinkY);
@@ -259,6 +262,11 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		}
 		selEX = selEX + round((selEWidth/2) - longestStringWidth/2);
 		selEY = selEY + round((selEHeight/2) - (linesSpace/2) + fontSize);
+		if (just=="auto") {
+			if (selEX<imageWidth*0.4) just = "left";
+			else if (selEX>imageWidth*0.6) just = "right";
+			else just = "center";
+		}
 	}
 	run("Select None");
 	if (selEY<=1.5*fontSize)
@@ -271,27 +279,33 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	setColorFromColorName("white");
 	roiManager("show none");
 	// run("Flatten"); /* changes bit depth */
-	if (startsWith(overWrite,"New")) run("Duplicate...", "title=" + getTitle() + "+text");
-	flatImage = getTitle();
+	if (startsWith(overWrite,"New")) {
+		if (slices==1) run("Duplicate...", "title=" + getTitle() + "+text");
+		else run("Duplicate...", "title=" + getTitle() + "+text duplicate");
+	}
+	workingImage = getTitle();
 	if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
+	/* Create Label Mask */
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
 	roiManager("deselect");
 	run("Select None");
-	/* Draw summary over top of labels */
 	setFont(fontName,fontSize, fontStyle);
 	textLabelLineY = textLabelY;
 	for (i=0; i<textOutNumber; i++) {
 		if (textInputLines[i]!="-blank-") {
-			drawString(textInputLinesText[i], textLabelX, textLabelLineY);
+			if (just=="left") drawString(textInputLinesText[i], textLabelX, textLabelLineY);
+			else if (just=="right") drawString(textInputLinesText[i], textLabelX + (longestStringWidth - getStringWidth(textInputLinesText[i])), textLabelLineY);
+			else drawString(textInputLinesText[i], textLabelX + (longestStringWidth-getStringWidth(textInputLinesText[i]))/2, textLabelLineY);
 			textLabelLineY += lineSpacing * fontSize;
 		}
 		else textLabelLineY += lineSpacing * fontSize;
 	}
 	textLabelLineY = textLabelY;
-	if(outlineColor=="black" && fontColor=="white") run("Duplicate...", "title=antiAliased");
-	else {
-		selectWindow(flatImage);
-		run("Duplicate...", "title=antiAliased");
+	newImage("antiAliased", originalImageDepth, imageWidth, imageHeight, 1);
+	// if(outlineColor=="black" && fontColor=="white") run("Duplicate...", "title=antiAliased");
+	// else {
+		// selectWindow(workingImage);
+		// run("Duplicate...", "title=antiAliased");
 		run("Select All");
 		setColorFromColorName(outlineColor);
 		fill();
@@ -302,8 +316,10 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		setFont(fontName,fontSize, fontStyle);
 		for (i=0; i<textOutNumber; i++) {
 			if (textInputLines[i]!="-blank-") {
-				drawString(textInputLinesText[i], textLabelX, textLabelLineY);
-				textLabelLineY += lineSpacing * fontSize;
+			if (just=="left") drawString(textInputLinesText[i], textLabelX, textLabelLineY);
+			else if (just=="right") drawString(textInputLinesText[i], textLabelX + (longestStringWidth - getStringWidth(textInputLinesText[i])), textLabelLineY);
+			else drawString(textInputLinesText[i], textLabelX + (longestStringWidth-getStringWidth(textInputLinesText[i]))/2, textLabelLineY);
+			textLabelLineY += lineSpacing * fontSize;
 			}
 			else textLabelLineY += lineSpacing * fontSize;
 		}
@@ -311,48 +327,44 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			// fakeAntialias = outlineStroke/2;
 			// run("Gaussian Blur...", "sigma=[fakeAntialias]");
 		// }
-	}	
+	// }
 	selectWindow("label_mask");
 	setThreshold(0, 128);
 	setOption("BlackBackground", false);
 	run("Convert to Mask");
-	if (indexOf(overWrite,"Overlay")>0) {
+	if (endsWith(overWrite,"verlay")) {
 		selectWindow(originalImage);
-		if (slices==1) remSlices =1;
-		for (o=1; o<remSlices+1; o++) {
-			if (slices>1) setSlice(sliceNumber + o);
-			else setSlice(1);
-			if (endsWith(overWrite,"Current")) Overlay.remove;
-			grayHex = toHex(round(255*shadowDarkness/100));
-			shadowHex = "#" + ""+pad(grayHex) + ""+pad(grayHex) + ""+pad(grayHex);
-			fontColorHex = getHexColorFromRGBArray(fontColor);
-			outlineColorHex = getHexColorFromRGBArray(outlineColor);
-			run("Select None");
-			getSelectionFromMask("label_mask");
-			getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-			setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
-			Overlay.addSelection(shadowHex, outlineStroke, shadowHex);
-			run("Select None");
-			getSelectionFromMask("label_mask");
-			run("Enlarge...", "enlarge=[outlineStroke] pixel");
-			Overlay.addSelection(outlineColorHex,outlineStroke,outlineColorHex);
-			run("Select None");
-			setColorFromColorName(fontColor);
-			textLabelLineY = textLabelY;
-			for (t=0; t<textOutNumber; t++) {
-				if (textInputLines[t]!="-blank-") {
-					Overlay.drawString(textInputLinesText[t], textLabelX, textLabelLineY);
-					textLabelLineY += lineSpacing * fontSize;
-				}
-				else textLabelLineY += lineSpacing * fontSize;
+		if (startsWith(overWrite,"Replace")) Overlay.remove;
+		grayHex = toHex(round(255*shadowDarkness/100));
+		shadowHex = "#" + ""+pad(grayHex) + ""+pad(grayHex) + ""+pad(grayHex);
+		fontColorHex = getHexColorFromRGBArray(fontColor);
+		outlineColorHex = getHexColorFromRGBArray(outlineColor);
+		run("Select None");
+		getSelectionFromMask("label_mask");
+		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+		setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
+		Overlay.addSelection(shadowHex, outlineStroke, shadowHex);
+		run("Select None");
+		getSelectionFromMask("label_mask");
+		run("Enlarge...", "enlarge=[outlineStroke] pixel");
+		Overlay.addSelection(outlineColorHex,outlineStroke,outlineColorHex);
+		run("Select None");
+		setColorFromColorName(fontColor);
+		textLabelLineY = textLabelY;
+		for (t=0; t<textOutNumber; t++) {
+			if (textInputLines[t]!="-blank-") {
+				if (just=="left") Overlay.drawString(textInputLinesText[t], textLabelX, textLabelLineY);
+				else if (just=="right") Overlay.drawString(textInputLinesText[t], textLabelX + (longestStringWidth - getStringWidth(textInputLinesText[t])), textLabelLineY);
+				else Overlay.drawString(textInputLinesText[t], textLabelX + (longestStringWidth-getStringWidth(textInputLinesText[t]))/2, textLabelLineY);
+				textLabelLineY += lineSpacing * fontSize;					
 			}
-			Overlay.show;
-			if (labelRest=="No") o = remSlices+1;
+			else textLabelLineY += lineSpacing * fontSize;
 		}
-		if (restoreSelection==true)
+		Overlay.show;
+		if (restoreSelection)
 			makeRectangle(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
 		else run("Select None");
-	}		
+	}
 	else {
 		selectWindow("antiAliased");
 		getSelectionFromMask("label_mask");
@@ -365,46 +377,20 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		/* Create drop shadow if desired */
 		if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0) {
 			showStatus("Creating drop shadow for labels . . . ");
-			newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
-			getSelectionFromMask("label_mask");
-			getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-			setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
-			setBackgroundColor(shadowDarkness, shadowDarkness, shadowDarkness);
-			// setBackgroundColor(255, 255, 255);
-			run("Clear", "slice");
-			getSelectionFromMask("label_mask");
-			expansion = abs(shadowDisp) + abs(shadowDrop) + abs(shadowBlur);
-			if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
-			if (shadowBlur>0) run("Gaussian Blur...", "sigma=[shadowBlur]");
-			run("Select None");
+			createShadowDropFromMask7("label_mask", shadowDrop, shadowDisp, shadowBlur, shadowDarkness, outlineStroke);
 		}
 		/*	Create inner shadow if desired */
 		if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0) {
 			showStatus("Creating inner shadow for labels . . . ");
-			newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
-			getSelectionFromMask("label_mask");
-			setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
-			run("Clear Outside");
-			getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-			setSelectionLocation(selMaskX-innerShadowDisp, selMaskY-innerShadowDrop);
-			setBackgroundColor(innerShadowDarkness, innerShadowDarkness, innerShadowDarkness);
-			run("Clear Outside");
-			getSelectionFromMask("label_mask");
-			expansion = abs(innerShadowDisp) + abs(innerShadowDrop) + abs(innerShadowBlur);
-			if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
-			if (innerShadowBlur>0) run("Mean...", "radius=[innerShadowBlur]"); /* Gaussian is too large */
-			if (fontSize<12) run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen effect for small font sizes */
-			imageCalculator("Max", "inner_shadow","label_mask");
-			run("Select None");
-			run("Invert");  /* Create an image that can be subtracted - this works better for color than Min */
+			createInnerShadowFromMask6("label_mask",innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
 		}
 		if (isOpen("shadow") && shadowDarkness>0)		
-			imageCalculator("Subtract", flatImage,"shadow");
+			imageCalculator("Subtract", workingImage,"shadow");
 		else if (isOpen("shadow") && shadowDarkness<0)		
-			imageCalculator("Add", flatImage,"shadow");
+			imageCalculator("Add", workingImage,"shadow");
 		run("Select None");
 		/* Create outline around text */
-		selectWindow(flatImage);
+		selectWindow(workingImage);
 		getSelectionFromMask("label_mask");
 		getSelectionBounds(maskX, maskY, null, null);
 		outlineStrokeOffset = minOf(round(shadowDisp/2), round(maxOf(0,(outlineStroke/2)-1)));
@@ -422,25 +408,24 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		run("Clear", "slice");
 		run("Select None");
 		if (isOpen("antiAliased")) {
-			if (fontInt>=outlineInt) imageCalculator("Min",flatImage,"antiAliased");
-			else imageCalculator("Max",flatImage,"antiAliased");
+			if (fontInt>=outlineInt) imageCalculator("Min",workingImage,"antiAliased");
+			else imageCalculator("Max",workingImage,"antiAliased");
 		}
 		/* Create inner shadow or glow if requested */
 		if (isOpen("inner_shadow") && innerShadowDarkness>0)
-			imageCalculator("Subtract", flatImage,"inner_shadow");
+			imageCalculator("Subtract", workingImage,"inner_shadow");
 		else if (isOpen("inner_shadow") && innerShadowDarkness<0)
-			imageCalculator("Add", flatImage,"inner_shadow");
-	
-		if (labelRest=="Yes" && startsWith(overWrite,"Destructive")) {
+			imageCalculator("Add", workingImage,"inner_shadow");
+		if (labelRest) {
 			for (j=1; j<remSlices+1; j++) {
 				setSlice(sliceNumber + j);
 				if (isOpen("shadow") && shadowDarkness>0)		
-				imageCalculator("Subtract", flatImage,"shadow");
+				imageCalculator("Subtract", workingImage,"shadow");
 				else if (isOpen("shadow") && shadowDarkness<0)		
-					imageCalculator("Add", flatImage,"shadow");
+					imageCalculator("Add", workingImage,"shadow");
 				run("Select None");
 				/* Create outline around text */
-				selectWindow(flatImage);
+				selectWindow(workingImage);
 				getSelectionFromMask("label_mask");
 				getSelectionBounds(maskX, maskY, null, null);
 				outlineStrokeOffset = minOf(round(shadowDisp/2), round(maxOf(0,(outlineStroke/2)-1)));
@@ -458,14 +443,14 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 				run("Clear", "slice");
 				run("Select None");
 				if (isOpen("antiAliased")) {
-					if (fontInt>=outlineInt) imageCalculator("Min",flatImage,"antiAliased");
-					else imageCalculator("Max",flatImage,"antiAliased");
+					if (fontInt>=outlineInt) imageCalculator("Min",workingImage,"antiAliased");
+					else imageCalculator("Max",workingImage,"antiAliased");
 				}
 				/* Create inner shadow or glow if requested */
 				if (isOpen("inner_shadow") && innerShadowDarkness>0)
-					imageCalculator("Subtract", flatImage,"inner_shadow");
+					imageCalculator("Subtract", workingImage,"inner_shadow");
 				else if (isOpen("inner_shadow") && innerShadowDarkness<0)
-					imageCalculator("Add", flatImage,"inner_shadow");
+					imageCalculator("Add", workingImage,"inner_shadow");
 			}
 		}
 	}
@@ -473,15 +458,15 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	closeImageByTitle("inner_shadow");
 	closeImageByTitle("label_mask");
 	closeImageByTitle("antiAliased");
-	selectWindow(flatImage);
+	selectWindow(workingImage);
 	if (startsWith(overWrite, "New"))  {
-		if ((lastIndexOf(originalImage,"."))>0)  flatImageNameWOExt = unCleanLabel(substring(flatImage, 0, lastIndexOf(flatImage,".")));
-		else flatImageNameWOExt = unCleanLabel(flatImage);
-		rename(flatImageNameWOExt + "+text");
+		if ((lastIndexOf(originalImage,"."))>0)  workingImageNameWOExt = unCleanLabel(substring(workingImage, 0, lastIndexOf(workingImage,".")));
+		else workingImageNameWOExt = unCleanLabel(workingImage);
+		rename(workingImageNameWOExt + "+text");
 	}
 	restoreSettings;
 	setBatchMode("exit & display");
-	if (selectionExists==1 || textLocChoice == "Center of New Selection") {
+	if (selectionExists==1 && endsWith(textLocChoice, "election")) {
 		if (restoreSelection==true) makeRectangle(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
 	}
 	setSlice(sliceNumber);
@@ -499,7 +484,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
 		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
 		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micron units */
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* ?ngstr?m unit symbol */
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ångström unit symbol */ Ö Ö
 		string= replace(string, "  ", " "); /* Replace double spaces with single spaces */
 		string= replace(string, "_", fromCharCode(0x2009)); /* Replace underlines with thin spaces */
 		string= replace(string, "px", "pixels"); /* Expand pixel abbreviation */
@@ -513,35 +498,126 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		}
 	}
 	function convertToSymbols(string) {
-		/* v180612 first version */
+		/* v180612 first version
+			v1v180627 Expanded */
+		string= replace(string, "symbol-Angstrom", fromCharCode(0x212B)); /* ANGSTROM SIGN */
 		string= replace(string, "symbol-alpha", fromCharCode(0x03B1));
-		string= replace(string, "symbol-beta", fromCharCode(0x03B2)); /* ß */
-		string= replace(string, "symbol-gamma", fromCharCode(0xD835)); /* MATHEMATICAL BOLD SMALL GAMMA */
+		string= replace(string, "symbol-Alpha", fromCharCode(0x0391));
+		string= replace(string, "symbol-beta", fromCharCode(0x03B2)); /* Lower case beta */
+		string= replace(string, "symbol-Beta", fromCharCode(0x0392)); /* ß CAPITAL */
+		string= replace(string, "symbol-gamma", fromCharCode(0x03B3)); /* MATHEMATICAL SMALL GAMMA */
+		string= replace(string, "symbol-Gamma", fromCharCode(0xD835)); /* MATHEMATICAL BOLD CAPITAL  GAMMA */
 		string= replace(string, "symbol-delta", fromCharCode(0x1E9F)); /*  SMALL LETTER DELTA */
-		string= replace(string, "symbol-Delta", fromCharCode(0x0394)); /* ?  Upper case LETTER DELTA */
+		string= replace(string, "symbol-Delta", fromCharCode(0x0394)); /*  CAPITAL LETTER DELTA */
 		string= replace(string, "symbol-epsilon", fromCharCode(0x03B5)); /* GREEK SMALL LETTER EPSILON */
+		string= replace(string, "symbol-Epsilon", fromCharCode(0x0395)); /* GREEK CAPITAL LETTER EPSILON */
 		string= replace(string, "symbol-zeta", fromCharCode(0x03B6)); /* GREEK SMALL LETTER ZETA */
+		string= replace(string, "symbol-Zeta", fromCharCode(0x0396)); /* GREEK CAPITAL LETTER ZETA */
 		string= replace(string, "symbol-theta", fromCharCode(0x03B8)); /* GREEK SMALL LETTER THETA */
+		string= replace(string, "symbol-Theta", fromCharCode(0x0398)); /* GREEK CAPITAL LETTER THETA */
 		string= replace(string, "symbol-iota", fromCharCode(0x03B9)); /* GREEK SMALL LETTER IOTA */
+		string= replace(string, "symbol-Iota", fromCharCode(0x0196)); /* GREEK CAPITAL LETTER IOTA */
 		string= replace(string, "symbol-kappa", fromCharCode(0x03BA)); /* GREEK SMALL LETTER KAPPA */
+		string= replace(string, "symbol-Kappa", fromCharCode(0x0196)); /* GREEK CAPITAL LETTER KAPPA */
 		string= replace(string, "symbol-lambda", fromCharCode(0x03BB)); /* GREEK SMALL LETTER LAMDA */
+		string= replace(string, "symbol-Lambda", fromCharCode(0x039B)); /* GREEK CAPITAL LETTER LAMDA */
 		string= replace(string, "symbol-mu", fromCharCode(0x03BC)); /* µ GREEK SMALL LETTER MU */
+		string= replace(string, "symbol-Mu", fromCharCode(0x039C)); /* GREEK CAPITAL LETTER MU */
 		string= replace(string, "symbol-nu", fromCharCode(0x03BD)); /*  GREEK SMALL LETTER NU */
+		string= replace(string, "symbol-Nu", fromCharCode( 0x039D)); /*  GREEK CAPITAL LETTER NU */
 		string= replace(string, "symbol-xi", fromCharCode(0x03BE)); /* GREEK SMALL LETTER XI */
+		string= replace(string, "symbol-Xi", fromCharCode(0x039E)); /* GREEK CAPITAL LETTER XI */
 		string= replace(string, "symbol-pi", fromCharCode(0x03C0)); /* GREEK SMALL LETTER Pl */
+		string= replace(string, "symbol-Pi", fromCharCode(0x03A0)); /* GREEK CAPITAL LETTER Pl */
 		string= replace(string, "symbol-rho", fromCharCode(0x03C1)); /* GREEK SMALL LETTER RHO */
+		string= replace(string, "symbol-Rho", fromCharCode(0x03A1)); /* GREEK CAPITAL LETTER RHO */
 		string= replace(string, "symbol-sigma", fromCharCode(0x03C3)); /* GREEK SMALL LETTER SIGMA */
+		string= replace(string, "symbol-Sigma", fromCharCode(0x03A3)); /* GREEK CAPITAL LETTER SIGMA */
 		string= replace(string, "symbol-phi", fromCharCode(0x03C6)); /* GREEK SMALL LETTER PHI */
+		string= replace(string, "symbol-Phi", fromCharCode(0x03A6)); /* GREEK CAPITAL LETTER PHI */
 		string= replace(string, "symbol-omega", fromCharCode(0x03C9)); /* GREEK SMALL LETTER OMEGA */
+		string= replace(string, "symbol-Omega", fromCharCode(0x03A9)); /* GREEK CAPITAL LETTER OMEGA */
 		string= replace(string, "symbol-eta", fromCharCode(0x03B7)); /*  GREEK SMALL LETTER ETA */
+		string= replace(string, "symbol-Eta", fromCharCode(0x0397)); /*  GREEK CAPITAL LETTER ETA */
 		string= replace(string, "symbol-sub2", fromCharCode(0x2082)); /*  subscript 2 */
 		string= replace(string, "symbol-sub3", fromCharCode(0x2083)); /*  subscript 3 */
 		string= replace(string, "symbol-sub4", fromCharCode(0x2084)); /*  subscript 4 */
 		string= replace(string, "symbol-sub5", fromCharCode(0x2085)); /*  subscript 5 */
 		string= replace(string, "symbol-sup2", fromCharCode(0x00B2)); /*  superscript 2 */
 		string= replace(string, "symbol-sup3", fromCharCode(0x00B3)); /*  superscript 3 */
-		string= replace(string, "degreeC", fromCharCode(181)); /* micron units */
+		string= replace(string, "symbol->=", fromCharCode(0x2265)); /* GREATER-THAN OR EQUAL TO */
+		string= replace(string, "symbol-<=", fromCharCode(0x2264)); /* LESS-THAN OR EQUAL TO */
+		string= replace(string, "symbol-xx", fromCharCode(0x00D7)); /* MULTIPLICATION SIGN */
+		string= replace(string, "symbol-copyright=", fromCharCode(0x00A9)); /* © */
+		string= replace(string, "symbol-ro", fromCharCode(0x00AE)); /* registered sign */
+		string= replace(string, "symbol-tm", fromCharCode(0x2122)); /* ™ */
+		string= replace(string, "symbol-parallelto", fromCharCode(0x2225)); /* PARALLEL TO  note CANNOT use "|" key */
+		// string= replace(string, "symbol-perpendicularto", fromCharCode(0x27C2)); /* PERPENDICULAR note CANNOT use "|" key */
+		string= replace(string, "symbol-degree", fromCharCode(0x00B0)); /* Degree */
+		string= replace(string, "degreeC", fromCharCode(0x00B0)+fromCharCode(0x2009) + "C"); /* Degree C */
+		string= replace(string, "arrow-up", fromCharCode(0x21E7)); /* 'UPWARDS WHITE ARROW */
+		string= replace(string, "arrow-down", fromCharCode(0x21E9)); /* 'DOWNWARDS WHITE ARROW */
+		string= replace(string, "arrow-left", fromCharCode(0x21E6)); /* 'LEFTWARDS WHITE ARROW */
+		string= replace(string, "arrow-right", fromCharCode(0x21E8)); /* 'RIGHTWARDS WHITE ARROW */
 		return string;
+	}
+	function createInnerShadowFromMask6(mask,iShadowDrop, iShadowDisp, iShadowBlur, iShadowDarkness) {
+		/* Requires previous run of: originalImageDepth = bitDepth();
+		because this version works with different bitDepths
+		v161115 calls four variables: drop, displacement blur and darkness
+		v180627 and calls mask label */
+		showStatus("Creating inner shadow for labels . . . ");
+		newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
+		getSelectionFromMask(mask);
+		setBackgroundColor(0,0,0);
+		run("Clear Outside");
+		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+		setSelectionLocation(selMaskX-iShadowDisp, selMaskY-iShadowDrop);
+		setBackgroundColor(0,0,0);
+		run("Clear Outside");
+		getSelectionFromMask(mask);
+		expansion = abs(iShadowDisp) + abs(iShadowDrop) + abs(iShadowBlur);
+		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
+		if (iShadowBlur>0) run("Gaussian Blur...", "sigma=[iShadowBlur]");
+		run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen the effect for small font sizes */
+		imageCalculator("Max", "inner_shadow",mask);
+		run("Select None");
+		/* The following are needed for different bit depths */
+		if (originalImageDepth==16 || originalImageDepth==32) run(originalImageDepth + "-bit");
+		run("Enhance Contrast...", "saturated=0 normalize");
+		run("Invert");  /* Create an image that can be subtracted - this works better for color than Min */
+		divider = (100 / abs(iShadowDarkness));
+		run("Divide...", "value=[divider]");
+	}
+	function createShadowDropFromMask7(mask, oShadowDrop, oShadowDisp, oShadowBlur, oShadowDarkness, oStroke) {
+		/* Requires previous run of: originalImageDepth = bitDepth();
+		because this version works with different bitDepths
+		v161115 calls five variables: drop, displacement blur and darkness
+		v180627 adds mask label to variables	*/
+		showStatus("Creating drop shadow for labels . . . ");
+		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
+		getSelectionFromMask(mask);
+		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+		setSelectionLocation(selMaskX + oShadowDisp, selMaskY + oShadowDrop);
+		setBackgroundColor(255,255,255);
+		if (oStroke>0) run("Enlarge...", "enlarge=[oStroke] pixel"); /* Adjust shadow size so that shadow extends beyond stroke thickness */
+		run("Clear");
+		run("Select None");
+		if (oShadowBlur>0) {
+			run("Gaussian Blur...", "sigma=[oShadowBlur]");
+			run("Unsharp Mask...", "radius=[oShadowBlur] mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
+		}
+		/* Now make sure shadow or glow does not impact outline */
+		getSelectionFromMask(mask);
+		if (oStroke>0) run("Enlarge...", "enlarge=[oStroke] pixel");
+		setBackgroundColor(0,0,0);
+		run("Clear");
+		run("Select None");
+		/* The following are needed for different bit depths */
+		if (originalImageDepth==16 || originalImageDepth==32) run(originalImageDepth + "-bit");
+		run("Enhance Contrast...", "saturated=0 normalize");
+		divider = (100 / abs(oShadowDarkness));
+		run("Divide...", "value=[divider]");
 	}
 	function getSelectionFromMask(selection_Mask){
 		tempTitle = getTitle();

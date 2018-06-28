@@ -90,7 +90,9 @@ v180613 works for multiple slices.
 		Dialog.addNumber("Inner Shadow Mean Blur:",floor(dIShO/2),1,2,"% of font size");
 		Dialog.addNumber("Inner Shadow Darkness \(darkest = 100%\):", 20,0,3,"% \(negative = glow\)");
 		overwriteChoice = newArray("Destructive overwrite    ", "New Image", "Overlay");
-		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, 3, overwriteChoice[1]);
+		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlay");
+		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlay", "Replace overlay");
+		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 2, 2, overwriteChoice[1]);
 		if (remSlices>0) Dialog.addRadioButtonGroup("Add the same labels to this and next " + remSlices + " slices? ", newArray("Yes", "No"), 1, 2, "No");	
 	Dialog.show();
 		selLengthInUnits = Dialog.getNumber;
@@ -207,7 +209,8 @@ v180613 works for multiple slices.
 	setOption("BlackBackground", false);
 	run("Convert to Mask");
 	
-	if (overWrite=="Overlay") {
+	if (endsWith(overWrite,"verlay")) {
+		if (startsWith(overWrite,"Replace")) Overlay.remove;
 		selColorHex = getHexColorFromRGBArray(selColor);
 		outlineColorHex = getHexColorFromRGBArray(outlineColor);
 		shadowColorHex = getHexColorFromRGBArray(shadowColor);
@@ -222,14 +225,19 @@ v180613 works for multiple slices.
 			for (o=1; o<remSlices+1; o++) {
 				if (slices>1) setSlice(startSliceNumber + o);
 				else setSlice(1);
+				/* Create shadow layer */
 				run("Select None");
 				getSelectionFromMask("label_mask");
 				getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-				setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
+				setSelectionLocation(selMaskX+shadowDisp, selMaskY+2*shadowDrop);
+				run("Enlarge...", "enlarge=[outlineStroke] pixel"); /* shadow needs to be bigger than outline */
 				Overlay.addSelection(shadowColorHex, outlineStroke, shadowColorHex);
+				/* Create outline layer */
 				run("Select None");
 				getSelectionFromMask("label_mask");
 				run("Enlarge...", "enlarge=[outlineStroke] pixel");
+				getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+				setSelectionLocation(selMaskX-outlineStroke, selMaskY+(2*outlineStroke));
 				Overlay.addSelection(outlineColorHex,outlineStroke,outlineColorHex);
 				run("Select None");
 				makeRectangle(selEX, selEY, selLengthInPixels, selHeight);
@@ -245,11 +253,10 @@ v180613 works for multiple slices.
 	else {
 		/* Create drop shadow if desired */
 		if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0)
-			createShadowDropFromMask();
+			createShadowDropFromMask7("label_mask", shadowDrop, shadowDisp, shadowBlur, shadowDarkness, outlineStroke);
 		/* Create inner shadow if desired */
 		if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0)
-			createInnerShadowFromMask();
-			
+			createInnerShadowFromMask6("label_mask",innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
 		if (startsWith(overWrite,"Destructive overwrite")) {
 			if (labelRest=="No") frames = 1;
 			else frames = remSlices +1;
@@ -309,6 +316,7 @@ v180613 works for multiple slices.
 	closeImageByTitle("inner_shadow");
 	closeImageByTitle("label_mask");
 	restoreSettings();
+	setSlice(startSliceNumber);
 	setBatchMode("exit & display"); /* exit batch mode */
 	showStatus("Fancy Scale Bar Added");
 }
@@ -398,60 +406,62 @@ v180613 works for multiple slices.
 		close();
 		}
 	}
-	function createInnerShadowFromMask() {
+	function createInnerShadowFromMask6(mask,iShadowDrop, iShadowDisp, iShadowBlur, iShadowDarkness) {
 		/* Requires previous run of: originalImageDepth = bitDepth();
 		because this version works with different bitDepths
-		v161104 */
+		v161115 calls four variables: drop, displacement blur and darkness
+		v180627 and calls mask label */
 		showStatus("Creating inner shadow for labels . . . ");
 		newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
-		getSelectionFromMask("label_mask");
+		getSelectionFromMask(mask);
 		setBackgroundColor(0,0,0);
 		run("Clear Outside");
 		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-		setSelectionLocation(selMaskX-innerShadowDisp, selMaskY-innerShadowDrop);
+		setSelectionLocation(selMaskX-iShadowDisp, selMaskY-iShadowDrop);
 		setBackgroundColor(0,0,0);
 		run("Clear Outside");
-		getSelectionFromMask("label_mask");
-		expansion = abs(innerShadowDisp) + abs(innerShadowDrop) + abs(innerShadowBlur);
+		getSelectionFromMask(mask);
+		expansion = abs(iShadowDisp) + abs(iShadowDrop) + abs(iShadowBlur);
 		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
-		if (innerShadowBlur>0) run("Gaussian Blur...", "sigma=[innerShadowBlur]");
+		if (iShadowBlur>0) run("Gaussian Blur...", "sigma=[iShadowBlur]");
 		run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen the effect for small font sizes */
-		imageCalculator("Max", "inner_shadow","label_mask");
+		imageCalculator("Max", "inner_shadow",mask);
 		run("Select None");
 		/* The following are needed for different bit depths */
 		if (originalImageDepth==16 || originalImageDepth==32) run(originalImageDepth + "-bit");
 		run("Enhance Contrast...", "saturated=0 normalize");
 		run("Invert");  /* Create an image that can be subtracted - this works better for color than Min */
-		divider = (100 / abs(innerShadowDarkness));
+		divider = (100 / abs(iShadowDarkness));
 		run("Divide...", "value=[divider]");
 	}
-	function createShadowDropFromMask() {
+	function createShadowDropFromMask7(mask, oShadowDrop, oShadowDisp, oShadowBlur, oShadowDarkness, oStroke) {
 		/* Requires previous run of: originalImageDepth = bitDepth();
 		because this version works with different bitDepths
-		v161104 */
+		v161115 calls five variables: drop, displacement blur and darkness
+		v180627 adds mask label to variables	*/
 		showStatus("Creating drop shadow for labels . . . ");
 		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
-		getSelectionFromMask("label_mask");
+		getSelectionFromMask(mask);
 		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-		setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
+		setSelectionLocation(selMaskX + oShadowDisp, selMaskY + oShadowDrop);
 		setBackgroundColor(255,255,255);
-		if (outlineStroke>0) run("Enlarge...", "enlarge=[outlineStroke] pixel"); /* Adjust shadow size so that shadow extends beyond stroke thickness */
-		run("Clear", "slice");
+		if (oStroke>0) run("Enlarge...", "enlarge=[oStroke] pixel"); /* Adjust shadow size so that shadow extends beyond stroke thickness */
+		run("Clear");
 		run("Select None");
-		if (shadowBlur>0) {
-			run("Gaussian Blur...", "sigma=[shadowBlur]");
-			// run("Unsharp Mask...", "radius=[shadowBlur] mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
+		if (oShadowBlur>0) {
+			run("Gaussian Blur...", "sigma=[oShadowBlur]");
+			run("Unsharp Mask...", "radius=[oShadowBlur] mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
 		}
 		/* Now make sure shadow or glow does not impact outline */
-		getSelectionFromMask("label_mask");
-		if (outlineStroke>0) run("Enlarge...", "enlarge=[outlineStroke] pixel");
+		getSelectionFromMask(mask);
+		if (oStroke>0) run("Enlarge...", "enlarge=[oStroke] pixel");
 		setBackgroundColor(0,0,0);
-		run("Clear", "slice");
+		run("Clear");
 		run("Select None");
 		/* The following are needed for different bit depths */
 		if (originalImageDepth==16 || originalImageDepth==32) run(originalImageDepth + "-bit");
 		run("Enhance Contrast...", "saturated=0 normalize");
-		divider = (100 / abs(shadowDarkness));
+		divider = (100 / abs(oShadowDarkness));
 		run("Divide...", "value=[divider]");
 	}
 	function getColorArrayFromColorName(colorName) {
@@ -463,7 +473,7 @@ v180613 works for multiple slices.
 		else if (colorName == "dark_gray") cA = newArray(51,51,51);
 		else if (colorName == "red") cA = newArray(255,0,0);
 		else if (colorName == "pink") cA = newArray(255, 192, 203);
-		else if (colorName == "green") cA = newArray(255,255,0);
+		else if (colorName == "green") cA = newArray(0,255,0);
 		else if (colorName == "blue") cA = newArray(0,0,255);
 		else if (colorName == "yellow") cA = newArray(255,255,0);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);

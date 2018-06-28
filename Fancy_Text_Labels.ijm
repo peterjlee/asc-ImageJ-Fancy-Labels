@@ -27,8 +27,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	if (matches(originalImage, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + originalImage + " ?"); 
 	setBatchMode(true);
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
-	sliceNumber = getSliceNumber();
-	remSlices = slices-sliceNumber;
+	startSliceNumber = getSliceNumber();
+	remSlices = slices-startSliceNumber;
 	imageDims = imageHeight + imageWidth;
 	originalImageDepth = bitDepth();
 	if (originalImageDepth==16) {
@@ -75,10 +75,14 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			Dialog.addNumber("Original selection width = ", orSelEWidth);
 			Dialog.addNumber("Original selection height = ", orSelEHeight);
 			Dialog.addCheckbox("Restore this selection at macro completion?", true);
+			if (orSelEX<imageWidth*0.4) just = "left";
+			else if (orSelEX>imageWidth*0.6) just = "right";
+			else just = "center";
 		}
 		else restoreSelection = false;
 		textJustChoices = newArray("auto", "left", "center", "right");
-		Dialog.addChoice("Text justification", textJustChoices, textJustChoices[0]);
+		if (selectionExists==1) Dialog.addChoice("Text justification, Auto = " + just, textJustChoices, textJustChoices[0]);
+		else Dialog.addChoice("Text justification", textJustChoices, textJustChoices[0]);
 		Dialog.addNumber("Default font size:", fontSize);
 		if (originalImageDepth==24)
 			colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern"); 
@@ -165,10 +169,10 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	if (innerShadowDisp<0) innerShadowDisp *= negAdj;
 	if (innerShadowBlur<0) innerShadowBlur *= negAdj;
 	fontFactor = fontSize/100;
-	outlineStroke = floor(fontFactor * outlineStroke);
-	shadowDrop = floor(fontFactor * shadowDrop);
-	shadowDisp = floor(fontFactor * shadowDisp);
-	shadowBlur = floor(fontFactor * shadowBlur);
+	outlineStroke = round(fontFactor * outlineStroke);
+	shadowDrop = round(fontFactor * shadowDrop);
+	shadowDisp = round(fontFactor * shadowDisp);
+	shadowBlur = round(fontFactor * shadowBlur);
 	innerShadowDrop = floor(fontFactor * innerShadowDrop);
 	innerShadowDisp = floor(fontFactor * innerShadowDisp);
 	innerShadowBlur = floor(fontFactor * innerShadowBlur);
@@ -214,48 +218,27 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		msgtitle="Location for the text labels...";
 		msg = "Draw a box in the image where you want to center the text labels...";
 		waitForUser(msgtitle, msg);
-		getSelectionBounds(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
-		shrinkX = orSelEWidth/longestStringWidth;
-		shrinkY = orSelEHeight/linesSpace;
-		shrinkF = minOf(shrinkX, shrinkY);
-		if (shrinkF < 1) reduceFontSize = getBoolean("Text will not fit in selection, reduce font size to fit?");
-		else reduceFontSize = false;
-		if (reduceFontSize) {
-			fontSize = shrinkF * fontSize;
-			linesSpace = shrinkF * linesSpace;
-			longestStringWidth = shrinkF * longestStringWidth;
-			fontFactor = fontSize/100;
-			outlineStroke = floor(fontFactor * outlineStroke);
-			shadowDrop = floor(fontFactor * shadowDrop);
-			shadowDisp = floor(fontFactor * shadowDisp);
-			shadowBlur = floor(fontFactor * shadowBlur);
-			innerShadowDrop = floor(fontFactor * innerShadowDrop);
-			innerShadowDisp = floor(fontFactor * innerShadowDisp);
-			innerShadowBlur = floor(fontFactor * innerShadowBlur);
-		}
-		selEX = orSelEX + round((orSelEWidth/2) - longestStringWidth/2);
-		selEY = orSelEY + round((orSelEHeight/2) - (linesSpace/2) + fontSize);
+		getSelectionBounds(orSelEX, orSelEY, orSelEWidth, orSelEHeight); /* this set for restore */
 		restoreSelection = getBoolean("Restore this selection at the end of the macro?");
 		if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
-		if (just=="auto") {
-			if (selEX<imageWidth*0.4) just = "left";
-			else if (selEX>imageWidth*0.6) just = "right";
-			else just = "center";
-		}
-	} else if (selectionExists==1 && endsWith(textLocChoice, "election")) {
+		getSelectionBounds(selEX, selEY, selEWidth, selEHeight); /* this set to change */
+	}
+	if (endsWith(textLocChoice, "election")) {
 		shrinkX = selEWidth/longestStringWidth;
 		shrinkY = selEHeight/linesSpace;
 		shrinkF = minOf(shrinkX, shrinkY);
-		if (shrinkF < 1) reduceFontSize = getBoolean("Text will not fit in selection, reduce font size to fit?");
-		if (reduceFontSize) {
-			fontSize = shrinkF * fontSize;
+		shrunkFont = shrinkF * fontSize;
+		if (shrinkF < 1) reduceFontSize = getBoolean("Text will not fit in selection, reduce font size to " + round(shrunkFont) + " to fit?");
+		else reduceFontSize = false;
+		if (reduceFontSize == true) {
+			fontSize = shrunkFont;
 			linesSpace = shrinkF * linesSpace;
 			longestStringWidth = shrinkF * longestStringWidth;
 			fontFactor = fontSize/100;
-			outlineStroke = floor(fontFactor * outlineStroke);
-			shadowDrop = floor(fontFactor * shadowDrop);
-			shadowDisp = floor(fontFactor * shadowDisp);
-			shadowBlur = floor(fontFactor * shadowBlur);
+			outlineStroke = round(fontFactor * outlineStroke);
+			shadowDrop = round(fontFactor * shadowDrop);
+			shadowDisp = round(fontFactor * shadowDisp);
+			shadowBlur = round(fontFactor * shadowBlur);
 			innerShadowDrop = floor(fontFactor * innerShadowDrop);
 			innerShadowDisp = floor(fontFactor * innerShadowDisp);
 			innerShadowBlur = floor(fontFactor * innerShadowBlur);
@@ -285,49 +268,34 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	}
 	workingImage = getTitle();
 	if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
+	textImages = newArray("label_mask","antiAliased");
 	/* Create Label Mask */
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
 	roiManager("deselect");
 	run("Select None");
 	setFont(fontName,fontSize, fontStyle);
 	textLabelLineY = textLabelY;
-	for (i=0; i<textOutNumber; i++) {
-		if (textInputLines[i]!="-blank-") {
-			if (just=="left") drawString(textInputLinesText[i], textLabelX, textLabelLineY);
-			else if (just=="right") drawString(textInputLinesText[i], textLabelX + (longestStringWidth - getStringWidth(textInputLinesText[i])), textLabelLineY);
-			else drawString(textInputLinesText[i], textLabelX + (longestStringWidth-getStringWidth(textInputLinesText[i]))/2, textLabelLineY);
-			textLabelLineY += lineSpacing * fontSize;
-		}
-		else textLabelLineY += lineSpacing * fontSize;
-	}
-	textLabelLineY = textLabelY;
 	newImage("antiAliased", originalImageDepth, imageWidth, imageHeight, 1);
-	// if(outlineColor=="black" && fontColor=="white") run("Duplicate...", "title=antiAliased");
-	// else {
-		// selectWindow(workingImage);
-		// run("Duplicate...", "title=antiAliased");
-		run("Select All");
-		setColorFromColorName(outlineColor);
-		fill();
-		roiManager("deselect");
-		run("Select None");
-		setColorFromColorName(fontColor);
-		/* Draw summary over top of labels */
-		setFont(fontName,fontSize, fontStyle);
+	run("Select All");
+	setColorFromColorName(outlineColor);
+	fill();
+	roiManager("deselect");
+	run("Select None");
+	setColorFromColorName(fontColor);
+	/* Draw text for mask and antialiased tweak */
+	for (t=0; t<2; t++) {
+		selectWindow(textImages[t]);
 		for (i=0; i<textOutNumber; i++) {
 			if (textInputLines[i]!="-blank-") {
-			if (just=="left") drawString(textInputLinesText[i], textLabelX, textLabelLineY);
-			else if (just=="right") drawString(textInputLinesText[i], textLabelX + (longestStringWidth - getStringWidth(textInputLinesText[i])), textLabelLineY);
-			else drawString(textInputLinesText[i], textLabelX + (longestStringWidth-getStringWidth(textInputLinesText[i]))/2, textLabelLineY);
-			textLabelLineY += lineSpacing * fontSize;
+				if (just=="left") drawString(textInputLinesText[i], textLabelX, textLabelLineY);
+				else if (just=="right") drawString(textInputLinesText[i], textLabelX + (longestStringWidth - getStringWidth(textInputLinesText[i])), textLabelLineY);
+				else drawString(textInputLinesText[i], textLabelX + (longestStringWidth-getStringWidth(textInputLinesText[i]))/2, textLabelLineY);
+				textLabelLineY += lineSpacing * fontSize;
 			}
 			else textLabelLineY += lineSpacing * fontSize;
 		}
-		// if (outlineStroke>0) {
-			// fakeAntialias = outlineStroke/2;
-			// run("Gaussian Blur...", "sigma=[fakeAntialias]");
-		// }
-	// }
+		textLabelLineY = textLabelY;
+	}
 	selectWindow("label_mask");
 	setThreshold(0, 128);
 	setOption("BlackBackground", false);
@@ -361,9 +329,6 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			else textLabelLineY += lineSpacing * fontSize;
 		}
 		Overlay.show;
-		if (restoreSelection)
-			makeRectangle(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
-		else run("Select None");
 	}
 	else {
 		selectWindow("antiAliased");
@@ -383,75 +348,42 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0) {
 			showStatus("Creating inner shadow for labels . . . ");
 			createInnerShadowFromMask6("label_mask",innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
-		}
-		if (isOpen("shadow") && shadowDarkness>0)		
+		}	
+		for (j=0; j<remSlices+1; j++) {
+			setSlice(startSliceNumber + j);
+			if (isOpen("shadow") && shadowDarkness>0)		
 			imageCalculator("Subtract", workingImage,"shadow");
-		else if (isOpen("shadow") && shadowDarkness<0)		
-			imageCalculator("Add", workingImage,"shadow");
-		run("Select None");
-		/* Create outline around text */
-		selectWindow(workingImage);
-		getSelectionFromMask("label_mask");
-		getSelectionBounds(maskX, maskY, null, null);
-		outlineStrokeOffset = minOf(round(shadowDisp/2), round(maxOf(0,(outlineStroke/2)-1)));
-		setSelectionLocation(maskX+outlineStrokeOffset, maskY+outlineStrokeOffset); /* Offset selection to create shadow effect */
-		run("Enlarge...", "enlarge=[outlineStroke] pixel");
-		setBackgroundFromColorName(outlineColor);
-		run("Clear", "slice");
-		outlineStrokeOffsetMod = outlineStrokeOffset/2;
-		run("Enlarge...", "enlarge=[outlineStrokeOffsetMod] pixel");
-		run("Gaussian Blur...", "sigma=[outlineStrokeOffsetMod]");
-		run("Select None");
-		/* Create text */
-		getSelectionFromMask("label_mask");
-		setBackgroundFromColorName(fontColor);
-		run("Clear", "slice");
-		run("Select None");
-		if (isOpen("antiAliased")) {
-			if (fontInt>=outlineInt) imageCalculator("Min",workingImage,"antiAliased");
-			else imageCalculator("Max",workingImage,"antiAliased");
-		}
-		/* Create inner shadow or glow if requested */
-		if (isOpen("inner_shadow") && innerShadowDarkness>0)
-			imageCalculator("Subtract", workingImage,"inner_shadow");
-		else if (isOpen("inner_shadow") && innerShadowDarkness<0)
-			imageCalculator("Add", workingImage,"inner_shadow");
-		if (labelRest) {
-			for (j=1; j<remSlices+1; j++) {
-				setSlice(sliceNumber + j);
-				if (isOpen("shadow") && shadowDarkness>0)		
-				imageCalculator("Subtract", workingImage,"shadow");
-				else if (isOpen("shadow") && shadowDarkness<0)		
-					imageCalculator("Add", workingImage,"shadow");
-				run("Select None");
-				/* Create outline around text */
-				selectWindow(workingImage);
-				getSelectionFromMask("label_mask");
-				getSelectionBounds(maskX, maskY, null, null);
-				outlineStrokeOffset = minOf(round(shadowDisp/2), round(maxOf(0,(outlineStroke/2)-1)));
-				setSelectionLocation(maskX+outlineStrokeOffset, maskY+outlineStrokeOffset); /* Offset selection to create shadow effect */
-				run("Enlarge...", "enlarge=[outlineStroke] pixel");
-				setBackgroundFromColorName(outlineColor);
-				run("Clear", "slice");
-				outlineStrokeOffsetMod = outlineStrokeOffset/2;
-				run("Enlarge...", "enlarge=[outlineStrokeOffsetMod] pixel");
-				run("Gaussian Blur...", "sigma=[outlineStrokeOffsetMod]");
-				run("Select None");
-				/* Create text */
-				getSelectionFromMask("label_mask");
-				setBackgroundFromColorName(fontColor);
-				run("Clear", "slice");
-				run("Select None");
-				if (isOpen("antiAliased")) {
-					if (fontInt>=outlineInt) imageCalculator("Min",workingImage,"antiAliased");
-					else imageCalculator("Max",workingImage,"antiAliased");
-				}
-				/* Create inner shadow or glow if requested */
-				if (isOpen("inner_shadow") && innerShadowDarkness>0)
-					imageCalculator("Subtract", workingImage,"inner_shadow");
-				else if (isOpen("inner_shadow") && innerShadowDarkness<0)
-					imageCalculator("Add", workingImage,"inner_shadow");
+			else if (isOpen("shadow") && shadowDarkness<0)		
+				imageCalculator("Add", workingImage,"shadow");
+			run("Select None");
+			/* Create outline around text */
+			selectWindow(workingImage);
+			getSelectionFromMask("label_mask");
+			getSelectionBounds(maskX, maskY, null, null);
+			outlineStrokeOffset = minOf(round(shadowDisp/2), round(maxOf(0,(outlineStroke/2)-1)));
+			setSelectionLocation(maskX+outlineStrokeOffset, maskY+outlineStrokeOffset); /* Offset selection to create shadow effect */
+			run("Enlarge...", "enlarge=[outlineStroke] pixel");
+			setBackgroundFromColorName(outlineColor);
+			run("Clear", "slice");
+			outlineStrokeOffsetMod = outlineStrokeOffset/2;
+			run("Enlarge...", "enlarge=[outlineStrokeOffsetMod] pixel");
+			run("Gaussian Blur...", "sigma=[outlineStrokeOffsetMod]");
+			run("Select None");
+			/* Create text */
+			getSelectionFromMask("label_mask");
+			setBackgroundFromColorName(fontColor);
+			run("Clear", "slice");
+			run("Select None");
+			if (isOpen("antiAliased")) {
+				if (fontInt>=outlineInt) imageCalculator("Min",workingImage,"antiAliased");
+				else imageCalculator("Max",workingImage,"antiAliased");
 			}
+			/* Create inner shadow or glow if requested */
+			if (isOpen("inner_shadow") && innerShadowDarkness>0)
+				imageCalculator("Subtract", workingImage,"inner_shadow");
+			else if (isOpen("inner_shadow") && innerShadowDarkness<0)
+				imageCalculator("Add", workingImage,"inner_shadow");
+			if (labelRest==false) remSlices = 0;
 		}
 	}
 	closeImageByTitle("shadow");
@@ -466,10 +398,9 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	}
 	restoreSettings;
 	setBatchMode("exit & display");
-	if (selectionExists==1 && endsWith(textLocChoice, "election")) {
-		if (restoreSelection==true) makeRectangle(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
-	}
-	setSlice(sliceNumber);
+	if (endsWith(textLocChoice, "election") && (restoreSelection==true)) makeRectangle(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
+	else run("Select None");
+	setSlice(startSliceNumber);
 	showStatus("Fancy Text Labels Finished");
 	run("Collect Garbage"); 
 }

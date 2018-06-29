@@ -1,14 +1,10 @@
-macro "Add Multiple Lines of Fancy Text To Image" {
+macro "Add Slice Label to Each Slice" {
 	/* This macro adds multiple lines of text to a copy of the image.
 		Peter J. Lee Applied Superconductivity Center at National High Magnetic Field Laboratory.
 		ANSI encoded for Windows.
-		Version v170411 removes spaces in New image names to fix issue with new combination images.
-		v180306 cosmetic changes to text.
-		v180308 added non-destructive overlay option (overlay can be saved in TIFF header).
-		v180611 Fixed stack labeling and fixed overlay.
-		v180618	Added restore selection option (useful for multiple slices) and fixed label vertical location for selected options.
-		v180626-8 Added text justification, added fit-to-selection, fixed override of previously selected area and added and more symbols
-		v180629 Added ability to import metadata from list.
+		Slices can be named with sequential numbers using imageJ's "stack sorter"
+		Non-formated slice labels can be applied with more variables and previews to images using ImageJ's "Label Stacks" and Dan White's (MPI-CBG) "Series Labeler", so you might want to try that more sophisticated programming first.
+		v180629 First version based on v180628 of the Fancy Text Label macro.
 	 */
 	requires("1.47r");
 	saveSettings;
@@ -28,14 +24,21 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	if (matches(originalImage, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + originalImage + " ?"); 
 	setBatchMode(true);
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
-	getPixelSize(unit, pixelWidth, pixelHeight);
 	startSliceNumber = getSliceNumber();
 	remSlices = slices-startSliceNumber;
+	allSliceLabels = newArray(slices);
+	maxLabelString = 0;
+	for (i=0; i<slices; i++) {
+		setSlice(i+1);
+		allSliceLabels[i] = getInfo("slice.label");
+		if (lengthOf(allSliceLabels[i]) > maxLabelString) maxLabelString = lengthOf(allSliceLabels[i]);
+	}
+	setSlice(startSliceNumber);
 	imageDims = imageHeight + imageWidth;
 	originalImageDepth = bitDepth();
 	if (originalImageDepth==16) {
 		Dialog.create("Bit depth conversion");
-		DDialog.addMessage("Sorry, this macro does not work well with 16-bit images./nBut perhaps a labelled 16-bit image is unnecessary?");
+		Dialog.addMessage("Sorry, this macro does not work well with 16-bit images./nBut perhaps a labelled 16-bit image is unnecessary?");
 		conversionChoice = newArray("RGB Color", "8-bit Gray", "Exit");
 		Dialog.addRadioButtonGroup("Choose:", conversionChoice, 3, 1, "8-bit Gray");
 		Dialog.show();
@@ -45,7 +48,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		else restoreExit("Goodbye");
 	}
 	id = getImageID();
-	fontSize = round(imageDims/50); /* default font size */
+	fontSize = round(imageDims/maxOf(50,(maxLabelString*3))); /* default font size */
 	if (fontSize < 10) fontSize = 10; /* set minimum default font size as 10 */
 	lineSpacing = 1.1;
 	outlineStroke = 7; /* default outline stroke: % of font size */
@@ -68,7 +71,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			loc = 6;
 		} else {
 			textLocChoices = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection"); 
-			loc = 2;
+			loc = 0;
 		}
 		Dialog.addChoice("Location of Summary:", textLocChoices, textLocChoices[loc]);
 		if (selectionExists==1) {
@@ -76,7 +79,6 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			Dialog.addNumber("Original selection Y start = ", orSelEY);
 			Dialog.addNumber("Original selection width = ", orSelEWidth);
 			Dialog.addNumber("Original selection height = ", orSelEHeight);
-			Dialog.setInsets(-33, 450, 0);
 			Dialog.addCheckbox("Restore this selection at macro completion?", true);
 			if (orSelEX<imageWidth*0.4) just = "left";
 			else if (orSelEX>imageWidth*0.6) just = "right";
@@ -84,46 +86,25 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		}
 		else restoreSelection = false;
 		textJustChoices = newArray("auto", "left", "center", "right");
-		// Dialog.setInsets(-35, 280, 0); /* top, left, bottom */
 		if (selectionExists==1) Dialog.addChoice("Text justification, Auto = " + just, textJustChoices, textJustChoices[0]);
 		else Dialog.addChoice("Text justification", textJustChoices, textJustChoices[0]);
 		Dialog.addNumber("Default font size:", fontSize);
 		if (originalImageDepth==24)
 			colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern"); 
 		else colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray");
-		// Dialog.setInsets(-35, 280, 0); /* top, left, bottom */
 		Dialog.addChoice("Text color:", colorChoice, colorChoice[0]);
 		fontStyleChoice = newArray("bold", "bold antialiased", "italic", "italic antialiased", "bold italic", "bold italic antialiased", "unstyled");
 		Dialog.addChoice("Font style:", fontStyleChoice, fontStyleChoice[1]);
 		fontNameChoice = newArray("SansSerif", "Serif", "Monospaced");
-		// Dialog.setInsets(-35, 280, 0); /* top, left, bottom */
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
-		Dialog.setInsets(5, 280, 5); /* top, left, bottom */
-		Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. If the units are in the parameter label, within \(...\) i.e. \(unit\) they will override this\nselection. \"degreeC\" will be replaced with " + fromCharCode(0x00B0)+fromCharCode(0x2009) + "C, \"symbol-Greek letter\" by the Greek letter, i.e. \"symbol-omega\" \ntranslates to " + fromCharCode(0x03C9) + ",\"symbol-Omega\" to " + fromCharCode(0x03A9) + " and \"symbol->=\" to " + fromCharCode(0x2265) + " etc. Arrows: \"arrow-up\" " + fromCharCode(0x21E7) + " \"arrow-left\" " + fromCharCode(0x21E6) + " etc.");
-		textChoiceLines = 8;
-		lengthOfDirectory = lengthOf(getInfo("image.directory"));
-		if (lengthOfDirectory>57) {
-			directorySubstring = substring(getInfo("image.directory"),lengthOfDirectory-57,lengthOfDirectory);
-			directorySubstring = "..." + substring(directorySubstring, indexOf(directorySubstring, "\\"));
-		}
-		else directorySubstring = getInfo("image.directory");
-		imageFilename = getInfo("image.filename");
-		imageFilenameWOExtension = substring(imageFilename,0,lastIndexOf(imageFilename,"."));
-		metaDataChoices = newArray("Input left box or select here from this list", getTitle(), getMetadata("Info"), directorySubstring, imageFilename, imageFilenameWOExtension, "pixel width = " +pixelWidth+" "+unit, "Image width = "+imageWidth +" pixels", getInfo("image.subtitle"));
-		// , imageWidth + "x" + imageHeight, );
-		for (i=0; i<textChoiceLines; i++) {
-			Dialog.setInsets(0, -640, 0);
-			Dialog.addString("Label line "+(i+1)+":","-blank-", 35);
-			Dialog.setInsets(-30, 280, 0); /* top, left, bottom */
-			Dialog.addChoice("",metaDataChoices,metaDataChoices[0]);
-		}
-		Dialog.setInsets(0, 280, 0); /* top, left, bottom */
+		sliceLabelDialogLimit = minOf(20, remSlices+1);
+		Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc.\nThe number of slices to be labelled is limited to " + sliceLabelDialogLimit + "\nAdditional slices can be labelled by repeating this\nmacro from first unlabelled slice");
+		for (i=0; i<sliceLabelDialogLimit; i++)
+			Dialog.addString("Slice No. "+(i+startSliceNumber)+":",allSliceLabels[i+startSliceNumber-1], maxLabelString);
 		Dialog.addRadioButtonGroup("Tweak the Formatting? ", newArray("Yes", "No"), 1, 2, "No");
-		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlay");
-		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlay", "Replace overlay");
-		Dialog.setInsets(-140, 280, 0); /* top, left, bottom */
-		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, 3, overwriteChoice[2]);
+		overwriteChoice = newArray("Destructive overwrite", "New image");
+		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 2, 1, overwriteChoice[1]);
 		Dialog.show();
 		
 		textLocChoice = Dialog.getChoice();
@@ -140,21 +121,20 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		fontStyle = Dialog.getChoice();
 		fontName = Dialog.getChoice();
 		outlineColor = Dialog.getChoice();
-		textInputLines = newArray(textChoiceLines);
-		for (i=0; i<textChoiceLines; i++) {
-			textInputLines[i] = Dialog.getString();
-			metaChoice = Dialog.getChoice();
-			if (metaChoice!="Input left box or select here from this list") textInputLines[i] = metaChoice;
-			textInputLines[i] = "" + convertToSymbols(textInputLines[i]); /* Use degree symbol */
+		sliceTextLabels = newArray(sliceLabelDialogLimit);
+		longestStringWidth = 0; /* reset longest string width for modified versions */
+		for (i=0; i<sliceLabelDialogLimit; i++) {
+			sliceTextLabels[i] = Dialog.getString();
+			sliceTextLabels[i] = "" + convertToSymbols(sliceTextLabels[i]); /* Use degree symbol */
+			sliceTextLabels[i] = "" + cleanLabel(sliceTextLabels[i]);
+			stringLength = getStringWidth(sliceTextLabels[i]);
+			if (stringLength>longestStringWidth) longestStringWidth = stringLength;
 		}
 		tweakFormat = Dialog.getRadioButton();
 		overWrite = Dialog.getRadioButton();
-		
-	if (remSlices>0 && !endsWith(overWrite,"overlay")) labelRest = getBoolean("Add the same labels to this and next " + remSlices + " slices?");					
-	else labelRest = false;
-	if (tweakFormat=="Yes") {	
+	if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */	
+	if (tweakFormat=="Yes") {
 		Dialog.create("Advanced Formatting Options");
-		Dialog.addNumber("Line Spacing", lineSpacing,1,3,"\(default 1\)");
 		Dialog.addNumber("Outline Stroke:", outlineStroke,0,3,"% of font size");
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
 		Dialog.addNumber("Shadow Drop: ?", shadowDrop,0,3,"% of font size");
@@ -168,7 +148,6 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		Dialog.addNumber("Inner Shadow Darkness:", 20,0,3,"% \(darkest = 100%\)");
 						
 		Dialog.show();
-		lineSpacing = Dialog.getNumber();
 		outlineStroke = Dialog.getNumber();
 		outlineColor = Dialog.getChoice();
 		shadowDrop = Dialog.getNumber();
@@ -181,22 +160,6 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		innerShadowDarkness = Dialog.getNumber();
 	}
 	if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
-	textOutNumber = 0;
-	textInputLinesText = newArray(textChoiceLines);
-	setFont(fontName, fontSize, fontStyle);
-	longestStringWidth = 0;
-	for (i=0; i<textChoiceLines; i++) {
-		if (textInputLines[i]!="-blank-") {
-			textInputLinesText[i] = "" + cleanLabel(textInputLines[i]);
-			textOutNumber = i+1; /* This allows you to have blank lines between lines but not at the end */
-			if (getStringWidth(textInputLinesText[i])>longestStringWidth) longestStringWidth = getStringWidth(textInputLines[i]);
-		}
-	}
-	/* Make sure all text fits image width */
-	shrinkX = imageWidth/longestStringWidth;
-	fontSize = fontSize * minOf(1, shrinkX);	
-	longestStringWidth = longestStringWidth * minOf(1, shrinkX);
-	/* fotn settings */
 	fontColorArray = getColorArrayFromColorName(fontColor);
 	Array.getStatistics(fontColorArray,fontIntMean);
 	fontInt = floor(fontIntMean);
@@ -222,7 +185,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	if (offsetY<(shadowDrop+shadowBlur+1)) offsetY = (shadowDrop+shadowBlur+1);
 	if (fontStyle=="unstyled") fontStyle="";
 /*  */			
-	linesSpace = lineSpacing * textOutNumber * fontSize;
+	setFont(fontName, fontSize, fontStyle);
 	if (textLocChoice == "Top Left") {
 		selEX = offsetX;
 		selEY = offsetY;
@@ -233,15 +196,15 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		if (just=="auto") just = "right";
 	} else if (textLocChoice == "Center") {
 		selEX = round((imageWidth - longestStringWidth)/2);
-		selEY = round((imageHeight - linesSpace)/2 + fontSize);
+		selEY = round(imageHeight/2 + fontSize);
 		if (just=="auto") just = "center";
 	} else if (textLocChoice == "Bottom Left") {
 		selEX = offsetX;
-		selEY = imageHeight - (offsetY + linesSpace) + fontSize; 
+		selEY = imageHeight - offsetY + fontSize; 
 		if (just=="auto") just = "left";
 	} else if (textLocChoice == "Bottom Right") {
 		selEX = imageWidth - longestStringWidth - offsetX;
-		selEY = imageHeight - (offsetY + linesSpace) + fontSize;
+		selEY = imageHeight - offsetY + fontSize;
 		if (just=="auto") just = "right";
 	} else if (textLocChoice == "Center of New Selection"){
 		if (is("Batch Mode")==true) setBatchMode(false); /* Does not accept interaction while batch mode is on */
@@ -255,8 +218,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		getSelectionBounds(selEX, selEY, selEWidth, selEHeight); /* this set to change */
 	}
 	if (endsWith(textLocChoice, "election")) {
-		shrinkX = minOf(1,selEWidth/longestStringWidth);
-		shrinkY = minOf(1,selEHeight/linesSpace);
+		shrinkX = minOf(1, selEWidth/longestStringWidth);
+		shrinkY = minOf(1, selEHeight/fontSize);
 		shrinkF = minOf(shrinkX, shrinkY);
 		shrunkFont = shrinkF * fontSize;
 		if (shrinkF < 1) {
@@ -287,7 +250,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			innerShadowBlur = floor(fontFactor * innerShadowBlur);
 		}
 		selEX = selEX + round((selEWidth/2) - longestStringWidth/2);
-		selEY = selEY + round((selEHeight/2) - (linesSpace/2) + fontSize);
+		selEY = selEY + round((selEHeight/2) + fontSize);
 		if (just=="auto") {
 			if (selEX<imageWidth*0.4) just = "left";
 			else if (selEX>imageWidth*0.6) just = "right";
@@ -311,72 +274,43 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	}
 	workingImage = getTitle();
 	if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
-	textImages = newArray("label_mask","antiAliased");
-	/* Create Label Mask */
-	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
-	roiManager("deselect");
-	run("Select None");
-	setFont(fontName,fontSize, fontStyle);
-	textLabelLineY = textLabelY;
-	newImage("antiAliased", originalImageDepth, imageWidth, imageHeight, 1);
-	/* Draw text for mask and antialiased tweak */
-	for (t=0; t<2; t++) {
-		selectWindow(textImages[t]);
-		if (t==0) setColor("white");
-		else {
-			run("Select All");
-			setColorFromColorName(outlineColor);
-			fill();
-			roiManager("deselect");
-			run("Select None");
-			setColorFromColorName(fontColor);
-		}
-		for (i=0; i<textOutNumber; i++) {
-			if (textInputLines[i]!="-blank-") {
-				if (just=="left") drawString(textInputLinesText[i], textLabelX, textLabelLineY);
-				else if (just=="right") drawString(textInputLinesText[i], textLabelX + (longestStringWidth - getStringWidth(textInputLinesText[i])), textLabelLineY);
-				else drawString(textInputLinesText[i], textLabelX + (longestStringWidth-getStringWidth(textInputLinesText[i]))/2, textLabelLineY);
-				textLabelLineY += lineSpacing * fontSize;
-			}
-			else textLabelLineY += lineSpacing * fontSize;
-		}
+	for (i=0; i<sliceLabelDialogLimit; i++) {
+		setSlice(startSliceNumber + i);
+		textImages = newArray("label_mask","antiAliased");
+		/* Create Label Mask */
+		newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
+		roiManager("deselect");
+		run("Select None");
+		setFont(fontName,fontSize, fontStyle);
 		textLabelLineY = textLabelY;
-	}
-	selectWindow("label_mask");
-	setThreshold(0, 128);
-	setOption("BlackBackground", false);
-	run("Convert to Mask");
-	if (endsWith(overWrite,"verlay")) {
-		selectWindow(originalImage);
-		if (startsWith(overWrite,"Replace")) Overlay.remove;
-		grayHex = toHex(round(255*shadowDarkness/100));
-		shadowHex = "#" + ""+pad(grayHex) + ""+pad(grayHex) + ""+pad(grayHex);
-		fontColorHex = getHexColorFromRGBArray(fontColor);
-		outlineColorHex = getHexColorFromRGBArray(outlineColor);
-		run("Select None");
-		getSelectionFromMask("label_mask");
-		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-		setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
-		Overlay.addSelection(shadowHex, outlineStroke, shadowHex);
-		run("Select None");
-		getSelectionFromMask("label_mask");
-		run("Enlarge...", "enlarge=[outlineStroke] pixel");
-		Overlay.addSelection(outlineColorHex,outlineStroke,outlineColorHex);
-		run("Select None");
-		setColorFromColorName(fontColor);
-		textLabelLineY = textLabelY;
-		for (t=0; t<textOutNumber; t++) {
-			if (textInputLines[t]!="-blank-") {
-				if (just=="left") Overlay.drawString(textInputLinesText[t], textLabelX, textLabelLineY);
-				else if (just=="right") Overlay.drawString(textInputLinesText[t], textLabelX + (longestStringWidth - getStringWidth(textInputLinesText[t])), textLabelLineY);
-				else Overlay.drawString(textInputLinesText[t], textLabelX + (longestStringWidth-getStringWidth(textInputLinesText[t]))/2, textLabelLineY);
-				textLabelLineY += lineSpacing * fontSize;					
+		newImage("antiAliased", originalImageDepth, imageWidth, imageHeight, 1);
+		/* Draw text for mask and antialiased tweak */
+		for (t=0; t<2; t++) {
+			selectWindow(textImages[t]);
+			if (t==0) setColor("white");
+			else {
+				run("Select All");
+				setColorFromColorName(outlineColor);
+				fill();
+				roiManager("deselect");
+				run("Select None");
+				setColorFromColorName(fontColor);
 			}
-			else textLabelLineY += lineSpacing * fontSize;
+			for (i=0; i<textOutNumber; i++) {
+				if (textInputLines[i]!="-blank-") {
+					if (just=="left") drawString(textInputLinesText[i], textLabelX, textLabelLineY);
+					else if (just=="right") drawString(textInputLinesText[i], textLabelX + (longestStringWidth - getStringWidth(textInputLinesText[i])), textLabelLineY);
+					else drawString(textInputLinesText[i], textLabelX + (longestStringWidth-getStringWidth(textInputLinesText[i]))/2, textLabelLineY);
+					textLabelLineY += lineSpacing * fontSize;
+				}
+				else textLabelLineY += lineSpacing * fontSize;
+			}
+			textLabelLineY = textLabelY;
 		}
-		Overlay.show;
-	}
-	else {
+		selectWindow("label_mask");
+		setThreshold(0, 128);
+		setOption("BlackBackground", false);
+		run("Convert to Mask");
 		selectWindow("antiAliased");
 		getSelectionFromMask("label_mask");
 		run("Make Inverse");
@@ -395,47 +329,43 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			showStatus("Creating inner shadow for labels . . . ");
 			createInnerShadowFromMask6("label_mask",innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
 		}	
-		for (s=0; s<remSlices+1; s++) {
-			if (isOpen("shadow") && shadowDarkness>0)		
-				imageCalculator("Subtract", workingImage,"shadow");
-			else if (isOpen("shadow") && shadowDarkness<0)		
-				imageCalculator("Add", workingImage,"shadow");
-			run("Select None");
-			/* Create outline around text */
-			selectWindow(workingImage);
-			getSelectionFromMask("label_mask");
-			getSelectionBounds(maskX, maskY, null, null);
-			outlineStrokeOffset = minOf(round(shadowDisp/2), round(maxOf(0,(outlineStroke/2)-1)));
-			setSelectionLocation(maskX+outlineStrokeOffset, maskY+outlineStrokeOffset); /* Offset selection to create shadow effect */
-			run("Enlarge...", "enlarge=[outlineStroke] pixel");
-			setBackgroundFromColorName(outlineColor);
-			run("Clear", "slice");
-			outlineStrokeOffsetMod = outlineStrokeOffset/2;
-			run("Enlarge...", "enlarge=[outlineStrokeOffsetMod] pixel");
-			run("Gaussian Blur...", "sigma=[outlineStrokeOffsetMod]");
-			run("Select None");
-			/* Create text */
-			getSelectionFromMask("label_mask");
-			setBackgroundFromColorName(fontColor);
-			run("Clear", "slice");
-			run("Select None");
-			if (isOpen("antiAliased")) {
-				if (fontInt>=outlineInt) imageCalculator("Min",workingImage,"antiAliased");
-				else imageCalculator("Max",workingImage,"antiAliased");
-			}
-			/* Create inner shadow or glow if requested */
-			if (isOpen("inner_shadow") && innerShadowDarkness>0)
-				imageCalculator("Subtract", workingImage,"inner_shadow");
-			else if (isOpen("inner_shadow") && innerShadowDarkness<0)
-				imageCalculator("Add", workingImage,"inner_shadow");
-			if (labelRest==false) remSlices = 0;
-			else run("Next Slice [>]");
+		if (isOpen("shadow") && shadowDarkness>0)		
+		imageCalculator("Subtract", workingImage,"shadow");
+		else if (isOpen("shadow") && shadowDarkness<0)		
+			imageCalculator("Add", workingImage,"shadow");
+		run("Select None");
+		/* Create outline around text */
+		selectWindow(workingImage);
+		getSelectionFromMask("label_mask");
+		getSelectionBounds(maskX, maskY, null, null);
+		outlineStrokeOffset = minOf(round(shadowDisp/2), round(maxOf(0,(outlineStroke/2)-1)));
+		setSelectionLocation(maskX+outlineStrokeOffset, maskY+outlineStrokeOffset); /* Offset selection to create shadow effect */
+		run("Enlarge...", "enlarge=[outlineStroke] pixel");
+		setBackgroundFromColorName(outlineColor);
+		run("Clear", "slice");
+		outlineStrokeOffsetMod = outlineStrokeOffset/2;
+		run("Enlarge...", "enlarge=[outlineStrokeOffsetMod] pixel");
+		run("Gaussian Blur...", "sigma=[outlineStrokeOffsetMod]");
+		run("Select None");
+		/* Create text */
+		getSelectionFromMask("label_mask");
+		setBackgroundFromColorName(fontColor);
+		run("Clear", "slice");
+		run("Select None");
+		if (isOpen("antiAliased")) {
+			if (fontInt>=outlineInt) imageCalculator("Min",workingImage,"antiAliased");
+			else imageCalculator("Max",workingImage,"antiAliased");
 		}
+		/* Create inner shadow or glow if requested */
+		if (isOpen("inner_shadow") && innerShadowDarkness>0)
+			imageCalculator("Subtract", workingImage,"inner_shadow");
+		else if (isOpen("inner_shadow") && innerShadowDarkness<0)
+			imageCalculator("Add", workingImage,"inner_shadow");
+		closeImageByTitle("shadow");
+		closeImageByTitle("inner_shadow");
+		closeImageByTitle("label_mask");
+		closeImageByTitle("antiAliased");
 	}
-	closeImageByTitle("shadow");
-	closeImageByTitle("inner_shadow");
-	closeImageByTitle("label_mask");
-	closeImageByTitle("antiAliased");
 	selectWindow(workingImage);
 	if (startsWith(overWrite, "New"))  {
 		if ((lastIndexOf(originalImage,"."))>0)  workingImageNameWOExt = unCleanLabel(substring(workingImage, 0, lastIndexOf(workingImage,".")));
@@ -446,7 +376,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	setBatchMode("exit & display");
 	if (endsWith(textLocChoice, "election") && (restoreSelection==true)) makeRectangle(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
 	else run("Select None");
-	// setSlice(startSliceNumber);
+	setSlice(startSliceNumber);
 	showStatus("Fancy Text Labels Finished");
 	run("Collect Garbage"); 
 }

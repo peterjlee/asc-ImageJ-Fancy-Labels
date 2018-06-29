@@ -717,7 +717,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		else if (colorName == "dark_gray") cA = newArray(51,51,51);
 		else if (colorName == "red") cA = newArray(255,0,0);
 		else if (colorName == "pink") cA = newArray(255, 192, 203);
-		else if (colorName == "green") cA = newArray(255,255,0);
+		else if (colorName == "green") cA = newArray(0,255,0);
 		else if (colorName == "blue") cA = newArray(0,0,255);
 		else if (colorName == "yellow") cA = newArray(255,255,0);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);

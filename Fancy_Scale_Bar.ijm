@@ -9,6 +9,7 @@ v161105 improved offset guesses.
 v180108 set outline to at least 1 pixel if desired, updated functions and fixed typos.
 v180611 replaced run("Clear" with run("Clear", "slice").
 v180613 works for multiple slices.
+v180711 minor corner positioning tweaks for large images.
 */
 	saveSettings(); /* To restore settings at the end */
 	setBatchMode(true);
@@ -44,10 +45,10 @@ v180613 works for multiple slices.
 	}
 	else sbWidth = round(lcf*imageWidth/5);
 	selOffsetX = round(imageWidth/120);
-	if (selOffsetX>20) selOffsetX = 20;
+	// if (selOffsetX>20) selOffsetX = 20;
 	if (selOffsetX<4) selOffsetX = 4;
-	selOffsetY = round(maxOf(imageHeight/120, sbHeight + sbFontSize/4));
-	if (selOffsetY>20) selOffsetY = 20;
+	selOffsetY = round(maxOf(imageHeight/180, sbHeight + sbFontSize/6));
+	// if (selOffsetY>20) selOffsetY = 20;
 	if (selOffsetY<4) selOffsetY = 4;
 	run("Set Scale...", "distance=[lcfFactor] known=1 pixel=1 selectedUnit=[selectedUnit]");
 	Dialog.create("Scale Bar Parameters");

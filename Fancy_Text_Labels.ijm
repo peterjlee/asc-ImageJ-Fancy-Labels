@@ -8,7 +8,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		v180611 Fixed stack labeling and fixed overlay.
 		v180618	Added restore selection option (useful for multiple slices) and fixed label vertical location for selected options.
 		v180626-8 Added text justification, added fit-to-selection, fixed override of previously selected area and added and more symbols
-		v180629 Added ability to import metadata from list.
+		v180629 Added ability to import metadata from list. v180702 Added progress bar for multiple slices.
 	 */
 	requires("1.47r");
 	saveSettings;
@@ -396,6 +396,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			createInnerShadowFromMask6("label_mask",innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
 		}	
 		for (s=0; s<remSlices+1; s++) {
+			showProgress(-s/remSlices);
 			if (isOpen("shadow") && shadowDarkness>0)		
 				imageCalculator("Subtract", workingImage,"shadow");
 			else if (isOpen("shadow") && shadowDarkness<0)		

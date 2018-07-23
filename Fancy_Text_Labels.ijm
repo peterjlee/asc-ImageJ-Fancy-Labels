@@ -9,7 +9,6 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		v180618	Added restore selection option (useful for multiple slices) and fixed label vertical location for selected options.
 		v180626-8 Added text justification, added fit-to-selection, fixed override of previously selected area and added and more symbols
 		v180629 Added ability to import metadata from list. v180702 Added progress bar for multiple slices.
-		v180722 Allows any system font to be used.
 	 */
 	requires("1.47r");
 	saveSettings;
@@ -96,9 +95,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		Dialog.addChoice("Text color:", colorChoice, colorChoice[0]);
 		fontStyleChoice = newArray("bold", "bold antialiased", "italic", "italic antialiased", "bold italic", "bold italic antialiased", "unstyled");
 		Dialog.addChoice("Font style:", fontStyleChoice, fontStyleChoice[1]);
-		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
-		systemFonts = getFontList();
-		fontNameChoice = Array.concat(IJFonts,systemFonts);
+		fontNameChoice = getFontChoiceList();
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
 		Dialog.setInsets(5, 280, 5); /* top, left, bottom */
@@ -599,6 +596,27 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		run("Enhance Contrast...", "saturated=0 normalize");
 		divider = (100 / abs(oShadowDarkness));
 		run("Divide...", "value=[divider]");
+	}
+	function getFontChoiceList() {
+		/* v180723 first version */
+		systemFonts = getFontList();
+		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
+		fontNameChoice = Array.concat(IJFonts,systemFonts);
+		faveFontList = newArray("Your favorite fonts here", "SansSerif", "Arial Black", "Open Sans ExtraBold", "Calibri", "Roboto", "Tahoma", "Times New Roman", "Helvetica");
+		faveFontListCheck = newArray(faveFontList.length);
+		counter = 0;
+		for (i=0; i<faveFontList.length; i++) {
+			for (j=0; j<fontNameChoice.length; j++) {
+				if (faveFontList[i] == fontNameChoice[j]) {
+					faveFontListCheck[counter] = faveFontList[i];
+					counter +=1;
+					j = fontNameChoice.length;
+				}
+			}
+		}
+		faveFontListCheck = Array.trim(faveFontListCheck, counter);
+		fontNameChoice = Array.concat(faveFontListCheck,fontNameChoice);
+		return fontNameChoice;
 	}
 	function getSelectionFromMask(selection_Mask){
 		tempTitle = getTitle();

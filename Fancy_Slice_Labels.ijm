@@ -95,7 +95,7 @@ macro "Add Slice Label to Each Slice" {
 		Dialog.addChoice("Text color:", colorChoice, colorChoice[0]);
 		fontStyleChoice = newArray("bold", "bold antialiased", "italic", "italic antialiased", "bold italic", "bold italic antialiased", "unstyled");
 		Dialog.addChoice("Font style:", fontStyleChoice, fontStyleChoice[1]);
-		fontNameChoice = newArray("SansSerif", "Serif", "Monospaced");
+		fontNameChoice = getFontChoiceList();
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
 		sliceLabelDialogLimit = minOf(20, remSlices+1);
@@ -582,6 +582,27 @@ macro "Add Slice Label to Each Slice" {
 	}
 	function pad(n) {
 		n= toString(n); if (lengthOf(n)==1) n= "0"+n; return n;
+	}
+	function getFontChoiceList() {
+		/* v180723 first version */
+		systemFonts = getFontList();
+		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
+		fontNameChoice = Array.concat(IJFonts,systemFonts);
+		faveFontList = newArray("Your favorite fonts here", "SansSerif", "Arial Black", "Open Sans ExtraBold", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Times New Roman", "Helvetica");
+		faveFontListCheck = newArray(faveFontList.length);
+		counter = 0;
+		for (i=0; i<faveFontList.length; i++) {
+			for (j=0; j<fontNameChoice.length; j++) {
+				if (faveFontList[i] == fontNameChoice[j]) {
+					faveFontListCheck[counter] = faveFontList[i];
+					counter +=1;
+					j = fontNameChoice.length;
+				}
+			}
+		}
+		faveFontListCheck = Array.trim(faveFontListCheck, counter);
+		fontNameChoice = Array.concat(faveFontListCheck,fontNameChoice);
+		return fontNameChoice;
 	}
 	function unCleanLabel(string) { 
 	/* v161104 This function replaces special characters with standard characters for file system compatible filenames */

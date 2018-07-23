@@ -10,10 +10,11 @@ v180108 set outline to at least 1 pixel if desired, updated functions and fixed 
 v180611 replaced run("Clear" with run("Clear", "slice").
 v180613 works for multiple slices.
 v180711 minor corner positioning tweaks for large images.
-v180722 allows any system font to be used.
+v180722 allows any system font to be used. v180723 Adds some favorite fonts to top of list (if available).
 */
 	saveSettings(); /* To restore settings at the end */
 	setBatchMode(true);
+	if (is("Inverting LUT")==true) run("Invert LUT"); /* more effectively removes Inverting LUT */
 	selEType = selectionType; 
 	if (selEType>=0)
 		getSelectionBounds(selEX, selEY, selEWidth, selEHeight);
@@ -77,10 +78,7 @@ v180722 allows any system font to be used.
 		Dialog.addNumber("Y Offset from Edge in Pixels \(applies to corners only\)", selOffsetY,0,1,"pixels");
 		fontStyleChoice = newArray("bold", "bold antialiased", "italic", "italic antialiased", "bold italic", "bold italic antialiased", "unstyled");
 		Dialog.addChoice("Font style:", fontStyleChoice, fontStyleChoice[1]);
-		fontNameChoice = newArray("SansSerif", "Serif", "Monospaced");
-		systemFonts = getFontList();
-		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
-		fontNameChoice = Array.concat(IJFonts,systemFonts);
+		fontNameChoice = getFontChoiceList();
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addNumber("Outline Stroke:", dOutS,0,3,"% of font size");
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
@@ -524,6 +522,27 @@ v180722 allows any system font to be used.
 		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);
 		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);
 		 return hexName;
+	}
+	function getFontChoiceList() {
+		/* v180723 first version */
+		systemFonts = getFontList();
+		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
+		fontNameChoice = Array.concat(IJFonts,systemFonts);
+		faveFontList = newArray("Your favorite fonts here", "SansSerif", "Arial Black", "Open Sans ExtraBold", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Times New Roman", "Helvetica");
+		faveFontListCheck = newArray(faveFontList.length);
+		counter = 0;
+		for (i=0; i<faveFontList.length; i++) {
+			for (j=0; j<fontNameChoice.length; j++) {
+				if (faveFontList[i] == fontNameChoice[j]) {
+					faveFontListCheck[counter] = faveFontList[i];
+					counter +=1;
+					j = fontNameChoice.length;
+				}
+			}
+		}
+		faveFontListCheck = Array.trim(faveFontListCheck, counter);
+		fontNameChoice = Array.concat(faveFontListCheck,fontNameChoice);
+		return fontNameChoice;
 	}
 	function getScaleFactor(inputUnit){
 		/* v171024 */

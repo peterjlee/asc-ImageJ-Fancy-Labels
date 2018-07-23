@@ -10,6 +10,7 @@ v180108 set outline to at least 1 pixel if desired, updated functions and fixed 
 v180611 replaced run("Clear" with run("Clear", "slice").
 v180613 works for multiple slices.
 v180711 minor corner positioning tweaks for large images.
+v180722 allows any system font to be used.
 */
 	saveSettings(); /* To restore settings at the end */
 	setBatchMode(true);
@@ -77,6 +78,9 @@ v180711 minor corner positioning tweaks for large images.
 		fontStyleChoice = newArray("bold", "bold antialiased", "italic", "italic antialiased", "bold italic", "bold italic antialiased", "unstyled");
 		Dialog.addChoice("Font style:", fontStyleChoice, fontStyleChoice[1]);
 		fontNameChoice = newArray("SansSerif", "Serif", "Monospaced");
+		systemFonts = getFontList();
+		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
+		fontNameChoice = Array.concat(IJFonts,systemFonts);
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addNumber("Outline Stroke:", dOutS,0,3,"% of font size");
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);

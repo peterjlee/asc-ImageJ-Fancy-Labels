@@ -9,6 +9,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		v180618	Added restore selection option (useful for multiple slices) and fixed label vertical location for selected options.
 		v180626-8 Added text justification, added fit-to-selection, fixed override of previously selected area and added and more symbols
 		v180629 Added ability to import metadata from list. v180702 Added progress bar for multiple slices.
+		v180722 Allows any system font to be used.
 	 */
 	requires("1.47r");
 	saveSettings;
@@ -95,8 +96,9 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		Dialog.addChoice("Text color:", colorChoice, colorChoice[0]);
 		fontStyleChoice = newArray("bold", "bold antialiased", "italic", "italic antialiased", "bold italic", "bold italic antialiased", "unstyled");
 		Dialog.addChoice("Font style:", fontStyleChoice, fontStyleChoice[1]);
-		fontNameChoice = newArray("SansSerif", "Serif", "Monospaced");
-		// Dialog.setInsets(-35, 280, 0); /* top, left, bottom */
+		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
+		systemFonts = getFontList();
+		fontNameChoice = Array.concat(IJFonts,systemFonts);
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
 		Dialog.setInsets(5, 280, 5); /* top, left, bottom */
@@ -196,13 +198,14 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	shrinkX = imageWidth/longestStringWidth;
 	fontSize = fontSize * minOf(1, shrinkX);	
 	longestStringWidth = longestStringWidth * minOf(1, shrinkX);
-	/* fotn settings */
+	/* determine font color intensities settings for antialiased tweak */
 	fontColorArray = getColorArrayFromColorName(fontColor);
 	Array.getStatistics(fontColorArray,fontIntMean);
 	fontInt = floor(fontIntMean);
 	outlineColorArray = getColorArrayFromColorName(outlineColor);
 	Array.getStatistics(outlineColorArray,outlineIntMean);
 	outlineInt = floor(outlineIntMean);
+	
 	negAdj = 0.5;  /* negative offsets appear exaggerated at full displacement */
 	if (shadowDrop<0) shadowDrop *= negAdj;
 	if (shadowDisp<0) shadowDisp *= negAdj;

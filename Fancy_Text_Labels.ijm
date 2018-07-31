@@ -462,7 +462,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
 		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
 		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micron units */
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ångström unit symbol */ Ö Ö
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ångström unit symbol */ 
 		string= replace(string, "  ", " "); /* Replace double spaces with single spaces */
 		string= replace(string, "_", fromCharCode(0x2009)); /* Replace underlines with thin spaces */
 		string= replace(string, "px", "pixels"); /* Expand pixel abbreviation */

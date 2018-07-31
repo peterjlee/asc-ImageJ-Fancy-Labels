@@ -11,6 +11,7 @@ v180611 replaced run("Clear" with run("Clear", "slice").
 v180613 works for multiple slices.
 v180711 minor corner positioning tweaks for large images.
 v180722 allows any system font to be used. v180723 Adds some favorite fonts to top of list (if available).
+v180730 rounds the scale bar width guess to two figures.
 */
 	saveSettings(); /* To restore settings at the end */
 	setBatchMode(true);
@@ -45,7 +46,8 @@ v180722 allows any system font to be used. v180723 Adds some favorite fonts to t
 		sbDP = autoCalculateDecPlacesFromValueOnly(sbWidth);
 		sbWidth = d2s(sbWidth, sbDP);
 	}
-	else sbWidth = round(lcf*imageWidth/5);
+	// else sbWidth = round(lcf*imageWidth/5);
+	else sbWidth = lcf*imageWidth/5;
 	selOffsetX = round(imageWidth/120);
 	// if (selOffsetX>20) selOffsetX = 20;
 	if (selOffsetX<4) selOffsetX = 4;
@@ -53,8 +55,11 @@ v180722 allows any system font to be used. v180723 Adds some favorite fonts to t
 	// if (selOffsetY>20) selOffsetY = 20;
 	if (selOffsetY<4) selOffsetY = 4;
 	run("Set Scale...", "distance=[lcfFactor] known=1 pixel=1 selectedUnit=[selectedUnit]");
+	indexSBWidth = parseInt(substring(d2s(sbWidth, -1),indexOf(d2s(sbWidth, -1), "E")+1));
+	dpSB = maxOf(0,1 - indexSBWidth);
+	sbWidth = pow(10,indexSBWidth-1)*(round((sbWidth)/pow(10,indexSBWidth-1)));
 	Dialog.create("Scale Bar Parameters");
-		Dialog.addNumber("Length of scale bar in " + selectedUnit + "s:", sbWidth, 3, 10, selectedUnit);
+		Dialog.addNumber("Length of scale bar in " + selectedUnit + "s:", sbWidth, dpSB, 10, selectedUnit);
 		if (sF!=0) {
 			newUnit = newArray(""+selectedUnit+" Length x1", "cm \(Length x"+nSF[1]+"\)","mm \(Length x"+nSF[2]+"\)","µm \(Length x"+nSF[3]+"\)","microns \(Length x"+nSF[4]+"\)", "nm \(Length x"+nSF[5]+"\)", "Å \(Length x"+nSF[6]+"\)", "pm \(Length x"+nSF[7]+"\)", "inches \(Length x"+nSF[8]+"\)", "human hair \(Length x"+nSF[9]+"\)");
 			Dialog.addChoice("Override unit with new choice?", newUnit, newUnit[0]);
@@ -211,7 +216,6 @@ v180722 allows any system font to be used. v180723 Adds some favorite fonts to t
 	setThreshold(0, 128);
 	setOption("BlackBackground", false);
 	run("Convert to Mask");
-	
 	if (endsWith(overWrite,"verlay")) {
 		if (startsWith(overWrite,"Replace")) Overlay.remove;
 		selColorHex = getHexColorFromRGBArray(selColor);

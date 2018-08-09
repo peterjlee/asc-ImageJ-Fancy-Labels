@@ -9,15 +9,45 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		v180618	Added restore selection option (useful for multiple slices) and fixed label vertical location for selected options.
 		v180626-8 Added text justification, added fit-to-selection, fixed override of previously selected area and added and more symbols
 		v180629 Added ability to import metadata from list. v180702 Added progress bar for multiple slices.
+		v180803 Can have line rotated to match angle of select-line or any arbitrary angle;
+		v180809 Fixed bugs introduced in v180803. Added text above line option. Added "flatten" option to embed line selection.
 	 */
 	requires("1.47r");
 	saveSettings;
-	if (selectionType>=0) {
-		selEType = selectionType; 
-		selectionExists = 1;
-		getSelectionBounds(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
+	getPixelSize(unit, pixWidth, pixHeight, pixDepth);
+	selEType = selectionType;
+	scaledLineAngle = 0;
+	if (selEType>=0) {
+		selectionExists = true;
+		if (selEType>=5 && selEType<=7) {
+			line = true;
+			if (selEType>5) {
+				/*  for 6=segmented line or 7=freehand line do a linear fit */
+				getSelectionCoordinates(xPoints, yPoints);
+				Array.getStatistics(xPoints, orSelEX1, orSelEX2, null, null);
+				Fit.doFit("Straight Line", xPoints, yPoints);
+				orSelEY1 = Fit.f(orSelEX1);
+				orSelEY2 = Fit.f(orSelEX2);
+			}
+			else getLine(orSelEX1, orSelEY1, orSelEX2, orSelEY2, selLineWidth);
+			x1=orSelEX1*pixWidth; y1=orSelEY1*pixHeight; x2=orSelEX2*pixWidth; y2=orSelEY2*pixHeight; 
+			scaledLineAngle = getAngle(x1, y1, x2, y2);
+			scaledLineLength = sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
+			orSelEX = minOf(orSelEX1, orSelEX2);
+			orSelEY = minOf(orSelEY1, orSelEY2);
+			orSelEWidth = abs(orSelEX2-orSelEX1);
+			orSelEHeight = abs(orSelEY2-orSelEY1);
+			selLineLength = sqrt(orSelEWidth*orSelEWidth+orSelEHeight*orSelEHeight);
+		}
+		else {
+			line = false;
+			getSelectionBounds(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
+		}
 	}
-	else selectionExists = 0;
+	else {
+		selectionExists = false;
+		line = false;
+	}	
 	originalImage = getTitle();
 	/*	Set options for black objects on white background as this works better for publications */
 	run("Options...", "iterations=1 white count=1"); /* Set the background to white */
@@ -60,10 +90,12 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	innerShadowDarkness = 16;
 	offsetX = round(1 + imageWidth/150); /* default offset of label from edge */
 	offsetY = round(1 + imageHeight/150); /* default offset of label from edge */
+	textRot = 0;
+	textAboveLine = false;
 		
 	/* Then Dialog . . . */
 	Dialog.create("Basic Label Options");
-		if (selectionExists==1) {
+		if (selectionExists) {
 			textLocChoices = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection", "Center of Selection"); 
 			loc = 6;
 		} else {
@@ -71,21 +103,35 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			loc = 2;
 		}
 		Dialog.addChoice("Location of Summary:", textLocChoices, textLocChoices[loc]);
-		if (selectionExists==1) {
+		if (selectionExists) {
 			Dialog.addNumber("Original selection X start = ", orSelEX);
 			Dialog.addNumber("Original selection Y start = ", orSelEY);
 			Dialog.addNumber("Original selection width = ", orSelEWidth);
 			Dialog.addNumber("Original selection height = ", orSelEHeight);
-			Dialog.setInsets(-33, 450, 0);
-			Dialog.addCheckbox("Restore this selection at macro completion?", true);
+			if (selEType==0 || selEType==1 || selEType==5 || selEType==6 || selEType==7) {
+				Dialog.setInsets(-33, 360, 0);
+				Dialog.addCheckbox("Restore this selection at macro completion?", true);
+			} else restoreSelection = false;
+			// if (selEType>=5 && selEType<=7)	Dialog.addCheckbox("Draw straight line on image?", true);
 			if (orSelEX<imageWidth*0.4) just = "left";
 			else if (orSelEX>imageWidth*0.6) just = "right";
 			else just = "center";
+			if (selEType>=5 && selEType<=7) {
+				if (scaledLineAngle<0 && scaledLineAngle>-180) textRot = 180-scaledLineAngle;
+				else if (scaledLineAngle>180) textRot = 360-scaledLineAngle;
+				// if (textRot>180) textRot-=180; /* it is assumed that upside-down is undesirable */
+				Dialog.addNumber("Text Rotation Angle = ", textRot);
+				Dialog.setInsets(-33, 360, 0);
+				Dialog.addMessage("Note: Rotated text may not be pretty.");
+				Dialog.setInsets(0, 240, 0);
+				Dialog.addCheckbox("1st line of text above line", true);
+			}	
 		}
 		else restoreSelection = false;
+
 		textJustChoices = newArray("auto", "left", "center", "right");
 		// Dialog.setInsets(-35, 280, 0); /* top, left, bottom */
-		if (selectionExists==1) Dialog.addChoice("Text justification, Auto = " + just, textJustChoices, textJustChoices[0]);
+		if (selectionExists) Dialog.addChoice("Text justification, Auto = " + just, textJustChoices, textJustChoices[0]);
 		else Dialog.addChoice("Text justification", textJustChoices, textJustChoices[0]);
 		Dialog.addNumber("Default font size:", fontSize);
 		if (originalImageDepth==24)
@@ -99,7 +145,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
 		Dialog.setInsets(5, 280, 5); /* top, left, bottom */
-		Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. If the units are in the parameter label, within \(...\) i.e. \(unit\) they will override this\nselection. \"degreeC\" will be replaced with " + fromCharCode(0x00B0)+fromCharCode(0x2009) + "C, \"symbol-Greek letter\" by the Greek letter, i.e. \"symbol-omega\" \ntranslates to " + fromCharCode(0x03C9) + ",\"symbol-Omega\" to " + fromCharCode(0x03A9) + " and \"symbol->=\" to " + fromCharCode(0x2265) + " etc. Arrows: \"arrow-up\" " + fromCharCode(0x21E7) + " \"arrow-left\" " + fromCharCode(0x21E6) + " etc.");
+		Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. If the units are in the parameter label, within \(...\) i.e. \(unit\) they will override this\nselection. \"degreeC\" will be replaced with " + fromCharCode(0x00B0)+fromCharCode(0x2009) + "C, \"degrees\" by " + fromCharCode(0x00B0)+", \"symbol-Greek letter\" by the Greek letter, i.e. \"symbol-omega\" \ntranslates to " + fromCharCode(0x03C9) + ",\"symbol-Omega\" to " + fromCharCode(0x03A9) + " and \"symbol->=\" to " + fromCharCode(0x2265) + " etc. Arrows: \"arrow-up\" " + fromCharCode(0x21E7) + " \"arrow-left\" " + fromCharCode(0x21E6) + " etc.");
 		textChoiceLines = 8;
 		lengthOfDirectory = lengthOf(getInfo("image.directory"));
 		if (lengthOfDirectory>57) {
@@ -108,9 +154,15 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		}
 		else directorySubstring = getInfo("image.directory");
 		imageFilename = getInfo("image.filename");
-		imageFilenameWOExtension = substring(imageFilename,0,lastIndexOf(imageFilename,"."));
-		metaDataChoices = newArray("Input left box or select here from this list", getTitle(), getMetadata("Info"), directorySubstring, imageFilename, imageFilenameWOExtension, "pixel width = " +pixelWidth+" "+unit, "Image width = "+imageWidth +" pixels", getInfo("image.subtitle"));
-		// , imageWidth + "x" + imageHeight, );
+		if(lastIndexOf(imageFilename,".")>0) imageFilenameWOExtension = substring(imageFilename,0,lastIndexOf(imageFilename,"."));
+		else imageFilenameWOExtension = imageFilename;
+		metaDataChoices1 = newArray("Input left box or select here from this list", getTitle());
+		metaDataChoices2 = newArray(getMetadata("Info"), directorySubstring, imageFilename, imageFilenameWOExtension, "pixel width = " +pixelWidth+" "+unit, "Image width = "+imageWidth +" pixels", getInfo("image.subtitle"));
+		if (line) {
+			lineData = newArray(""+scaledLineLength+" "+unit + ", "+scaledLineAngle+fromCharCode(0x00B0), ""+scaledLineAngle+fromCharCode(0x00B0), ""+scaledLineLength+" "+unit);
+			metaDataChoices = Array.concat(metaDataChoices1,lineData,metaDataChoices2);
+		}
+		else metaDataChoices = Array.concat(metaDataChoices1, metaDataChoices2);
 		for (i=0; i<textChoiceLines; i++) {
 			Dialog.setInsets(0, -640, 0);
 			Dialog.addString("Label line "+(i+1)+":","-blank-", 35);
@@ -126,12 +178,16 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		Dialog.show();
 		
 		textLocChoice = Dialog.getChoice();
-		if (selectionExists==1) {
+		if (selectionExists) {
 			selEX =  Dialog.getNumber(); /* Allows user to tweak pre-selection using dialog boxes */
 			selEY =  Dialog.getNumber();
 			selEWidth =  Dialog.getNumber();
 			selEHeight =  Dialog.getNumber();
 			restoreSelection = Dialog.getCheckbox();
+			if (selEType>=5 && selEType<=7) {
+				textRot = Dialog.getNumber();
+				textAboveLine = Dialog.getCheckbox;
+			}
 		}
 		just = Dialog.getChoice();
 		fontSize =  Dialog.getNumber();
@@ -191,6 +247,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			if (getStringWidth(textInputLinesText[i])>longestStringWidth) longestStringWidth = getStringWidth(textInputLines[i]);
 		}
 	}
+	if (textOutNumber==0) restoreExit("No text for labels");
 	/* Make sure all text fits image width */
 	shrinkX = imageWidth/longestStringWidth;
 	fontSize = fontSize * minOf(1, shrinkX);	
@@ -256,7 +313,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	}
 	if (endsWith(textLocChoice, "election")) {
 		shrinkX = minOf(1,selEWidth/longestStringWidth);
-		shrinkY = minOf(1,selEHeight/linesSpace);
+		if (line) shrinkY = minOf(1,imageHeight/linesSpace);
+		else shrinkY = minOf(1,selEHeight/linesSpace);
 		shrinkF = minOf(shrinkX, shrinkY);
 		shrunkFont = shrinkF * fontSize;
 		if (shrinkF < 1) {
@@ -302,6 +360,11 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	if ((endX+offsetX)>imageWidth) selEX = imageWidth - longestStringWidth - offsetX;
 	textLabelX = selEX;
 	textLabelY = selEY;
+	/* Now offset from line for line label */
+	if (selEType>=5 && selEType<7 && textAboveLine) {
+		textLabelX += round(cos(textRot/(180/PI))*0.75*fontSize);
+		textLabelX += round(sin(textRot/(180/PI))*0.75*fontSize);
+	}	
 	setColorFromColorName("white");
 	roiManager("show none");
 	// run("Flatten"); /* changes bit depth */
@@ -312,15 +375,17 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	workingImage = getTitle();
 	if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
 	textImages = newArray("label_mask","antiAliased");
+	if (textRot!=0 || endsWith(overWrite,"verlay")) tIs = 1; /* No-antialiased if text rotated or overlay used */
+	else tIs = 2;
 	/* Create Label Mask */
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
 	roiManager("deselect");
 	run("Select None");
 	setFont(fontName,fontSize, fontStyle);
 	textLabelLineY = textLabelY;
-	newImage("antiAliased", originalImageDepth, imageWidth, imageHeight, 1);
+	if (tIs >1) newImage("antiAliased", originalImageDepth, imageWidth, imageHeight, 1);
 	/* Draw text for mask and antialiased tweak */
-	for (t=0; t<2; t++) {
+	for (t=0; t<tIs; t++) {
 		selectWindow(textImages[t]);
 		if (t==0) setColor("white");
 		else {
@@ -341,7 +406,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			else textLabelLineY += lineSpacing * fontSize;
 		}
 		textLabelLineY = textLabelY;
-	}
+	}	
 	selectWindow("label_mask");
 	setThreshold(0, 128);
 	setOption("BlackBackground", false);
@@ -355,35 +420,46 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		outlineColorHex = getHexColorFromRGBArray(outlineColor);
 		run("Select None");
 		getSelectionFromMask("label_mask");
+		if (textRot!=0) run("Rotate...", "  angle=" + textRot);
 		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
 		setSelectionLocation(selMaskX+shadowDisp, selMaskY+shadowDrop);
 		Overlay.addSelection(shadowHex, outlineStroke, shadowHex);
 		run("Select None");
 		getSelectionFromMask("label_mask");
+		if (textRot!=0) run("Rotate...", "  angle=" + textRot);
 		run("Enlarge...", "enlarge=[outlineStroke] pixel");
 		Overlay.addSelection(outlineColorHex,outlineStroke,outlineColorHex);
 		run("Select None");
-		setColorFromColorName(fontColor);
-		textLabelLineY = textLabelY;
-		for (t=0; t<textOutNumber; t++) {
-			if (textInputLines[t]!="-blank-") {
-				if (just=="left") Overlay.drawString(textInputLinesText[t], textLabelX, textLabelLineY);
-				else if (just=="right") Overlay.drawString(textInputLinesText[t], textLabelX + (longestStringWidth - getStringWidth(textInputLinesText[t])), textLabelLineY);
-				else Overlay.drawString(textInputLinesText[t], textLabelX + (longestStringWidth-getStringWidth(textInputLinesText[t]))/2, textLabelLineY);
-				textLabelLineY += lineSpacing * fontSize;					
+		if (textRot==0) {
+			setColorFromColorName(fontColor);
+			textLabelLineY = textLabelY;
+			for (t=0; t<textOutNumber; t++) {
+				if (textInputLines[t]!="-blank-") {
+					if (just=="left") Overlay.drawString(textInputLinesText[t], textLabelX, textLabelLineY);
+					else if (just=="right") Overlay.drawString(textInputLinesText[t], textLabelX + (longestStringWidth - getStringWidth(textInputLinesText[t])), textLabelLineY);
+					else Overlay.drawString(textInputLinesText[t], textLabelX + (longestStringWidth-getStringWidth(textInputLinesText[t]))/2, textLabelLineY);
+					textLabelLineY += lineSpacing * fontSize;					
+				}
+				else textLabelLineY += lineSpacing * fontSize;
 			}
-			else textLabelLineY += lineSpacing * fontSize;
+		} else {
+			getSelectionFromMask("label_mask");
+			run("Rotate...", "  angle=" + textRot);
+			Overlay.addSelection(outlineColorHex,outlineStroke,fontColorHex);
 		}
 		Overlay.show;
 	}
 	else {
-		selectWindow("antiAliased");
-		getSelectionFromMask("label_mask");
-		run("Make Inverse");
-		if (fontInt>=outlineInt) setColorFromColorName("white");
-		else setColorFromColorName("black");
-		fill();
-		run("Select None");
+		if (textRot==0) {
+			selectWindow("antiAliased");
+			getSelectionFromMask("label_mask");
+			if (textRot!=0) run("Rotate...", "  angle=" + textRot);
+			run("Make Inverse");
+			if (fontInt>=outlineInt) setColorFromColorName("white");
+			else setColorFromColorName("black");
+			fill();
+			run("Select None");
+		}
 		// selectWindow("label_mask");
 		/* Create drop shadow if desired */
 		if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0) {
@@ -405,6 +481,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			/* Create outline around text */
 			selectWindow(workingImage);
 			getSelectionFromMask("label_mask");
+			if (textRot!=0) run("Rotate...", "  angle=" + textRot);
 			getSelectionBounds(maskX, maskY, null, null);
 			outlineStrokeOffset = minOf(round(shadowDisp/2), round(maxOf(0,(outlineStroke/2)-1)));
 			setSelectionLocation(maskX+outlineStrokeOffset, maskY+outlineStrokeOffset); /* Offset selection to create shadow effect */
@@ -417,6 +494,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			run("Select None");
 			/* Create text */
 			getSelectionFromMask("label_mask");
+			if (textRot!=0) run("Rotate...", "  angle=" + textRot);
 			setBackgroundFromColorName(fontColor);
 			run("Clear", "slice");
 			run("Select None");
@@ -444,15 +522,55 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		rename(workingImageNameWOExt + "+text");
 	}
 	restoreSettings;
+	run("Select None");
 	setBatchMode("exit & display");
-	if (endsWith(textLocChoice, "election") && (restoreSelection==true)) makeRectangle(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
+	if (endsWith(textLocChoice, "election") && (restoreSelection==true)) {
+		if (selEType==0) makeRectangle(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
+		if (selEType==1) makeOval(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
+		if (selEType>=5 && selEType<7) {
+			makeLine(orSelEX1, orSelEY1, orSelEX2, orSelEY2);
+			if (getBoolean("Create flattened image with line selection")) {
+				run("Add Selection..."); /* By adding selection to overlay this also works with the overlay label */
+				run("Flatten");
+			}
+		}
+	}
 	else run("Select None");
-	// setSlice(startSliceNumber);
 	showStatus("Fancy Text Labels Finished");
 	run("Collect Garbage"); 
 }
+/*  **********  ImageJ Functions  ********** */	
+	  
+  function getAngle(x1, y1, x2, y2) {
+	/* Returns the angle in degrees between the specified line and the horizontal axis.
+	https://imagej.nih.gov/ij/macros/Measure_Angle_And_Length.txt
+	*/
+      q1=0; q2orq3=2; q4=3; /* quadrant */
+      dx = x2-x1;
+      dy = y1-y2;
+      if (dx!=0)
+          angle = atan(dy/dx);
+      else {
+          if (dy>=0)
+              angle = PI/2;
+          else
+              angle = -PI/2;
+      }
+      angle = (180/PI)*angle;
+      if (dx>=0 && dy>=0)
+           quadrant = q1;
+      else if (dx<0)
+          quadrant = q2orq3;
+      else
+          quadrant = q4;
+      if (quadrant==q2orq3)
+          angle = angle+180.0;
+      else if (quadrant==q4)
+          angle = angle+360.0;
+      return angle;
+  }
 	/* 
-	( 8(|)   ( 8(|)  Functions  ( 8(|)  ( 8(|)
+	( 8(|)   ( 8(|)  ASC and ASC-mod-BAR Functions  ( 8(|)  ( 8(|)
 	*/
 	function cleanLabel(string) {
 		string= replace(string, "\\^2", fromCharCode(178)); /* superscript 2 */
@@ -477,7 +595,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	}
 	function convertToSymbols(string) {
 		/* v180612 first version
-			v1v180627 Expanded */
+			v180627 Expanded, v180803 added "degrees" */
 		string= replace(string, "symbol-Angstrom", fromCharCode(0x212B)); /* ANGSTROM SIGN */
 		string= replace(string, "symbol-alpha", fromCharCode(0x03B1));
 		string= replace(string, "symbol-Alpha", fromCharCode(0x0391));
@@ -532,7 +650,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, "symbol-parallelto", fromCharCode(0x2225)); /* PARALLEL TO  note CANNOT use "|" key */
 		// string= replace(string, "symbol-perpendicularto", fromCharCode(0x27C2)); /* PERPENDICULAR note CANNOT use "|" key */
 		string= replace(string, "symbol-degree", fromCharCode(0x00B0)); /* Degree */
-		string= replace(string, "degreeC", fromCharCode(0x00B0)+fromCharCode(0x2009) + "C"); /* Degree C */
+		string= replace(string, "degreeC", fromCharCode(0x00B0)+fromCharCode(0x2009) + "C"); /* Degree + space + C */
+		string= replace(string, "degrees", fromCharCode(0x00B0)); /* Degree C */
 		string= replace(string, "arrow-up", fromCharCode(0x21E7)); /* 'UPWARDS WHITE ARROW */
 		string= replace(string, "arrow-down", fromCharCode(0x21E9)); /* 'DOWNWARDS WHITE ARROW */
 		string= replace(string, "arrow-left", fromCharCode(0x21E6)); /* 'LEFTWARDS WHITE ARROW */
@@ -543,10 +662,12 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		/* Requires previous run of: originalImageDepth = bitDepth();
 		because this version works with different bitDepths
 		v161115 calls four variables: drop, displacement blur and darkness
-		v180627 and calls mask label */
+		v180627 and calls mask label
+		v180803	special version for rotated text	*/
 		showStatus("Creating inner shadow for labels . . . ");
 		newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
 		getSelectionFromMask(mask);
+		if (textRot!=0) run("Rotate...", "  angle=" + textRot);
 		setBackgroundColor(0,0,0);
 		run("Clear Outside");
 		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
@@ -554,6 +675,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		setBackgroundColor(0,0,0);
 		run("Clear Outside");
 		getSelectionFromMask(mask);
+		if (textRot!=0) run("Rotate...", "  angle=" + textRot);
 		expansion = abs(iShadowDisp) + abs(iShadowDrop) + abs(iShadowBlur);
 		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
 		if (iShadowBlur>0) run("Gaussian Blur...", "sigma=[iShadowBlur]");
@@ -571,10 +693,12 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		/* Requires previous run of: originalImageDepth = bitDepth();
 		because this version works with different bitDepths
 		v161115 calls five variables: drop, displacement blur and darkness
-		v180627 adds mask label to variables	*/
+		v180627 adds mask label to variables	
+		v180803	special version for rotated text	*/
 		showStatus("Creating drop shadow for labels . . . ");
 		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
 		getSelectionFromMask(mask);
+		if (textRot!=0) run("Rotate...", "  angle=" + textRot);
 		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
 		setSelectionLocation(selMaskX + oShadowDisp, selMaskY + oShadowDrop);
 		setBackgroundColor(255,255,255);
@@ -587,6 +711,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		}
 		/* Now make sure shadow or glow does not impact outline */
 		getSelectionFromMask(mask);
+		if (textRot!=0) run("Rotate...", "  angle=" + textRot);
 		if (oStroke>0) run("Enlarge...", "enlarge=[oStroke] pixel");
 		setBackgroundColor(0,0,0);
 		run("Clear");
@@ -663,6 +788,11 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);
 		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);
 		 return hexName;
+	}
+	function restoreExit(message){ /* Make a clean exit from a macro, restoring previous settings */
+		restoreSettings(); /* Restore previous settings before exiting */
+		setBatchMode("exit & display"); /* Probably not necessary if exiting gracefully but otherwise harmless */
+		exit(message);
 	}
 	function setColorFromColorName(colorName) {
 		colorArray = getColorArrayFromColorName(colorName);

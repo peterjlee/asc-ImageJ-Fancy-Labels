@@ -14,12 +14,29 @@ macro "Add Summary Table to Copy of Image"{
 	run("Appearance...", " "); /* Do not use Inverting LUT */
 	/*	The above should be the defaults but this makes sure (black particles on a white background)
 		http://imagejdocu.tudor.lu/doku.php?id=faq:technical:how_do_i_set_up_imagej_to_deal_with_white_particles_on_a_black_background_by_default */
+	getPixelSize(unit, pixWidth, pixHeight, pixDepth);
 	selEType = selectionType; 
 	if (selEType>=0) {
-		getSelectionBounds(selEX, selEY, selEWidth, selEHeight);
-		// if (selEType==5) getLine(selEX, selEY, selEX2, selEY2, selLineWidth);
-		// if (selEType==2 || selEType==3 || selEType==6 || selEType==7 || selEType==8|| selEType==10)
-		// getSelectionCoordinates(selEXCoords, selEYCoords);
+		if (selEType>=5 && selEType<=7) {
+			line==true;
+			if (selEType>5) {
+				/*  for 6=segmented line or 7=freehand line do a linear fit */
+				getSelectionCoordinates(xPoints, yPoints);
+				Array.getStatistics(xPoints, selEX1, selEX2, null, null);
+				Fit.doFit("Linear", xPoints, yPoints);
+				selEY1 = Fit.f(selEX1);
+				selEY2 = Fit.f(selEX2);
+			}
+			else = getLine(selEX1, selEY1, selEX2, selEY2, selLineWidth);
+			x1=selEX1*pixWidth; y1=selEY1*pixHeight; x2=selEX2*pixWidth; y2=selEY2*pixHeight; 
+			scaledLineAngle = getAngle(x1, y1, x2, y2);
+			scaledLineLength = sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
+			selLineLength = sqrt((selEX2-x1)*(selEX2-x1)+(selEY2-selEY1)*(selEY2-selEY1));
+		}
+		else {
+			line = false;
+			getSelectionBounds(selEX, selEY, selEWidth, selEHeight);
+		}
 	}
 	t=getTitle();
 	/* Now checks to see if a Ramp legend has been selected by accident */
@@ -30,7 +47,6 @@ macro "Add Summary Table to Copy of Image"{
 	imageWidth = getWidth();
 	imageHeight = getHeight();
 	id = getImageID();
-	getPixelSize(unit, null, null);
 	fontSize = 22; /* default font size */
 	lineSpacing = 1.1;
 	outlineStroke = 8; /* default outline stroke: % of font size */
@@ -336,6 +352,86 @@ macro "Add Summary Table to Copy of Image"{
 	setBatchMode("exit & display");
 	showStatus("Fancy Summary Table Macro Finished");
 	
+	
+/*  **********  ImageJ Functions  ********** */	
+	  
+  function getAngle(x1, y1, x2, y2) {
+	/* Returns the angle in degrees between the specified line and the horizontal axis.
+	https://imagej.nih.gov/ij/macros/Measure_Angle_And_Length.txt
+	*/
+      q1=0; q2orq3=2; q4=3; //quadrant
+      dx = x2-x1;
+      dy = y1-y2;
+      if (dx!=0)
+          angle = atan(dy/dx);
+      else {
+          if (dy>=0)
+              angle = PI/2;
+          else
+              angle = -PI/2;
+      }
+      angle = (180/PI)*angle;
+      if (dx>=0 && dy>=0)
+           quadrant = q1;
+      else if (dx<0)
+          quadrant = q2orq3;
+      else
+          quadrant = q4;
+      if (quadrant==q2orq3)
+          angle = angle+180.0;
+      else if (quadrant==q4)
+          angle = angle+360.0;
+      return angle;
+  }
+  
+  /* ********* ASC modified BAR Color Functions Color Functions ********* */
+  
+	function getColorArrayFromColorName(colorName) {
+		cA = newArray(255,255,255);
+		if (colorName == "white") cA = newArray(255,255,255);
+		else if (colorName == "black") cA = newArray(0,0,0);
+		else if (colorName == "light_gray") cA = newArray(200,200,200);
+		else if (colorName == "gray") cA = newArray(127,127,127);
+		else if (colorName == "dark_gray") cA = newArray(51,51,51);
+		else if (colorName == "red") cA = newArray(255,0,0);
+		else if (colorName == "pink") cA = newArray(255, 192, 203);
+		else if (colorName == "green") cA = newArray(0,255,0);
+		else if (colorName == "blue") cA = newArray(0,0,255);
+		else if (colorName == "yellow") cA = newArray(255,255,0);
+		else if (colorName == "orange") cA = newArray(255, 165, 0);
+		else if (colorName == "garnet") cA = newArray(120,47,64);
+		else if (colorName == "gold") cA = newArray(206,184,136);
+		else if (colorName == "aqua_modern") cA = newArray(75,172,198);
+		else if (colorName == "blue_accent_modern") cA = newArray(79,129,189);
+		else if (colorName == "blue_dark_modern") cA = newArray(31,73,125);
+		else if (colorName == "blue_modern") cA = newArray(58,93,174);
+		else if (colorName == "gray_modern") cA = newArray(83,86,90);
+		else if (colorName == "green_dark_modern") cA = newArray(121,133,65);
+		else if (colorName == "green_modern") cA = newArray(155,187,89);
+		else if (colorName == "orange_modern") cA = newArray(247,150,70);
+		else if (colorName == "pink_modern") cA = newArray(255,105,180);
+		else if (colorName == "purple_modern") cA = newArray(128,100,162);
+		else if (colorName == "red_N_modern") cA = newArray(227,24,55);
+		else if (colorName == "red_modern") cA = newArray(192,80,77);
+		else if (colorName == "tan_modern") cA = newArray(238,236,225);
+		else if (colorName == "violet_modern") cA = newArray(76,65,132);
+		else if (colorName == "yellow_modern") cA = newArray(247,238,69);
+		return cA;
+	}
+	function setColorFromColorName(colorName) {
+		colorArray = getColorArrayFromColorName(colorName);
+		setColor(colorArray[0], colorArray[1], colorArray[2]);
+	}
+	function setBackgroundFromColorName(colorName) {
+		colorArray = getColorArrayFromColorName(colorName);
+		setBackgroundColor(colorArray[0], colorArray[1], colorArray[2]);
+	}
+	/* Hex conversion below adapted from T.Ferreira, 20010.01 http://imagejdocu.tudor.lu/doku.php?id=macro:rgbtohex */
+	function pad(n) {
+		n= toString(n); if (lengthOf(n)==1) n= "0"+n; return n;
+	}
+		/* End ASC modified BAR Color Functions */
+	
 		/* ( 8(|)   ( 8(|)  ASC Functions  ( 8(|)  ( 8(|)   */
 	
 	function autoCalculateDecPlacesFromValueOnly(value){ /* Note this version is different from the one used for ramp legends */
@@ -411,52 +507,7 @@ macro "Add Summary Table to Copy of Image"{
         close();
 		}
 	}
-	/* ASC Color Functions */
-	function getColorArrayFromColorName(colorName) {
-		cA = newArray(255,255,255);
-		if (colorName == "white") cA = newArray(255,255,255);
-		else if (colorName == "black") cA = newArray(0,0,0);
-		else if (colorName == "light_gray") cA = newArray(200,200,200);
-		else if (colorName == "gray") cA = newArray(127,127,127);
-		else if (colorName == "dark_gray") cA = newArray(51,51,51);
-		else if (colorName == "red") cA = newArray(255,0,0);
-		else if (colorName == "pink") cA = newArray(255, 192, 203);
-		else if (colorName == "green") cA = newArray(0,255,0);
-		else if (colorName == "blue") cA = newArray(0,0,255);
-		else if (colorName == "yellow") cA = newArray(255,255,0);
-		else if (colorName == "orange") cA = newArray(255, 165, 0);
-		else if (colorName == "garnet") cA = newArray(120,47,64);
-		else if (colorName == "gold") cA = newArray(206,184,136);
-		else if (colorName == "aqua_modern") cA = newArray(75,172,198);
-		else if (colorName == "blue_accent_modern") cA = newArray(79,129,189);
-		else if (colorName == "blue_dark_modern") cA = newArray(31,73,125);
-		else if (colorName == "blue_modern") cA = newArray(58,93,174);
-		else if (colorName == "gray_modern") cA = newArray(83,86,90);
-		else if (colorName == "green_dark_modern") cA = newArray(121,133,65);
-		else if (colorName == "green_modern") cA = newArray(155,187,89);
-		else if (colorName == "orange_modern") cA = newArray(247,150,70);
-		else if (colorName == "pink_modern") cA = newArray(255,105,180);
-		else if (colorName == "purple_modern") cA = newArray(128,100,162);
-		else if (colorName == "red_N_modern") cA = newArray(227,24,55);
-		else if (colorName == "red_modern") cA = newArray(192,80,77);
-		else if (colorName == "tan_modern") cA = newArray(238,236,225);
-		else if (colorName == "violet_modern") cA = newArray(76,65,132);
-		else if (colorName == "yellow_modern") cA = newArray(247,238,69);
-		return cA;
-	}
-	function setColorFromColorName(colorName) {
-		colorArray = getColorArrayFromColorName(colorName);
-		setColor(colorArray[0], colorArray[1], colorArray[2]);
-	}
-	function setBackgroundFromColorName(colorName) {
-		colorArray = getColorArrayFromColorName(colorName);
-		setBackgroundColor(colorArray[0], colorArray[1], colorArray[2]);
-	}
-	/* Hex conversion below adapted from T.Ferreira, 20010.01 http://imagejdocu.tudor.lu/doku.php?id=macro:rgbtohex */
-	function pad(n) {
-		n= toString(n); if (lengthOf(n)==1) n= "0"+n; return n;
-	}
-		/* End ASC Color Functions */
+	
 	function expandLabel(string) {  /* Expands abbreviations typically used for compact column titles */
 		string = replace(string, "Raw Int Den", "Raw Int. Density");
 		string = replace(string, "FeretAngle", "Feret Angle");

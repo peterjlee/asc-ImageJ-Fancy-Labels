@@ -373,32 +373,37 @@ v180730 rounds the scale bar width guess to two figures.
 	function checkForUnits() {  /* With CZSEM check Version
 		/* v161108 (adds inches to possible reasons for checking calibration)
 			This version requires these functions:
-			checkForPlugin, setScaleFromCZSemHeader
+			checkForPlugin, setScaleFromCZSemHeader.
+			v180820 Checks for CZ header before offering to use it. Tweaked dialog messages.
 		*/
 		getPixelSize(unit, pixelWidth, pixelHeight);
 		if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches"){
-			Dialog.create("No Units");
-			tiff = matches(getInfo("image.filename"),".*[tT][iI][fF].*");
+			Dialog.create("Scale issues");
+			Dialog.addMessage("Unit asymmetry, pixel units or dpi remnants.\nPixel width = " + pixelWidth + " \nPixel height = " + pixelHeight + "\nUnit = " + unit);
 			if (matches(getInfo("image.filename"),".*[tT][iI][fF].*") && (checkForPlugin("tiff_tags.jar"))) {
-				Dialog.addCheckbox("Unit asymmetry, pixel units or dpi remnants; do you want to try and import scale for CZ SEM tag?", true);
-				Dialog.show();
-				setCZScale = Dialog.getCheckbox;
-				if (setCZScale) { /* Based on the macro here: https://rsb.info.nih.gov/ij/macros/SetScaleFromTiffTag.txt */
-					setScaleFromCZSemHeader();
-					getPixelSize(unit, pixelWidth, pixelHeight);
-					if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches") setCZScale=false;
-				}
-				if(!setCZScale) {
-					Dialog.create("Still no standard units");
-					Dialog.addCheckbox("pixelWidth = " + pixelWidth + ": Do you want to define units for this image?", true);
+				tag = call("TIFF_Tags.getTag", getDirectory("image")+getTitle, 34118);
+				if (indexOf(tag, "Image Pixel Size = ")>0) {
+					Dialog.addCheckbox("Do you want to try and import scale from the CZ SEM tag?", true);
 					Dialog.show();
-					setScale = Dialog.getCheckbox;
-					if (setScale)
-					run("Set Scale...");
+					setCZScale = Dialog.getCheckbox;
+					if (setCZScale) { /* Based on the macro here: https://rsb.info.nih.gov/ij/macros/SetScaleFromTiffTag.txt */
+						setScaleFromCZSemHeader();
+						getPixelSize(unit, pixelWidth, pixelHeight);
+						if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches") setCZScale=false;
+					}
+					if(!setCZScale) {
+						Dialog.create("Manually set scale");
+						Dialog.addCheckbox("pixelWidth = " + pixelWidth + ": Do you want to define units for this image?", true);
+						Dialog.show();
+						setScale = Dialog.getCheckbox;
+						if (setScale)
+						run("Set Scale...");
+					}
 				}
 			}
 			else if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches"){
 				Dialog.create("Still no standard units");
+				Dialog.addMessage("Pixel width = "+pixelsWidth+"\nPixel height = "+pixelsHeight+"/nUnit = "+unit);
 				Dialog.addCheckbox("Unit asymmetry, pixel units or dpi remnants; do you want to define units for this image?", true);
 				Dialog.show();
 				setScale = Dialog.getCheckbox;
@@ -600,29 +605,34 @@ v180730 rounds the scale bar width guess to two figures.
 	/*	This very simple function sets the scale for SEM images taken with the Carl Zeiss SmartSEM program. It requires the tiff_tags plugin written by Joachim Wesner. It can be downloaded from http://rsbweb.nih.gov/ij/plugins/tiff-tags.html
 	 There is an example image available at http://rsbweb.nih.gov/ij/images/SmartSEMSample.tif
 	 This is the number of the VERY long tag that stores all the SEM information See original Nabble post by Pablo Manuel Jais: http://imagej.1557.x6.nabble.com/Importing-SEM-images-with-scale-td3689900.html imageJ version: https://rsb.info.nih.gov/ij/macros/SetScaleFromTiffTag.txt
-	 This version v161103 with minor tweaks by Peter J. Lee National High Magnetic Field Laboratory	*/
+	 v161103 with minor tweaks by Peter J. Lee National High Magnetic Field Laboratory
+	 v161108 adds Boolean unit option, v171024 fixes Boolean option.
+	 v180820 fixed incorrect message in dialog box. */
+	
 	/* Gets the path+name of the active image */
 	path = getDirectory("image");
 	if (path=="") exit ("path not available");
 	name = getInfo("image.filename");
 	if (name=="") exit ("name not available");
 	if (!matches(getInfo("image.filename"),".*[tT][iI][fF].*")) exit("Not a TIFF file \(original Zeiss TIFF file required\)");
-	if (!checkForPlugin("tiff_tags.jar")) exit("Not a TIFF file \(original Zeiss TIFF file required\)");
+	if (!checkForPlugin("tiff_tags.jar")) exit("TIFF Tags plugin missing");
 	path = path + name;
 	/* 
 	Gets the tag, and parses it to get the pixel size information */
 	tag = call("TIFF_Tags.getTag", path, 34118);
 	i0 = indexOf(tag, "Image Pixel Size = ");
-	if (i0==-1) exit ("Scale information not found");
-	i1 = indexOf(tag, "=", i0);
-	i2 = indexOf(tag, "AP", i1);
-	if (i1==-1 || i2==-1 || i2 <= i1+4)
-	   exit ("Parsing error! Maybe the file structure changed?");
-	text = substring(tag,i1+2,i2-2);
-	/* 
-	Splits the pixel size in number+unit and sets the scale of the active image */
-	splits=split(text);
-	setVoxelSize(splits[0], splits[0], 1, splits[1]);
+	if (i0!=-1) {
+		i1 = indexOf(tag, "=", i0);
+		i2 = indexOf(tag, "AP", i1);
+		if (i1==-1 || i2==-1 || i2 <= i1+4)
+		   exit ("Parsing error! Maybe the file structure changed?");
+		text = substring(tag,i1+2,i2-2);
+		/* 
+		Splits the pixel size in number+unit and sets the scale of the active image */
+		splits=split(text);
+		setVoxelSize(splits[0], splits[0], 1, splits[1]);
+	}
+	else if (getBoolean("No CZSem tag found; do you want to continue?")) run("Set Scale...");
 	}
 	function unCleanLabel(string) {
 	/* v161104 This function replaces special characters with standard characters for file system compatible filenames */

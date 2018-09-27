@@ -12,13 +12,18 @@ v180613 works for multiple slices.
 v180711 minor corner positioning tweaks for large images.
 v180722 allows any system font to be used. v180723 Adds some favorite fonts to top of list (if available).
 v180730 rounds the scale bar width guess to two figures.
+v180921 add no-shadow option - useful for optimizing GIF color palettes for animations.
+v180927 Overlay quality greatly improved and 16-bit stacks now finally work as expected.
 */
 	saveSettings(); /* To restore settings at the end */
 	setBatchMode(true);
 	if (is("Inverting LUT")==true) run("Invert LUT"); /* more effectively removes Inverting LUT */
 	selEType = selectionType; 
-	if (selEType>=0)
+	if (selEType>=0) {
 		getSelectionBounds(selEX, selEY, selEWidth, selEHeight);
+		if ((selEWidth + selEHeight)<6) selEType=-1; /* Ignore junk selections that are suspiciously small */
+	}
+	run("Select None");
 	originalImage = getTitle();
 	originalImageDepth = bitDepth();
 	checkForUnits();
@@ -46,13 +51,10 @@ v180730 rounds the scale bar width guess to two figures.
 		sbDP = autoCalculateDecPlacesFromValueOnly(sbWidth);
 		sbWidth = d2s(sbWidth, sbDP);
 	}
-	// else sbWidth = round(lcf*imageWidth/5);
 	else sbWidth = lcf*imageWidth/5;
 	selOffsetX = round(imageWidth/120);
-	// if (selOffsetX>20) selOffsetX = 20;
 	if (selOffsetX<4) selOffsetX = 4;
 	selOffsetY = round(maxOf(imageHeight/180, sbHeight + sbFontSize/6));
-	// if (selOffsetY>20) selOffsetY = 20;
 	if (selOffsetY<4) selOffsetY = 4;
 	run("Set Scale...", "distance=[lcfFactor] known=1 pixel=1 selectedUnit=[selectedUnit]");
 	indexSBWidth = parseInt(substring(d2s(sbWidth, -1),indexOf(d2s(sbWidth, -1), "E")+1));
@@ -69,6 +71,8 @@ v180730 rounds the scale bar width guess to two figures.
 			colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
 		else colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray");
 		Dialog.addChoice("Scale bar and text color:", colorChoice, colorChoice[0]);
+		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
+		Dialog.addChoice("Shadow color \(overrides darkness in overlay\):", colorChoice, colorChoice[4]);
 		if (selEType>=0) {
 			locChoice = newArray("Top Left", "Top Right", "Bottom Left", "Bottom Right", "At Center of New Selection", "At Selection"); 
 			Dialog.addChoice("Scale bar position:", locChoice, locChoice[5]); 
@@ -77,7 +81,7 @@ v180730 rounds the scale bar width guess to two figures.
 			locChoice = newArray("Top Left", "Top Right", "Bottom Left", "Bottom Right", "At Center of New Selection"); 
 			Dialog.addChoice("Scale bar position:", locChoice, locChoice[3]); 
 		}
-		Dialog.addCheckbox("Hide text", false);
+		Dialog.addCheckbox("No text", false);
 		Dialog.addNumber("Font size:", sbFontSize);
 		Dialog.addNumber("X Offset from Edge in Pixels \(applies to corners only\)", selOffsetX,0,1,"pixels");
 		Dialog.addNumber("Y Offset from Edge in Pixels \(applies to corners only\)", selOffsetY,0,1,"pixels");
@@ -86,12 +90,11 @@ v180730 rounds the scale bar width guess to two figures.
 		fontNameChoice = getFontChoiceList();
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addNumber("Outline Stroke:", dOutS,0,3,"% of font size");
-		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
+		Dialog.addCheckbox("No Shadow \(Just Outline\)", false);
 		Dialog.addNumber("Shadow Drop: ±", dShO,0,3,"% of font size");
 		Dialog.addNumber("Shadow Displacement Right: ±", dShO,0,3,"% of font size");
 		Dialog.addNumber("Shadow Gaussian Blur:", floor(0.75*dShO),0,3,"% of font size");
 		Dialog.addNumber("Shadow Darkness \(darkest = 100%\):", 75,0,3,"% \(negative = glow\)");
-		Dialog.addChoice("Shadow color \(overrides darkness in overlay\):", colorChoice, colorChoice[4]);
 		Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay scale bar");
 		Dialog.addNumber("Inner Shadow Drop: ±", dIShO,0,1,"% of font size");
 		Dialog.addNumber("Inner Displacement Right: ±", dIShO,0,1,"% of font size");
@@ -101,43 +104,47 @@ v180730 rounds the scale bar width guess to two figures.
 		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlay");
 		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlay", "Replace overlay");
 		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 2, 2, overwriteChoice[1]);
-		if (remSlices>0) Dialog.addRadioButtonGroup("Add the same labels to this and next " + remSlices + " slices? ", newArray("Yes", "No"), 1, 2, "No");	
+		Dialog.addCheckbox("Add the same labels to this and next " + remSlices + " slices? ", false);		
 	Dialog.show();
 		selLengthInUnits = Dialog.getNumber;
 		if (sF!=0) overrideUnit = Dialog.getChoice;
 		selHeight = Dialog.getNumber;
-		selColor = Dialog.getChoice;
+		scaleBarColor = Dialog.getChoice;
+		outlineColor = Dialog.getChoice;
+		shadowColor = Dialog.getChoice;
 		selPos = Dialog.getChoice;
-		if (Dialog.getCheckbox==true) ht=1;
-		else ht=0;
+		noText = Dialog.getCheckbox;
 		fontSize =  Dialog.getNumber;
 		selOffsetX = Dialog.getNumber;
 		selOffsetY = Dialog.getNumber;
 		fontStyle = Dialog.getChoice;
 		fontName = Dialog.getChoice;
 		outlineStroke = Dialog.getNumber;
-		outlineColor = Dialog.getChoice;
+		noShadow = Dialog.getCheckbox;
 		shadowDrop = Dialog.getNumber;
 		shadowDisp = Dialog.getNumber;
 		shadowBlur = Dialog.getNumber;
 		shadowDarkness = Dialog.getNumber;
-		shadowColor = Dialog.getChoice;
 		innerShadowDrop = Dialog.getNumber;
 		innerShadowDisp = Dialog.getNumber;
 		innerShadowBlur = Dialog.getNumber;
 		innerShadowDarkness = Dialog.getNumber;
 		overWrite = Dialog.getRadioButton;
-		if (remSlices>0) labelRest = Dialog.getRadioButton;
-		else labelRest = "No";
-		if (sF!=0) { 
-			oU = indexOfArray(newUnit, overrideUnit);
-			oSF = nSF[oU];
-			selectedUnit = overrideUnitChoice[oU];
-		}
-
-		selLengthInPixels = selLengthInUnits / lcf;
-		if (sF!=0) selLengthInUnits *= oSF; /* now safe to change units */
-		
+		if (remSlices>0) labelRest = Dialog.getCheckbox;
+		else labelRest = false;
+	if(!labelRest) endSlice = startSliceNumber;
+	else endSlice = slices;
+	if (sF!=0) { 
+		oU = indexOfArray(newUnit, overrideUnit);
+		oSF = nSF[oU];
+		selectedUnit = overrideUnitChoice[oU];
+	}
+	fontFactor = fontSize/100;
+	if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
+	selLengthInPixels = selLengthInUnits / lcf;
+	if (sF!=0) selLengthInUnits *= oSF; /* now safe to change units */
+	
+	if (!noShadow) {
 		negAdj = 0.5;  /* negative offsets appear exaggerated at full displacement */
 		if (shadowDrop<0) shadowDrop *= negAdj;
 		if (shadowDisp<0) shadowDisp *= negAdj;
@@ -145,19 +152,16 @@ v180730 rounds the scale bar width guess to two figures.
 		if (innerShadowDrop<0) innerShadowDrop *= negAdj;
 		if (innerShadowDisp<0) innerShadowDisp *= negAdj;
 		if (innerShadowBlur<0) innerShadowBlur *= negAdj;
-		
-		fontFactor = fontSize/100;
-		if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
+	
 		if (shadowDrop!=0) shadowDrop = maxOf(1, round(fontFactor * shadowDrop));
 		if (shadowDisp!=0) shadowDisp = maxOf(1, round(fontFactor * shadowDisp));
 		if (shadowBlur!=0) shadowBlur = maxOf(1, round(fontFactor * shadowBlur));
 		innerShadowDrop = floor(fontFactor * innerShadowDrop);
 		innerShadowDisp = floor(fontFactor * innerShadowDisp);
 		innerShadowBlur = floor(fontFactor * innerShadowBlur);
-		
-	if (selOffsetX<(shadowDisp+shadowBlur+1)) selOffsetX += (shadowDisp+shadowBlur+1);  /* make sure shadow does not run off edge of image */
-	if (selOffsetY<(shadowDrop+shadowBlur+1)) selOffsetY += (shadowDrop+shadowBlur+1);
-	
+		if (selOffsetX<(shadowDisp+shadowBlur+1)) selOffsetX += (shadowDisp+shadowBlur+1);  /* make sure shadow does not run off edge of image */
+		if (selOffsetY<(shadowDrop+shadowBlur+1)) selOffsetY += (shadowDrop+shadowBlur+1);
+	}
 	if (fontStyle=="unstyled") fontStyle="";
 
 	if (selPos == "Top Left") {
@@ -212,121 +216,107 @@ v180730 rounds the scale bar width guess to two figures.
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
 	setColorFromColorName("white"); // function
 	fillRect(selEX, selEY, selLengthInPixels, selHeight);
-	if (ht==0) writeLabel("white");
+	if (!noText) writeLabel("white");
 	setThreshold(0, 128);
 	setOption("BlackBackground", false);
 	run("Convert to Mask");
+
+	/* If Overlay chosen add fancy scale bar as overlay */
 	if (endsWith(overWrite,"verlay")) {
-		if (startsWith(overWrite,"Replace")) Overlay.remove;
-		selColorHex = getHexColorFromRGBArray(selColor);
+		/* Create shadow and outline selection masks to be used for overlay components */
+		scaleBarColorHex = getHexColorFromRGBArray(scaleBarColor);
 		outlineColorHex = getHexColorFromRGBArray(outlineColor);
 		shadowColorHex = getHexColorFromRGBArray(shadowColor);
-		if (ht==1){
-			makeRectangle(selEX, selEY, selLengthInPixels, selHeight); 	
-			run("Add Selection...", "stroke=" + outlineColorHex + " width=" + outlineStroke+" fill=" + selColorHex);
+		if (startsWith(overWrite,"Replace")) Overlay.remove;
+		if(!noShadow) {
+			selectWindow("label_mask");
+			run("Duplicate...", "title=ovShadowMask");
+			run("BinaryDilate ", "coefficient=0 iterations=" + (outlineStroke+shadowBlur/2));
+			run("Copy");
+			makeRectangle(shadowDisp, shadowDrop, imageWidth, imageHeight);
+			run("Paste");
+			run("Select None");			
+		}
+		selectWindow("label_mask");
+		run("Duplicate...", "title=ovOutlineMask");
+		run("BinaryDilate ", "coefficient=0 iterations=" + outlineStroke);
+		run("Select None");
+		selectWindow(originalImage);
+		/* shadow and outline selection masks have now been created */
+		selectWindow(originalImage);
+		for (sl=startSliceNumber; sl<endSlice+1; sl++) {
+			setSlice(sl);
+			if(!noShadow) {
+				getSelectionFromMask("ovShadowMask");
+				setSelectionName("Scale Bar Shadow");
+				run("Add Selection...", "fill=" + shadowColorHex);
+			}
+			getSelectionFromMask("ovOutlineMask");
+			setSelectionName("Scale Bar Outline");
+			run("Add Selection...", "fill=" + outlineColorHex);
+			getSelectionFromMask("label_mask");
 			setSelectionName("Scale Bar");
+			run("Add Selection...", "fill=" + scaleBarColorHex);
 			Overlay.add;
 		}
-		else {
-			selectWindow(originalImage);
-			if (slices==1) remSlices =1;
-			for (o=1; o<remSlices+1; o++) {
-				if (slices>1) setSlice(startSliceNumber + o);
-				else setSlice(1);
-				/* Create shadow layer */
-				run("Select None");
-				getSelectionFromMask("label_mask");
-				getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-				setSelectionLocation(selMaskX+shadowDisp, selMaskY+2*shadowDrop);
-				run("Enlarge...", "enlarge=[outlineStroke] pixel"); /* shadow needs to be bigger than outline */
-				setSelectionName("Scale Marker Shadow");
-				Overlay.addSelection(shadowColorHex, outlineStroke, shadowColorHex);
-				/* Create outline layer */
-				run("Select None");
-				getSelectionFromMask("label_mask");
-				run("Enlarge...", "enlarge=[outlineStroke] pixel");
-				getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-				setSelectionLocation(selMaskX-outlineStroke, selMaskY+(2*outlineStroke));
-				setSelectionName("Scale Marker Outline");
-				Overlay.addSelection(outlineColorHex,outlineStroke,outlineColorHex);
-				run("Select None");
-				makeRectangle(selEX, selEY, selLengthInPixels, selHeight);
-				setSelectionName("Scale Bar");
-				Overlay.addSelection("", 0, selColorHex);
-				setColorFromColorName(selColor);
-				Overlay.drawString(finalLabel, finalLabelX, finalLabelY);
-				renameCurrentOverlaySelection("Scale Text");
-				run("Select None");
-				Overlay.show;
-				if (labelRest=="No") o = remSlices+1;
-			}
-		}
+		run("Select None");
+		closeImageByTitle("ovOutlineMask");
+		closeImageByTitle("ovShadowMask");
 	}
+	/* End overlay  fancy scale bar section */
 	else {
-		/* Create drop shadow if desired */
-		if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0)
-			createShadowDropFromMask7("label_mask", shadowDrop, shadowDisp, shadowBlur, shadowDarkness, outlineStroke);
-		/* Create inner shadow if desired */
-		if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0)
-			createInnerShadowFromMask6("label_mask",innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
+		/* Create shadow and outline selection masks to be used for bitmap components */
+		if (!noShadow) {
+			/* Create drop shadow if desired */
+			if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0)
+				createShadowDropFromMask7("label_mask", shadowDrop, shadowDisp, shadowBlur, shadowDarkness, outlineStroke);
+			/* Create inner shadow if desired */
+			if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0)
+				createInnerShadowFromMask6("label_mask",innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
+		}
 		if (startsWith(overWrite,"Destructive overwrite")) {
-			if (labelRest=="No") frames = 1;
-			else frames = remSlices +1;
-			for (j=0; j<frames; j++) {
-				if (isOpen("shadow") && shadowDarkness>0) imageCalculator("Subtract", originalImage,"shadow");
-				if (isOpen("shadow") && shadowDarkness<0) imageCalculator("Add", originalImage,"shadow"); /* glow */
-				run("Select None");
-				getSelectionFromMask("label_mask");
-				run("Enlarge...", "enlarge=[outlineStroke] pixel");
-				setBackgroundFromColorName(outlineColor);
-				run("Clear", "slice");
-				run("Select None");
-				getSelectionFromMask("label_mask");
-				setBackgroundFromColorName(selColor);
-				run("Clear", "slice");
-				run("Select None");
-				if (ht==0) writeLabel("selColor"); /* restore antialiasing */
-				if (isOpen("inner_shadow")) imageCalculator("Subtract", originalImage,"inner_shadow");
-				if (labelRest=="Yes") run("Next Slice [>]");
-			}
+			tS = originalImage;
 		}
 		else {
-			if (labelRest=="No") frames = 1;
-			else frames = remSlices +1;
-			for (j=0; j<frames; j++) {
-				if (isOpen("shadow")&& shadowDarkness>0) imageCalculator("Subtract create", originalImage,"shadow");
-				else if (isOpen("shadow")&& shadowDarkness<0) imageCalculator("Add create", originalImage,"shadow"); /* glow */
-				else imageCalculator("Copy create", originalImage, originalImage);  /* even if you don't want a shadow you may want an outline */
-				/* apply outline around label */
-				run("Select None");
-				getSelectionFromMask("label_mask");
-				run("Enlarge...", "enlarge=[outlineStroke] pixel");
-				setBackgroundFromColorName(outlineColor);
-				run("Clear", "slice");
-				run("Select None");
-				/* Now the actual label */
-				getSelectionFromMask("label_mask");
-				setBackgroundFromColorName(selColor);
-				run("Clear", "slice");
-				run("Select None");
-				/* Now add the inner shadow to provide some depth */
-				if (isOpen("inner_shadow") && innerShadowDarkness>0)
-					imageCalculator("Subtract", "Result of " + originalImage,"inner_shadow");
-				if (isOpen("inner_shadow") && innerShadowDarkness<0)
-					imageCalculator("Add", "Result of " + originalImage,"inner_shadow"); /* glow */
-				/* Now rename the copy */
-				if (lastIndexOf(originalImage,".")>0)
-					originalImageNameWOExt = substring(originalImage, 0, lastIndexOf(originalImage,"."));
-				else originalImageNameWOExt = originalImage;
-				rename(unCleanLabel(originalImageNameWOExt + "\+scale"));
-				selectWindow(originalImage);
-				if (labelRest=="Yes") run("Next Slice [>]");
+			tS = "" + stripKnownExtensionFromString(originalImage) + "_scale";
+			run("Select None");
+			selectWindow(originalImage);
+			run("Duplicate...", "title="+tS+" duplicate");
+		}
+		selectWindow(tS);
+		newImage("outline_template", "8-bit black", imageWidth, imageHeight, 1);
+		getSelectionFromMask("label_mask");
+		run("Enlarge...", "enlarge=[outlineStroke] pixel");
+		setBackgroundFromColorName("white");
+		run("Clear", "slice");
+		run("Select None");
+		selectWindow(tS);
+		for (sl=startSliceNumber; sl<endSlice+1; sl++) {
+			setSlice(sl);
+			run("Select None");
+			if (isOpen("shadow") && shadowDarkness>0 &&!noShadow) imageCalculator("Subtract", tS,"shadow");
+			else if (isOpen("shadow") && shadowDarkness<0 &&!noShadow) imageCalculator("Add", tS,"shadow");
+			run("Select None");
+			/* apply outline around label */
+			getSelectionFromMask("outline_template");
+			setBackgroundFromColorName(outlineColor);
+			run("Clear", "slice");
+			run("Select None");
+			/* color label */
+			getSelectionFromMask("label_mask");
+			setBackgroundFromColorName(scaleBarColor);
+			run("Clear", "slice");
+			run("Select None");
+			if (!noText) writeLabel("scaleBarColor"); /* restore antialiasing */
+			if (!noShadow) {
+				if (isOpen("inner_shadow")) imageCalculator("Subtract", tS,"inner_shadow");
 			}
 		}
 	}
 	closeImageByTitle("shadow");
 	closeImageByTitle("inner_shadow");
 	closeImageByTitle("label_mask");
+	closeImageByTitle("outline_template");
 	restoreSettings();
 	setSlice(startSliceNumber);
 	setBatchMode("exit & display"); /* exit batch mode */
@@ -381,6 +371,7 @@ v180730 rounds the scale bar width guess to two figures.
 			This version requires these functions:
 			checkForPlugin, setScaleFromCZSemHeader.
 			v180820 Checks for CZ header before offering to use it. Tweaked dialog messages.
+			v180921 Fixed error in 2nd dialog.
 		*/
 		getPixelSize(unit, pixelWidth, pixelHeight);
 		if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches"){
@@ -408,8 +399,9 @@ v180730 rounds the scale bar width guess to two figures.
 				}
 			}
 			else if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches"){
+				setScale = false;
 				Dialog.create("Still no standard units");
-				Dialog.addMessage("Pixel width = "+pixelsWidth+"\nPixel height = "+pixelsHeight+"/nUnit = "+unit);
+				Dialog.addMessage("Pixel width = "+pixelWidth+"\nPixel height = "+pixelHeight+"\nUnit = "+unit);
 				Dialog.addCheckbox("Unit asymmetry, pixel units or dpi remnants; do you want to define units for this image?", true);
 				Dialog.show();
 				setScale = Dialog.getCheckbox;
@@ -418,11 +410,23 @@ v180730 rounds the scale bar width guess to two figures.
 			}
 		}
 	}
+	function closeByScript(windowTitle) {
+		if (isOpen(windowTitle)) eval("script","f = WindowManager.getWindow('"+windowTitle+"'); f.close();"); 
+	}
 	function closeImageByTitle(windowTitle) {  /* Cannot be used with tables */
 		if (isOpen(windowTitle)) {
 		selectWindow(windowTitle);
 		close();
 		}
+	}
+	function copyImage(source,target){
+	/* v180922 also works for stacks */
+		if (isOpen(source)) {
+			getDimensions(null, null, null, slices, null);
+			if (slices>1) imageCalculator("Copy create stack", source,source);
+			else imageCalculator("Copy create", source, source);
+			rename(target);
+		} else restoreExit("ImageWindow: " + source + " not found");
 	}
 	function createInnerShadowFromMask6(mask,iShadowDrop, iShadowDisp, iShadowBlur, iShadowDarkness) {
 		/* Requires previous run of: originalImageDepth = bitDepth();
@@ -629,6 +633,18 @@ v180730 rounds the scale bar width guess to two figures.
 			setSelectionName(newName);
 		}
 	}
+	function replaceImage(replacedWindow,window2) {
+        if (isOpen(replacedWindow)) {
+			selectWindow(replacedWindow);
+			tR = ""+replacedWindow+"Replaced";
+			rename(tR);
+			selectWindow(window2);
+			rename(replacedWindow);
+			closeImageByTitle(tR); 
+			// eval("script","f = WindowManager.getWindow('"+tR+"'); f.close();"); 
+		}
+		else copyImage(window2, replacedWindow); /* Use copyImage function */
+	}
 	function restoreExit(message){ /* Make a clean exit from a macro, restoring previous settings */
 		/* 9/9/2017 added Garbage clean up suggested by Luc LaLonde - LBNL */
 		restoreSettings(); /* Restore previous settings before exiting */
@@ -668,6 +684,16 @@ v180730 rounds the scale bar width guess to two figures.
 		setVoxelSize(splits[0], splits[0], 1, splits[1]);
 	}
 	else if (getBoolean("No CZSem tag found; do you want to continue?")) run("Set Scale...");
+	}
+	function stripKnownExtensionFromString(string) {
+		if (lastIndexOf(string, ".")!=-1) {
+			knownExt = newArray("tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV");
+			for (i=0; i<knownExt.length; i++) {
+				index = lastIndexOf(string, "." + knownExt[i]);
+				if (index>=(lengthOf(string)-(lengthOf(knownExt[i])+1))) string = substring(string, 0, index);
+			}
+		}
+		return string;
 	}
 	function unCleanLabel(string) {
 	/* v161104 This function replaces special characters with standard characters for file system compatible filenames */

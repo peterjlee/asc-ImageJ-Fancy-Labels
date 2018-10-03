@@ -14,9 +14,9 @@ v180722 allows any system font to be used. v180723 Adds some favorite fonts to t
 v180730 rounds the scale bar width guess to two figures.
 v180921 add no-shadow option - useful for optimizing GIF color palettes for animations.
 v180927 Overlay quality greatly improved and 16-bit stacks now finally work as expected.
+v181003 Automatically adjusts scale units to ranges applicable to scale bars.
 */
 	saveSettings(); /* To restore settings at the end */
-	setBatchMode(true);
 	if (is("Inverting LUT")==true) run("Invert LUT"); /* more effectively removes Inverting LUT */
 	selEType = selectionType; 
 	if (selEType>=0) {
@@ -33,7 +33,21 @@ v180927 Overlay quality greatly improved and 16-bit stacks now finally work as e
 	imageDims = imageHeight+imageWidth;
 	sbHeight = round(imageDims / 320); /* default scale bar height */
 	if (sbHeight < 2) sbHeight = 2; /*  set minimum default bar height as 2 pixels */
-	getPixelSize(selectedUnit, pixelWidth, pixelHeight);
+	getVoxelSize(pixelWidth, pixelHeight, pixelDepth, selectedUnit);
+	if (selectedUnit == "um") selectedUnit = "µm";
+	if (pixelWidth>3 && selectedUnit=="nm") {
+		pixelWidth /= 1000;
+		pixelHeight /= 1000;
+		pixelDepth /= 1000;
+		selectedUnit = "µm";
+	}
+	if (pixelWidth>3 && selectedUnit=="µm") {
+		pixelWidth /= 1000;
+		pixelHeight /= 1000;
+		pixelDepth /= 1000;
+		selectedUnit = "mm";
+	}
+	setVoxelSize(pixelWidth, pixelHeight, pixelDepth, selectedUnit);
 	lcf=(pixelWidth+pixelHeight)/2;
 	lcfFactor=1/lcf;
 	sbFontSize = round(imageDims/60);
@@ -139,6 +153,7 @@ v180927 Overlay quality greatly improved and 16-bit stacks now finally work as e
 		oSF = nSF[oU];
 		selectedUnit = overrideUnitChoice[oU];
 	}
+	setBatchMode(true);
 	fontFactor = fontSize/100;
 	if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
 	selLengthInPixels = selLengthInUnits / lcf;
@@ -410,23 +425,14 @@ v180927 Overlay quality greatly improved and 16-bit stacks now finally work as e
 			}
 		}
 	}
-	function closeByScript(windowTitle) {
-		if (isOpen(windowTitle)) eval("script","f = WindowManager.getWindow('"+windowTitle+"'); f.close();"); 
-	}
 	function closeImageByTitle(windowTitle) {  /* Cannot be used with tables */
-		if (isOpen(windowTitle)) {
-		selectWindow(windowTitle);
-		close();
+		/* v181002 reselects original image at end if open */
+		oIID = getImageID();
+        if (isOpen(windowTitle)) {
+			selectWindow(windowTitle);
+			close();
 		}
-	}
-	function copyImage(source,target){
-	/* v180922 also works for stacks */
-		if (isOpen(source)) {
-			getDimensions(null, null, null, slices, null);
-			if (slices>1) imageCalculator("Copy create stack", source,source);
-			else imageCalculator("Copy create", source, source);
-			rename(target);
-		} else restoreExit("ImageWindow: " + source + " not found");
+		if (isOpen(oIID)) selectImage(oIID);
 	}
 	function createInnerShadowFromMask6(mask,iShadowDrop, iShadowDisp, iShadowBlur, iShadowDarkness) {
 		/* Requires previous run of: originalImageDepth = bitDepth();
@@ -618,32 +624,16 @@ v180927 Overlay quality greatly improved and 16-bit stacks now finally work as e
 		if (!batchMode) setBatchMode(false); /* Return to original batch mode setting */
 	}
 	function indexOfArray(array, value) {
-	   for (i=0; i<lengthOf(array); i++)
-          if (array[i]==value) return i;
-      return -1;
+	/* v181003 */
+		index = -1;
+		for (i=0; i<lengthOf(array); i++)
+			if (array[i]==value) index = i;
+		return index;
 	}
 	function removeTrailingZerosAndPeriod(string) { /* Removes any trailing zeros after a period */
 		while (endsWith(string,".0")) string=substring(string,0, lastIndexOf(string, ".0"));
 		while(endsWith(string,".")) string=substring(string,0, lastIndexOf(string, "."));
 		return string;
-	}
-	function renameCurrentOverlaySelection(newName) {
-		if (Overlay.size>0){
-			Overlay.activateSelection(Overlay.size-1);
-			setSelectionName(newName);
-		}
-	}
-	function replaceImage(replacedWindow,window2) {
-        if (isOpen(replacedWindow)) {
-			selectWindow(replacedWindow);
-			tR = ""+replacedWindow+"Replaced";
-			rename(tR);
-			selectWindow(window2);
-			rename(replacedWindow);
-			closeImageByTitle(tR); 
-			// eval("script","f = WindowManager.getWindow('"+tR+"'); f.close();"); 
-		}
-		else copyImage(window2, replacedWindow); /* Use copyImage function */
 	}
 	function restoreExit(message){ /* Make a clean exit from a macro, restoring previous settings */
 		/* 9/9/2017 added Garbage clean up suggested by Luc LaLonde - LBNL */
@@ -693,22 +683,5 @@ v180927 Overlay quality greatly improved and 16-bit stacks now finally work as e
 				if (index>=(lengthOf(string)-(lengthOf(knownExt[i])+1))) string = substring(string, 0, index);
 			}
 		}
-		return string;
-	}
-	function unCleanLabel(string) {
-	/* v161104 This function replaces special characters with standard characters for file system compatible filenames */
-	/* mod 041117 to remove spaces as well */
-		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
-		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); /* superscript -1 */
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); /* superscript -2 */
-		string= replace(string, fromCharCode(181), "u"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
-		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
-		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
-		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */
-		string= replace(string, "_\\+", "\\+"); /* Clean up autofilenames */
-		string= replace(string, "\\+\\+", "\\+"); /* Clean up autofilenames */
-		string= replace(string, "__", "_"); /* Clean up autofilenames */
 		return string;
 	}

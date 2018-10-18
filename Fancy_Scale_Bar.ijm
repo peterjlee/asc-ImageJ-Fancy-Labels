@@ -15,6 +15,7 @@ v180730 rounds the scale bar width guess to two figures.
 v180921 add no-shadow option - useful for optimizing GIF color palettes for animations.
 v180927 Overlay quality greatly improved and 16-bit stacks now finally work as expected.
 v181003 Automatically adjusts scale units to ranges applicable to scale bars.
+v181018 Fixed color issue with scale text and added off-white and off-black for transparent gifs.
 */
 	saveSettings(); /* To restore settings at the end */
 	if (is("Inverting LUT")==true) run("Invert LUT"); /* more effectively removes Inverting LUT */
@@ -82,8 +83,8 @@ v181003 Automatically adjusts scale units to ranges applicable to scale bars.
 		}
 		Dialog.addNumber("Height of scale bar;", sbHeight);
 		if (originalImageDepth==24)
-			colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
-		else colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray");
+			colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
+		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		Dialog.addChoice("Scale bar and text color:", colorChoice, colorChoice[0]);
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
 		Dialog.addChoice("Shadow color \(overrides darkness in overlay\):", colorChoice, colorChoice[4]);
@@ -322,7 +323,7 @@ v181003 Automatically adjusts scale units to ranges applicable to scale bars.
 			setBackgroundFromColorName(scaleBarColor);
 			run("Clear", "slice");
 			run("Select None");
-			if (!noText) writeLabel("scaleBarColor"); /* restore antialiasing */
+			if (!noText) writeLabel(scaleBarColor); /* restore antialiasing */
 			if (!noShadow) {
 				if (isOpen("inner_shadow")) imageCalculator("Subtract", tS,"inner_shadow");
 			}
@@ -493,10 +494,17 @@ v181003 Automatically adjusts scale units to ranges applicable to scale bars.
 		run("Divide...", "value=[divider]");
 	}
 	function getColorArrayFromColorName(colorName) {
-		/* v180828 added Fluorescent Colors */
-		cA = newArray(255,255,255);
+		/* v180828 added Fluorescent Colors
+		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
+		*/
 		if (colorName == "white") cA = newArray(255,255,255);
 		else if (colorName == "black") cA = newArray(0,0,0);
+		else if (colorName == "off-white") cA = newArray(245,245,245);
+		else if (colorName == "off-black") cA = newArray(10,10,10);
+		else if (colorName == "light_gray") cA = newArray(200,200,200);
+		else if (colorName == "gray") cA = newArray(127,127,127);
+		else if (colorName == "dark_gray") cA = newArray(51,51,51);
+		else if (colorName == "off-black") cA = newArray(10,10,10);
 		else if (colorName == "light_gray") cA = newArray(200,200,200);
 		else if (colorName == "gray") cA = newArray(127,127,127);
 		else if (colorName == "dark_gray") cA = newArray(51,51,51);
@@ -543,6 +551,7 @@ v181003 Automatically adjusts scale units to ranges applicable to scale bars.
 		else if (colorName == "Shocking Pink") cA = newArray(255,110,255);		/* #FF6EFF Ultra Pink */
 		else if (colorName == "Razzle Dazzle Rose") cA = newArray(238,52,210); 	/* #EE34D2 */
 		else if (colorName == "Hot Magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
+		else restoreExit("No color match to " + colorName);
 		return cA;
 	}
 	function setColorFromColorName(colorName) {
@@ -552,10 +561,6 @@ v181003 Automatically adjusts scale units to ranges applicable to scale bars.
 	function setBackgroundFromColorName(colorName) {
 		colorArray = getColorArrayFromColorName(colorName);
 		setBackgroundColor(colorArray[0], colorArray[1], colorArray[2]);
-	}
-	function writeLabel(labelColor){
-		setColorFromColorName(labelColor);
-		drawString(finalLabel, finalLabelX, finalLabelY); 
 	}
 	/* Hex conversion below adapted from T.Ferreira, 20010.01 http://imagejdocu.tudor.lu/doku.php?id=macro:rgbtohex */
 	function pad(n) {
@@ -684,4 +689,8 @@ v181003 Automatically adjusts scale units to ranges applicable to scale bars.
 			}
 		}
 		return string;
+	}
+	function writeLabel(labelColor){
+		setColorFromColorName(labelColor);
+		drawString(finalLabel, finalLabelX, finalLabelY); 
 	}

@@ -5,7 +5,7 @@
 	This macro adds scaled result labels to each ROI object as well as a summary.
 	3/16/2017 Add labeling by ID number and additional image label locations.
 	v180612 set to work on only one slice.
-	
+	v180723 Allows use of system fonts.
  */
 macro "Add scaled value labels to each ROI object and add summary"{
 	requires("1.47r");
@@ -85,12 +85,12 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		Dialog.addChoice("Decimal places:", newArray("Auto", "Manual", "Scientific", "0", "1", "2", "3", "4"), "Auto");
 		fontStyleChoice = newArray("bold", "bold antialiased", "italic", "italic antialiased", "bold italic", "bold italic antialiased", "unstyled");
 		Dialog.addChoice("Font style:", fontStyleChoice, fontStyleChoice[1]);
-		fontNameChoice = newArray("SansSerif", "Serif", "Monospaced");
+		fontNameChoice = getFontChoiceList();
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addNumber("Font_size:", fontSize, 0, 3, "pt \(ROI manager\)");
 		if (originalImageDepth==24)
-			colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern"); 
-		else colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray");
+			colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
+		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		Dialog.addChoice("Object label color:", colorChoice, colorChoice[0]);
 		Dialog.addNumber("Font scaling % of Auto", 66);
 		Dialog.addNumber("Minimum Label Font Size", round(imageDims/90));
@@ -202,9 +202,9 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			for (i=0; i<statsChoiceLines; i++)
 					Dialog.addChoice("Statistics Label Line "+(i+1)+":", statsChoice, statsChoice[i+2]);
 			Dialog.addNumber("Statistics Label Font size:", statsLabFontSize);
-			if (originalImageDepth==24)
-				colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern"); 
-			else colorChoice = newArray("white", "black", "light_gray", "gray", "dark_gray");
+		if (originalImageDepth==24)
+			colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
+		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 			Dialog.addChoice("Summary and Parameter Font Color:", colorChoice, fontColor);
 			Dialog.addChoice("Summary and Parameter Outline Color:", colorChoice, outlineColor);	
 		Dialog.show;
@@ -660,11 +660,13 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		return pluginCheck;
 	}
 	function checkForRoiManager() {
-		/* v161109 adds the return of the updated ROI count and also adds dialog if there are already entries just in case . . */
+		/* v161109 adds the return of the updated ROI count and also adds dialog if there are already entries just in case . .
+			v180104 only asks about ROIs if there is a mismatch with the results */
 		nROIs = roiManager("count");
-		nRES = nResults; /* not really needed except to provide useful information below */
-		if (nROIs==0) runAnalyze = true;
-		else runAnalyze = getBoolean("There are already " + nROIs + " in the ROI manager; do you want to clear the ROI manager and reanalyze?");
+		nRES = nResults; /* Used to check for ROIs:Results mismatch */
+		if(nROIs==0) runAnalyze = true; /* Assumes that ROIs are required and that is why this function is being called */
+		else if(nROIs!=nRES) runAnalyze = getBoolean("There are " + nRES + " results and " + nROIs + " ROIs; do you want to clear the ROI manager and reanalyze?");
+		else runAnalyze = false;
 		if (runAnalyze) {
 			roiManager("reset");
 			Dialog.create("Analysis check");
@@ -683,7 +685,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			else restoreExit("Goodbye, your previous setting will be restored.");
 		}
 		return roiManager("count"); /* Returns the new count of entries */
-	}	
+	}
 	function cleanLabel(string) {
 		/* v161104 */
 		string= replace(string, "\\^2", fromCharCode(178)); /* superscript 2 */
@@ -709,35 +711,64 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	}
 	/* ASC Color Functions */
 	function getColorArrayFromColorName(colorName) {
-		cA = newArray(255,255,255);
+		/* v180828 added Fluorescent Colors
+		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
+		*/
 		if (colorName == "white") cA = newArray(255,255,255);
 		else if (colorName == "black") cA = newArray(0,0,0);
+		else if (colorName == "off-white") cA = newArray(245,245,245);
+		else if (colorName == "off-black") cA = newArray(10,10,10);
+		else if (colorName == "light_gray") cA = newArray(200,200,200);
+		else if (colorName == "gray") cA = newArray(127,127,127);
+		else if (colorName == "dark_gray") cA = newArray(51,51,51);
+		else if (colorName == "off-black") cA = newArray(10,10,10);
 		else if (colorName == "light_gray") cA = newArray(200,200,200);
 		else if (colorName == "gray") cA = newArray(127,127,127);
 		else if (colorName == "dark_gray") cA = newArray(51,51,51);
 		else if (colorName == "red") cA = newArray(255,0,0);
 		else if (colorName == "pink") cA = newArray(255, 192, 203);
-		else if (colorName == "green") cA = newArray(0,255,0);
+		else if (colorName == "green") cA = newArray(0,255,0); /* #00FF00 AKA Lime green */
 		else if (colorName == "blue") cA = newArray(0,0,255);
 		else if (colorName == "yellow") cA = newArray(255,255,0);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);
 		else if (colorName == "garnet") cA = newArray(120,47,64);
 		else if (colorName == "gold") cA = newArray(206,184,136);
-		else if (colorName == "aqua_modern") cA = newArray(75,172,198);
-		else if (colorName == "blue_accent_modern") cA = newArray(79,129,189);
+		else if (colorName == "aqua_modern") cA = newArray(75,172,198); /* #4bacc6 AKA "Viking" aqua */
+		else if (colorName == "blue_accent_modern") cA = newArray(79,129,189); /* #4f81bd */
 		else if (colorName == "blue_dark_modern") cA = newArray(31,73,125);
-		else if (colorName == "blue_modern") cA = newArray(58,93,174);
+		else if (colorName == "blue_modern") cA = newArray(58,93,174); /* #3a5dae */
 		else if (colorName == "gray_modern") cA = newArray(83,86,90);
 		else if (colorName == "green_dark_modern") cA = newArray(121,133,65);
-		else if (colorName == "green_modern") cA = newArray(155,187,89);
+		else if (colorName == "green_modern") cA = newArray(155,187,89); /* #9bbb59 AKA "Chelsea Cucumber" */
+		else if (colorName == "green_modern_accent") cA = newArray(214,228,187); /* #D6E4BB AKA "Gin" */
+		else if (colorName == "green_spring_accent") cA = newArray(0,255,102); /* #00FF66 AKA "Spring Green" */
 		else if (colorName == "orange_modern") cA = newArray(247,150,70);
 		else if (colorName == "pink_modern") cA = newArray(255,105,180);
 		else if (colorName == "purple_modern") cA = newArray(128,100,162);
+		else if (colorName == "jazzberry_jam") cA = newArray(165,11,94);
 		else if (colorName == "red_N_modern") cA = newArray(227,24,55);
 		else if (colorName == "red_modern") cA = newArray(192,80,77);
 		else if (colorName == "tan_modern") cA = newArray(238,236,225);
 		else if (colorName == "violet_modern") cA = newArray(76,65,132);
 		else if (colorName == "yellow_modern") cA = newArray(247,238,69);
+		/* Fluorescent Colors https://www.w3schools.com/colors/colors_crayola.asp */
+		else if (colorName == "Radical Red") cA = newArray(255,53,94);			/* #FF355E */
+		else if (colorName == "Wild Watermelon") cA = newArray(253,91,120);		/* #FD5B78 */
+		else if (colorName == "Outrageous Orange") cA = newArray(255,96,55);	/* #FF6037 */
+		else if (colorName == "Supernova Orange") cA = newArray(255,191,63);	/* FFBF3F Supernova Neon Orange*/
+		else if (colorName == "Atomic Tangerine") cA = newArray(255,153,102);	/* #FF9966 */
+		else if (colorName == "Neon Carrot") cA = newArray(255,153,51);			/* #FF9933 */
+		else if (colorName == "Sunglow") cA = newArray(255,204,51); 			/* #FFCC33 */
+		else if (colorName == "Laser Lemon") cA = newArray(255,255,102); 		/* #FFFF66 "Unmellow Yellow" */
+		else if (colorName == "Electric Lime") cA = newArray(204,255,0); 		/* #CCFF00 */
+		else if (colorName == "Screamin' Green") cA = newArray(102,255,102); 	/* #66FF66 */
+		else if (colorName == "Magic Mint") cA = newArray(170,240,209); 		/* #AAF0D1 */
+		else if (colorName == "Blizzard Blue") cA = newArray(80,191,230); 		/* #50BFE6 Malibu */
+		else if (colorName == "Dodger Blue") cA = newArray(9,159,255);			/* #099FFF Dodger Neon Blue */
+		else if (colorName == "Shocking Pink") cA = newArray(255,110,255);		/* #FF6EFF Ultra Pink */
+		else if (colorName == "Razzle Dazzle Rose") cA = newArray(238,52,210); 	/* #EE34D2 */
+		else if (colorName == "Hot Magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
+		else restoreExit("No color match to " + colorName);
 		return cA;
 	}
 	function setColorFromColorName(colorName) {
@@ -760,17 +791,43 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);
 		 return hexName;
 	}	
+	function getFontChoiceList() {
+		/* v180723 first version */
+		systemFonts = getFontList();
+		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
+		fontNameChoice = Array.concat(IJFonts,systemFonts);
+		faveFontList = newArray("Your favorite fonts here", "SansSerif", "Arial Black", "Open Sans ExtraBold", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Times New Roman", "Helvetica");
+		faveFontListCheck = newArray(faveFontList.length);
+		counter = 0;
+		for (i=0; i<faveFontList.length; i++) {
+			for (j=0; j<fontNameChoice.length; j++) {
+				if (faveFontList[i] == fontNameChoice[j]) {
+					faveFontListCheck[counter] = faveFontList[i];
+					counter +=1;
+					j = fontNameChoice.length;
+				}
+			}
+		}
+		faveFontListCheck = Array.trim(faveFontListCheck, counter);
+		fontNameChoice = Array.concat(faveFontListCheck,fontNameChoice);
+		return fontNameChoice;
+	}
 	function getSelectionFromMask(selection_Mask){
+		batchMode = is("Batch Mode"); /* Store batch status mode before toggling */
+		if (!batchMode) setBatchMode(true); /* Toggle batch mode on if previously off */
 		tempTitle = getTitle();
 		selectWindow(selection_Mask);
 		run("Create Selection"); /* Selection inverted perhaps because the mask has an inverted LUT? */
 		run("Make Inverse");
 		selectWindow(tempTitle);
 		run("Restore Selection");
+		if (!batchMode) setBatchMode("exit");
 	}
 	function restoreExit(message){ /* Make a clean exit from a macro, restoring previous settings */
+		/* 9/9/2017 added Garbage clean up suggested by Luc LaLonde - LBNL */
 		restoreSettings(); /* Restore previous settings before exiting */
 		setBatchMode("exit & display"); /* Probably not necessary if exiting gracefully but otherwise harmless */
+		run("Collect Garbage"); 
 		exit(message);
 	}
 	function unCleanLabel(string) { 
@@ -803,9 +860,9 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		Roi.getBounds(roiX, roiY, roiWidth, roiHeight);
 		lFontSize = fontSize; /* Initial estimate */
 		setFont(font,lFontSize,fontStyle);
-		lFontSize = fontSizeCorrection * fontSize * roiWidth/(getStringWidth(labelString)); // adjust label font size so it fits within object width
-		if (lFontSize>fontSizeCorrection*roiHeight) lFontSize = fontSizeCorrection*roiHeight; // readjust label font size so label fits within object height
-		if (lFontSize>maxLFontSize) lFontSize = maxLFontSize; 
+		lFontSize = fontSizeCorrection * fontSize * roiWidth/(getStringWidth(labelString)); /* Adjust label font size so that the label fits within object width */
+		if (lFontSize>fontSizeCorrection*roiHeight) lFontSize = fontSizeCorrection*roiHeight; /* Readjust the label font size so that the label fits within the object height */
+		if (lFontSize>maxLFontSize) lFontSize = maxLFontSize;
 		if (lFontSize<minLFontSize) lFontSize = minLFontSize;
 		setFont(font,lFontSize,fontStyle);
 		if (ctrChoice=="ROI Center") 

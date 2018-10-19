@@ -16,6 +16,7 @@ v180921 add no-shadow option - useful for optimizing GIF color palettes for anim
 v180927 Overlay quality greatly improved and 16-bit stacks now finally work as expected.
 v181003 Automatically adjusts scale units to ranges applicable to scale bars.
 v181018 Fixed color issue with scale text and added off-white and off-black for transparent gifs.
+v181019 Fixed issue with filenames with spaces.
 */
 	saveSettings(); /* To restore settings at the end */
 	if (is("Inverting LUT")==true) run("Invert LUT"); /* more effectively removes Inverting LUT */
@@ -294,7 +295,7 @@ v181018 Fixed color issue with scale text and added off-white and off-black for 
 			tS = originalImage;
 		}
 		else {
-			tS = "" + stripKnownExtensionFromString(originalImage) + "_scale";
+			tS = "" + stripKnownExtensionFromString(unCleanLabel(originalImage)) + "+scale";
 			run("Select None");
 			selectWindow(originalImage);
 			run("Duplicate...", "title="+tS+" duplicate");
@@ -682,12 +683,29 @@ v181018 Fixed color issue with scale text and added off-white and off-black for 
 	}
 	function stripKnownExtensionFromString(string) {
 		if (lastIndexOf(string, ".")!=-1) {
-			knownExt = newArray("tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV");
+			knownExt = newArray("tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV", "psd", "PSD", "xls", "XLS");
 			for (i=0; i<knownExt.length; i++) {
 				index = lastIndexOf(string, "." + knownExt[i]);
 				if (index>=(lengthOf(string)-(lengthOf(knownExt[i])+1))) string = substring(string, 0, index);
 			}
 		}
+		return string;
+	}
+	function unCleanLabel(string) {
+	/* v161104 This function replaces special characters with standard characters for file system compatible filenames
+	+ 041117 to remove spaces as well */
+		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
+		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
+		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); /* superscript -1 */
+		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); /* superscript -2 */
+		string= replace(string, fromCharCode(181), "u"); /* micron units */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
+		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces deg */
+		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
+		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */
+		string= replace(string, "_\\+", "\\+"); /* Clean up autofilenames */
+		string= replace(string, "\\+\\+", "\\+"); /* Clean up autofilenames */
+		string= replace(string, "__", "_"); /* Clean up autofilenames */
 		return string;
 	}
 	function writeLabel(labelColor){

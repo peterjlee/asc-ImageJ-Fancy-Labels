@@ -5,6 +5,7 @@ macro "Add Slice Label to Each Slice" {
 		Slices can be named with sequential numbers using imageJ's "stack sorter"
 		Non-formated slice labels can be applied with more variables and previews to images using ImageJ's "Label Stacks" and Dan White's (MPI-CBG) "Series Labeler", so you might want to try that more sophisticated programming first.
 		v180629 First version based on v180628 of the Fancy Text Label macro.
+		v181018 First working version  >:-}  .
 	 */
 	requires("1.47r");
 	saveSettings;
@@ -123,13 +124,6 @@ macro "Add Slice Label to Each Slice" {
 		outlineColor = Dialog.getChoice();
 		sliceTextLabels = newArray(sliceLabelDialogLimit);
 		longestStringWidth = 0; /* reset longest string width for modified versions */
-		for (i=0; i<sliceLabelDialogLimit; i++) {
-			sliceTextLabels[i] = Dialog.getString();
-			sliceTextLabels[i] = "" + convertToSymbols(sliceTextLabels[i]); /* Use degree symbol */
-			sliceTextLabels[i] = "" + cleanLabel(sliceTextLabels[i]);
-			stringLength = getStringWidth(sliceTextLabels[i]);
-			if (stringLength>longestStringWidth) longestStringWidth = stringLength;
-		}
 		tweakFormat = Dialog.getRadioButton();
 		overWrite = Dialog.getRadioButton();
 	if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */	
@@ -186,6 +180,13 @@ macro "Add Slice Label to Each Slice" {
 	if (fontStyle=="unstyled") fontStyle="";
 /*  */			
 	setFont(fontName, fontSize, fontStyle);
+	for (i=0; i<sliceLabelDialogLimit; i++) {
+		sliceTextLabels[i] = Dialog.getString();
+		sliceTextLabels[i] = "" + convertToSymbols(sliceTextLabels[i]); /* Use degree symbol */
+		sliceTextLabels[i] = "" + cleanLabel(sliceTextLabels[i]);
+		stringLength = getStringWidth(sliceTextLabels[i]);
+		if (stringLength>longestStringWidth) longestStringWidth = stringLength;
+	}
 	if (textLocChoice == "Top Left") {
 		selEX = offsetX;
 		selEY = offsetY;
@@ -276,48 +277,22 @@ macro "Add Slice Label to Each Slice" {
 	if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
 	for (i=0; i<sliceLabelDialogLimit; i++) {
 		setSlice(startSliceNumber + i);
-		textImages = newArray("label_mask","antiAliased");
 		/* Create Label Mask */
 		newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
 		roiManager("deselect");
 		run("Select None");
 		setFont(fontName,fontSize, fontStyle);
 		textLabelLineY = textLabelY;
-		newImage("antiAliased", originalImageDepth, imageWidth, imageHeight, 1);
-		/* Draw text for mask and antialiased tweak */
-		for (t=0; t<2; t++) {
-			selectWindow(textImages[t]);
-			if (t==0) setColor("white");
-			else {
-				run("Select All");
-				setColorFromColorName(outlineColor);
-				fill();
-				roiManager("deselect");
-				run("Select None");
-				setColorFromColorName(fontColor);
-			}
-			for (i=0; i<textOutNumber; i++) {
-				if (textInputLines[i]!="-blank-") {
-					if (just=="left") drawString(textInputLinesText[i], textLabelX, textLabelLineY);
-					else if (just=="right") drawString(textInputLinesText[i], textLabelX + (longestStringWidth - getStringWidth(textInputLinesText[i])), textLabelLineY);
-					else drawString(textInputLinesText[i], textLabelX + (longestStringWidth-getStringWidth(textInputLinesText[i]))/2, textLabelLineY);
-					textLabelLineY += lineSpacing * fontSize;
-				}
-				else textLabelLineY += lineSpacing * fontSize;
-			}
-			textLabelLineY = textLabelY;
+		setColor("white");
+		if (sliceTextLabels[i]!="-blank-") {
+			if (just=="right") textLabelX += longestStringWidth - getStringWidth(sliceTextLabels[i]);
+			else if (just!="left") textLabelX += (longestStringWidth-getStringWidth(sliceTextLabels[i]))/2;
+			drawString(sliceTextLabels[i], textLabelX, textLabelLineY);
 		}
 		selectWindow("label_mask");
 		setThreshold(0, 128);
 		setOption("BlackBackground", false);
 		run("Convert to Mask");
-		selectWindow("antiAliased");
-		getSelectionFromMask("label_mask");
-		run("Make Inverse");
-		if (fontInt>=outlineInt) setColorFromColorName("white");
-		else setColorFromColorName("black");
-		fill();
-		run("Select None");
 		// selectWindow("label_mask");
 		/* Create drop shadow if desired */
 		if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0) {
@@ -352,10 +327,8 @@ macro "Add Slice Label to Each Slice" {
 		setBackgroundFromColorName(fontColor);
 		run("Clear", "slice");
 		run("Select None");
-		if (isOpen("antiAliased")) {
-			if (fontInt>=outlineInt) imageCalculator("Min",workingImage,"antiAliased");
-			else imageCalculator("Max",workingImage,"antiAliased");
-		}
+		/* Now restore antialiased text */
+		if (sliceTextLabels[i]!="-blank-") writeLabel_CFXY(sliceTextLabels[i],fontColor,fontName,fontSize,textLabelX, textLabelLineY);
 		/* Create inner shadow or glow if requested */
 		if (isOpen("inner_shadow") && innerShadowDarkness>0)
 			imageCalculator("Subtract", workingImage,"inner_shadow");
@@ -364,7 +337,6 @@ macro "Add Slice Label to Each Slice" {
 		closeImageByTitle("shadow");
 		closeImageByTitle("inner_shadow");
 		closeImageByTitle("label_mask");
-		closeImageByTitle("antiAliased");
 	}
 	selectWindow(workingImage);
 	if (startsWith(overWrite, "New"))  {
@@ -399,10 +371,13 @@ macro "Add Slice Label to Each Slice" {
 		return string;
 	}
 	function closeImageByTitle(windowTitle) {  /* Cannot be used with tables */
+		/* v181002 reselects original image at end if open */
+		oIID = getImageID();
         if (isOpen(windowTitle)) {
-		selectWindow(windowTitle);
-        close();
+			selectWindow(windowTitle);
+			close();
 		}
+		if (isOpen(oIID)) selectImage(oIID);
 	}
 	function convertToSymbols(string) {
 		/* v180612 first version
@@ -617,7 +592,7 @@ macro "Add Slice Label to Each Slice" {
 		systemFonts = getFontList();
 		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
 		fontNameChoice = Array.concat(IJFonts,systemFonts);
-		faveFontList = newArray("Your favorite fonts here", "SansSerif", "Arial Black", "Open Sans ExtraBold", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Times New Roman", "Helvetica");
+		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Arial Black", "SansSerif", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Times New Roman", "Helvetica");
 		faveFontListCheck = newArray(faveFontList.length);
 		counter = 0;
 		for (i=0; i<faveFontList.length; i++) {
@@ -650,3 +625,8 @@ macro "Add Slice Label to Each Slice" {
 		string= replace(string, "__", "_"); /* Clean up autofilenames */
 		return string;
 	}
+	function writeLabel_CFXY(label,labelColor,labelFontName,labelFontSize,labelX,labelY){
+		setFont(labelFontName, labelFontSize, "antialiased");
+		setColorFromColorName(labelColor);
+		drawString(label, labelX, labelY); 
+	}							

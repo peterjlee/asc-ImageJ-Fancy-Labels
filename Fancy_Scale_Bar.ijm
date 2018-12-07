@@ -118,9 +118,8 @@ v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the
 		Dialog.addNumber("Inner Displacement Right: ±", dIShO,0,1,"% of font size");
 		Dialog.addNumber("Inner Shadow Mean Blur:",floor(dIShO/2),1,2,"% of font size");
 		Dialog.addNumber("Inner Shadow Darkness \(darkest = 100%\):", 20,0,3,"% \(negative = glow\)");
-		overwriteChoice = newArray("Destructive overwrite    ", "New Image", "Overlay");
-		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlay");
-		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlay", "Replace ALL overlays");
+		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays");
+		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays", "Replace ALL overlays");
 		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, overwriteChoice.length, overwriteChoice[1]);
 		if (slices>0) {
 			Dialog.addMessage("Slice range for labeling \(1-"+slices+"\):");
@@ -165,10 +164,7 @@ v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the
 		oSF = nSF[oU];
 		selectedUnit = overrideUnitChoice[oU];
 	}
-	if (startsWith(overWrite,"Replace")) {
-		run("Remove Overlay"); /* Overlay.remove only removes current overlay */
-		run("List Elements");
-	}
+	if (startsWith(overWrite,"Replace")) while (Overlay.size!=0) Overlay.remove;
 	setBatchMode(true);
 	fontFactor = fontSize/100;
 	if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
@@ -253,7 +249,7 @@ v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the
 	run("Convert to Mask");
 
 	/* If Overlay chosen add fancy scale bar as overlay */
-	if (endsWith(overWrite,"verlay") || startsWith(overWrite,"Replace")) {
+	if (endsWith(overWrite,"verlays")) {
 		/* Create shadow and outline selection masks to be used for overlay components */
 		scaleBarColorHex = getHexColorFromRGBArray(scaleBarColor);
 		outlineColorHex = getHexColorFromRGBArray(outlineColor);

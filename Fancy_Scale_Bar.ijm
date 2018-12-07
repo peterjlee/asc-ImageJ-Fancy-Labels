@@ -165,6 +165,10 @@ v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the
 		oSF = nSF[oU];
 		selectedUnit = overrideUnitChoice[oU];
 	}
+	if (startsWith(overWrite,"Replace")) {
+		run("Remove Overlay"); /* Overlay.remove only removes current overlay */
+		run("List Elements");
+	}
 	setBatchMode(true);
 	fontFactor = fontSize/100;
 	if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
@@ -249,12 +253,11 @@ v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the
 	run("Convert to Mask");
 
 	/* If Overlay chosen add fancy scale bar as overlay */
-	if (endsWith(overWrite,"verlay")) {
+	if (endsWith(overWrite,"verlay") || startsWith(overWrite,"Replace")) {
 		/* Create shadow and outline selection masks to be used for overlay components */
 		scaleBarColorHex = getHexColorFromRGBArray(scaleBarColor);
 		outlineColorHex = getHexColorFromRGBArray(outlineColor);
 		shadowColorHex = getHexColorFromRGBArray(shadowColor);
-		if (startsWith(overWrite,"Replace")) run("Remove Overlay"); /* Overlay.remove only removes current overlay */;
 		if(!noShadow) {
 			selectWindow("label_mask");
 			run("Duplicate...", "title=ovShadowMask");

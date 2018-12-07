@@ -9,8 +9,9 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		v180618	Added restore selection option (useful for multiple slices) and fixed label vertical location for selected options.
 		v180626-8 Added text justification, added fit-to-selection, fixed override of previously selected area and added and more symbols
 		v180629 Added ability to import metadata from list. v180702 Added progress bar for multiple slices.
-		v180803 Can have line rotated to match angle of select-line or any arbitrary angle;
+		v180803 Can have line rotated to match angle of select-line or any arbitrary angle.
 		v180809 Fixed bugs introduced in v180803. Added text above line option. Added "flatten" option to embed line selection.
+		v181207 "Replace overlay" now replaces All overlays (so be careful).
 	 */
 	requires("1.47r");
 	saveSettings;
@@ -171,8 +172,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		}
 		Dialog.setInsets(0, 280, 0); /* top, left, bottom */
 		Dialog.addRadioButtonGroup("Tweak the Formatting? ", newArray("Yes", "No"), 1, 2, "No");
-		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlay");
-		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlay", "Replace overlay");
+		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays");
+		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays", "Replace All overlays");
 		Dialog.setInsets(-140, 280, 0); /* top, left, bottom */
 		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, 3, overwriteChoice[2]);
 		Dialog.show();
@@ -204,8 +205,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		}
 		tweakFormat = Dialog.getRadioButton();
 		overWrite = Dialog.getRadioButton();
-		
-	if (remSlices>0 && !endsWith(overWrite,"overlay")) labelRest = getBoolean("Add the same labels to this and next " + remSlices + " slices?");					
+	if (startsWith(overWrite,"Replace")) while (Overlay.size!=0) Overlay.remove;
+	if (remSlices>0 && !endsWith(overWrite,"overlays")) labelRest = getBoolean("Add the same labels to this and next " + remSlices + " slices?");					
 	else labelRest = false;
 	if (tweakFormat=="Yes") {	
 		Dialog.create("Advanced Formatting Options");
@@ -375,7 +376,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	workingImage = getTitle();
 	if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
 	textImages = newArray("label_mask","antiAliased");
-	if (textRot!=0 || endsWith(overWrite,"verlay")) tIs = 1; /* No-antialiased if text rotated or overlay used */
+	if (textRot!=0 || endsWith(overWrite,"verlays")) tIs = 1; /* No-antialiased if text rotated or overlay used */
 	else tIs = 2;
 	/* Create Label Mask */
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
@@ -411,9 +412,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	setThreshold(0, 128);
 	setOption("BlackBackground", false);
 	run("Convert to Mask");
-	if (endsWith(overWrite,"verlay")) {
+	if (endsWith(overWrite,"verlays")) {
 		selectWindow(originalImage);
-		if (startsWith(overWrite,"Replace")) Overlay.remove;
 		grayHex = toHex(round(255*shadowDarkness/100));
 		shadowHex = "#" + ""+pad(grayHex) + ""+pad(grayHex) + ""+pad(grayHex);
 		fontColorHex = getHexColorFromRGBArray(fontColor);
@@ -851,3 +851,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, "__", "_"); /* Clean up autofilenames */
 		return string;
 	}
+	function writeLabel_CFXY(label,labelColor,labelFontName, labelFontSize,labelX,labelY){
+		setFont(labelFontName, labelFontSize, "antialiased");
+		setColorFromColorName(labelColor);
+		drawString(label, labelX, labelY); 
+	}																									

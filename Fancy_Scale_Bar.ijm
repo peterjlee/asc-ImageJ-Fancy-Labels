@@ -17,7 +17,9 @@ v180927 Overlay quality greatly improved and 16-bit stacks now finally work as e
 v181003 Automatically adjusts scale units to ranges applicable to scale bars.
 v181018 Fixed color issue with scale text and added off-white and off-black for transparent gifs.
 v181019 Fixed issue with filenames with spaces.
+v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the overlay to display on all stack slices. "Replace overlay" now replaces All overlays (so be careful)
 */
+	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	if (is("Inverting LUT")==true) run("Invert LUT"); /* more effectively removes Inverting LUT */
 	selEType = selectionType; 
@@ -118,9 +120,13 @@ v181019 Fixed issue with filenames with spaces.
 		Dialog.addNumber("Inner Shadow Darkness \(darkest = 100%\):", 20,0,3,"% \(negative = glow\)");
 		overwriteChoice = newArray("Destructive overwrite    ", "New Image", "Overlay");
 		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlay");
-		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlay", "Replace overlay");
-		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 2, 2, overwriteChoice[1]);
-		Dialog.addCheckbox("Add the same labels to this and next " + remSlices + " slices? ", false);		
+		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlay", "Replace ALL overlays");
+		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, overwriteChoice.length, overwriteChoice[1]);
+		if (slices>0) {
+			Dialog.addMessage("Slice range for labeling \(1-"+slices+"\):");
+			Dialog.addNumber("First slice in label range:", startSliceNumber);
+			Dialog.addNumber("Last slice in label range:", slices);
+		}
 	Dialog.show();
 		selLengthInUnits = Dialog.getNumber;
 		if (sF!=0) overrideUnit = Dialog.getChoice;
@@ -146,10 +152,14 @@ v181019 Fixed issue with filenames with spaces.
 		innerShadowBlur = Dialog.getNumber;
 		innerShadowDarkness = Dialog.getNumber;
 		overWrite = Dialog.getRadioButton;
-		if (remSlices>0) labelRest = Dialog.getCheckbox;
-		else labelRest = false;
-	if(!labelRest) endSlice = startSliceNumber;
-	else endSlice = slices;
+		allSlices = false;
+		labelRest = true;
+		if (slices>0) {
+			startSliceNumber = Dialog.getNumber;
+			endSlice = Dialog.getNumber;
+			if (startSliceNumber==0 && endSlice==slices) allSlices=true;
+			if (startSliceNumber==endSlice) labelRest=false;
+		}
 	if (sF!=0) { 
 		oU = indexOfArray(newUnit, overrideUnit);
 		oSF = nSF[oU];
@@ -244,7 +254,7 @@ v181019 Fixed issue with filenames with spaces.
 		scaleBarColorHex = getHexColorFromRGBArray(scaleBarColor);
 		outlineColorHex = getHexColorFromRGBArray(outlineColor);
 		shadowColorHex = getHexColorFromRGBArray(shadowColor);
-		if (startsWith(overWrite,"Replace")) Overlay.remove;
+		if (startsWith(overWrite,"Replace")) run("Remove Overlay"); /* Overlay.remove only removes current overlay */;
 		if(!noShadow) {
 			selectWindow("label_mask");
 			run("Duplicate...", "title=ovShadowMask");
@@ -263,6 +273,7 @@ v181019 Fixed issue with filenames with spaces.
 		selectWindow(originalImage);
 		for (sl=startSliceNumber; sl<endSlice+1; sl++) {
 			setSlice(sl);
+			if (allSlices) sl=0;
 			if(!noShadow) {
 				getSelectionFromMask("ovShadowMask");
 				setSelectionName("Scale Bar Shadow");
@@ -271,10 +282,12 @@ v181019 Fixed issue with filenames with spaces.
 			getSelectionFromMask("ovOutlineMask");
 			setSelectionName("Scale Bar Outline");
 			run("Add Selection...", "fill=" + outlineColorHex);
+			Overlay.setPosition(sl);
 			getSelectionFromMask("label_mask");
 			setSelectionName("Scale Bar");
 			run("Add Selection...", "fill=" + scaleBarColorHex);
-			Overlay.add;
+			Overlay.setPosition(sl);
+			if (allSlices) sl = endSlice+1;
 		}
 		run("Select None");
 		closeImageByTitle("ovOutlineMask");
@@ -582,7 +595,7 @@ v181019 Fixed issue with filenames with spaces.
 		systemFonts = getFontList();
 		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
 		fontNameChoice = Array.concat(IJFonts,systemFonts);
-		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Arial Black", "SansSerif", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Times New Roman", "Helvetica");
+		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Arial Black", "SansSerif", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Times New Roman", "Helvetica");
 		faveFontListCheck = newArray(faveFontList.length);
 		counter = 0;
 		for (i=0; i<faveFontList.length; i++) {

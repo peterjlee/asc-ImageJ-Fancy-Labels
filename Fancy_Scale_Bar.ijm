@@ -17,7 +17,9 @@ v180927 Overlay quality greatly improved and 16-bit stacks now finally work as e
 v181003 Automatically adjusts scale units to ranges applicable to scale bars.
 v181018 Fixed color issue with scale text and added off-white and off-black for transparent gifs.
 v181019 Fixed issue with filenames with spaces.
-v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the overlay to display on all stack slices. "Replace overlay" now replaces All overlays (so be careful)
+v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the overlay to display on all stack slices. "Replace overlay" now replaces All overlays (so be careful).
+v181217 Removed shadow color option.
+v181219 For overlay version uses text overlays for top layers instead of masks to reduce jaggies.
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -90,7 +92,6 @@ v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the
 		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		Dialog.addChoice("Scale bar and text color:", colorChoice, colorChoice[0]);
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
-		Dialog.addChoice("Shadow color \(overrides darkness in overlay\):", colorChoice, colorChoice[4]);
 		if (selEType>=0) {
 			locChoice = newArray("Top Left", "Top Right", "Bottom Left", "Bottom Right", "At Center of New Selection", "At Selection"); 
 			Dialog.addChoice("Scale bar position:", locChoice, locChoice[5]); 
@@ -112,7 +113,7 @@ v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the
 		Dialog.addNumber("Shadow Drop: ±", dShO,0,3,"% of font size");
 		Dialog.addNumber("Shadow Displacement Right: ±", dShO,0,3,"% of font size");
 		Dialog.addNumber("Shadow Gaussian Blur:", floor(0.75*dShO),0,3,"% of font size");
-		Dialog.addNumber("Shadow Darkness \(darkest = 100%\):", 75,0,3,"% \(negative = glow\)");
+		Dialog.addNumber("Shadow Darkness \(darkest = 100%\):", 30,0,3,"% \(negative = glow\)");
 		Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay scale bar");
 		Dialog.addNumber("Inner Shadow Drop: ±", dIShO,0,1,"% of font size");
 		Dialog.addNumber("Inner Displacement Right: ±", dIShO,0,1,"% of font size");
@@ -132,7 +133,6 @@ v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the
 		selHeight = Dialog.getNumber;
 		scaleBarColor = Dialog.getChoice;
 		outlineColor = Dialog.getChoice;
-		shadowColor = Dialog.getChoice;
 		selPos = Dialog.getChoice;
 		noText = Dialog.getCheckbox;
 		fontSize =  Dialog.getNumber;
@@ -253,7 +253,8 @@ v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the
 		/* Create shadow and outline selection masks to be used for overlay components */
 		scaleBarColorHex = getHexColorFromRGBArray(scaleBarColor);
 		outlineColorHex = getHexColorFromRGBArray(outlineColor);
-		shadowColorHex = getHexColorFromRGBArray(shadowColor);
+		grayHex = toHex(round(255*(100-shadowDarkness)/100));
+		shadowHex = "#" + ""+pad(grayHex) + ""+pad(grayHex) + ""+pad(grayHex);
 		if(!noShadow) {
 			selectWindow("label_mask");
 			run("Duplicate...", "title=ovShadowMask");
@@ -276,16 +277,21 @@ v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the
 			if(!noShadow) {
 				getSelectionFromMask("ovShadowMask");
 				setSelectionName("Scale Bar Shadow");
-				run("Add Selection...", "fill=" + shadowColorHex);
+				run("Add Selection...", "fill=" + shadowHex);
 			}
 			getSelectionFromMask("ovOutlineMask");
 			setSelectionName("Scale Bar Outline");
 			run("Add Selection...", "fill=" + outlineColorHex);
 			Overlay.setPosition(sl);
-			getSelectionFromMask("label_mask");
-			setSelectionName("Scale Bar");
+			Overlay.drawString(finalLabel, finalLabelX, finalLabelY);
+			Overlay.activateSelection(Overlay.size-1);
+			setSelectionName("Scale Text " + scaleBarColor);
+			Overlay.setPosition(sl);
+			makeRectangle(selEX, selEY, selLengthInPixels, selHeight);
+			setSelectionName("Scale Bar " + scaleBarColor);
 			run("Add Selection...", "fill=" + scaleBarColorHex);
 			Overlay.setPosition(sl);
+			run("Select None");
 			if (allSlices) sl = endSlice+1;
 		}
 		run("Select None");

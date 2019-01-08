@@ -20,6 +20,7 @@ v181019 Fixed issue with filenames with spaces.
 v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the overlay to display on all stack slices. "Replace overlay" now replaces All overlays (so be careful).
 v181217 Removed shadow color option.
 v181219 For overlay version uses text overlays for top layers instead of masks to reduce jaggies.
+v190108 Overlay shadow now always darker than background (or brighter if "glow"). Implemented variable passing by preceding with "&" introduced in ImageJ 1.43. 
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -76,7 +77,7 @@ v181219 For overlay version uses text overlays for top layers instead of masks t
 	if (selOffsetX<4) selOffsetX = 4;
 	selOffsetY = round(maxOf(imageHeight/180, sbHeight + sbFontSize/6));
 	if (selOffsetY<4) selOffsetY = 4;
-	run("Set Scale...", "distance=[lcfFactor] known=1 pixel=1 selectedUnit=[selectedUnit]");
+	run("Set Scale...", "distance=&lcfFactor known=1 pixel=1 selectedUnit=&selectedUnit");
 	indexSBWidth = parseInt(substring(d2s(sbWidth, -1),indexOf(d2s(sbWidth, -1), "E")+1));
 	dpSB = maxOf(0,1 - indexSBWidth);
 	sbWidth = pow(10,indexSBWidth-1)*(round((sbWidth)/pow(10,indexSBWidth-1)));
@@ -170,7 +171,6 @@ v181219 For overlay version uses text overlays for top layers instead of masks t
 	if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
 	selLengthInPixels = selLengthInUnits / lcf;
 	if (sF!=0) selLengthInUnits *= oSF; /* now safe to change units */
-	
 	if (!noShadow) {
 		negAdj = 0.5;  /* negative offsets appear exaggerated at full displacement */
 		if (shadowDrop<0) shadowDrop *= negAdj;
@@ -253,12 +253,11 @@ v181219 For overlay version uses text overlays for top layers instead of masks t
 		/* Create shadow and outline selection masks to be used for overlay components */
 		scaleBarColorHex = getHexColorFromRGBArray(scaleBarColor);
 		outlineColorHex = getHexColorFromRGBArray(outlineColor);
-		grayHex = toHex(round(255*(100-shadowDarkness)/100));
-		shadowHex = "#" + ""+pad(grayHex) + ""+pad(grayHex) + ""+pad(grayHex);
 		if(!noShadow) {
 			selectWindow("label_mask");
 			run("Duplicate...", "title=ovShadowMask");
-			run("BinaryDilate ", "coefficient=0 iterations=" + (outlineStroke+shadowBlur/2));
+			dilation = outlineStroke + maxOf(1,round(shadowBlur/2));
+			run("BinaryDilate ", "coefficient=0 iterations=&dilation");
 			run("Copy");
 			makeRectangle(shadowDisp, shadowDrop, imageWidth, imageHeight);
 			run("Paste");
@@ -266,7 +265,7 @@ v181219 For overlay version uses text overlays for top layers instead of masks t
 		}
 		selectWindow("label_mask");
 		run("Duplicate...", "title=ovOutlineMask");
-		run("BinaryDilate ", "coefficient=0 iterations=" + outlineStroke);
+		run("BinaryDilate ", "coefficient=0 iterations=&outlineStroke");
 		run("Select None");
 		selectWindow(originalImage);
 		/* shadow and outline selection masks have now been created */
@@ -276,12 +275,17 @@ v181219 For overlay version uses text overlays for top layers instead of masks t
 			if (allSlices) sl=0;
 			if(!noShadow) {
 				getSelectionFromMask("ovShadowMask");
+				List.setMeasurements ;
+				bgGray = List.getValue("Mean");
+				List.clear();
+				grayHex = toHex(round(bgGray*(100-shadowDarkness)/100));
+				shadowHex = "#" + ""+pad(grayHex) + ""+pad(grayHex) + ""+pad(grayHex);
 				setSelectionName("Scale Bar Shadow");
-				run("Add Selection...", "fill=" + shadowHex);
+				run("Add Selection...", "fill=&shadowHex");
 			}
 			getSelectionFromMask("ovOutlineMask");
 			setSelectionName("Scale Bar Outline");
-			run("Add Selection...", "fill=" + outlineColorHex);
+			run("Add Selection...", "fill=&outlineColorHex");
 			Overlay.setPosition(sl);
 			Overlay.drawString(finalLabel, finalLabelX, finalLabelY);
 			Overlay.activateSelection(Overlay.size-1);
@@ -289,7 +293,7 @@ v181219 For overlay version uses text overlays for top layers instead of masks t
 			Overlay.setPosition(sl);
 			makeRectangle(selEX, selEY, selLengthInPixels, selHeight);
 			setSelectionName("Scale Bar " + scaleBarColor);
-			run("Add Selection...", "fill=" + scaleBarColorHex);
+			run("Add Selection...", "fill=&scaleBarColorHex");
 			Overlay.setPosition(sl);
 			run("Select None");
 			if (allSlices) sl = endSlice+1;
@@ -298,7 +302,7 @@ v181219 For overlay version uses text overlays for top layers instead of masks t
 		closeImageByTitle("ovOutlineMask");
 		closeImageByTitle("ovShadowMask");
 	}
-	/* End overlay  fancy scale bar section */
+	/* End overlay fancy scale bar section */
 	else {
 		/* Create shadow and outline selection masks to be used for bitmap components */
 		if (!noShadow) {
@@ -316,12 +320,12 @@ v181219 For overlay version uses text overlays for top layers instead of masks t
 			tS = "" + stripKnownExtensionFromString(unCleanLabel(originalImage)) + "+scale";
 			run("Select None");
 			selectWindow(originalImage);
-			run("Duplicate...", "title="+tS+" duplicate");
+			run("Duplicate...", "title=&tS duplicate");
 		}
 		selectWindow(tS);
 		newImage("outline_template", "8-bit black", imageWidth, imageHeight, 1);
 		getSelectionFromMask("label_mask");
-		run("Enlarge...", "enlarge=[outlineStroke] pixel");
+		run("Enlarge...", "enlarge=&outlineStroke pixel");
 		setBackgroundFromColorName("white");
 		run("Clear", "slice");
 		run("Select None");
@@ -470,8 +474,8 @@ v181219 For overlay version uses text overlays for top layers instead of masks t
 		run("Clear Outside");
 		getSelectionFromMask(mask);
 		expansion = abs(iShadowDisp) + abs(iShadowDrop) + abs(iShadowBlur);
-		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
-		if (iShadowBlur>0) run("Gaussian Blur...", "sigma=[iShadowBlur]");
+		if (expansion>0) run("Enlarge...", "enlarge=&expansion pixel");
+		if (iShadowBlur>0) run("Gaussian Blur...", "sigma=&iShadowBlur");
 		run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen the effect for small font sizes */
 		imageCalculator("Max", "inner_shadow",mask);
 		run("Select None");
@@ -480,7 +484,7 @@ v181219 For overlay version uses text overlays for top layers instead of masks t
 		run("Enhance Contrast...", "saturated=0 normalize");
 		run("Invert");  /* Create an image that can be subtracted - this works better for color than Min */
 		divider = (100 / abs(iShadowDarkness));
-		run("Divide...", "value=[divider]");
+		run("Divide...", "value=&divider");
 	}
 	function createShadowDropFromMask7(mask, oShadowDrop, oShadowDisp, oShadowBlur, oShadowDarkness, oStroke) {
 		/* Requires previous run of: originalImageDepth = bitDepth();
@@ -493,16 +497,16 @@ v181219 For overlay version uses text overlays for top layers instead of masks t
 		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
 		setSelectionLocation(selMaskX + oShadowDisp, selMaskY + oShadowDrop);
 		setBackgroundColor(255,255,255);
-		if (oStroke>0) run("Enlarge...", "enlarge=[oStroke] pixel"); /* Adjust shadow size so that shadow extends beyond stroke thickness */
+		if (oStroke>0) run("Enlarge...", "enlarge=&oStroke pixel"); /* Adjust shadow size so that shadow extends beyond stroke thickness */
 		run("Clear");
 		run("Select None");
 		if (oShadowBlur>0) {
-			run("Gaussian Blur...", "sigma=[oShadowBlur]");
-			run("Unsharp Mask...", "radius=[oShadowBlur] mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
+			run("Gaussian Blur...", "sigma=&oShadowBlur");
+			run("Unsharp Mask...", "radius=&oShadowBlur mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
 		}
 		/* Now make sure shadow or glow does not impact outline */
 		getSelectionFromMask(mask);
-		if (oStroke>0) run("Enlarge...", "enlarge=[oStroke] pixel");
+		if (oStroke>0) run("Enlarge...", "enlarge=&oStroke pixel");
 		setBackgroundColor(0,0,0);
 		run("Clear");
 		run("Select None");
@@ -510,7 +514,7 @@ v181219 For overlay version uses text overlays for top layers instead of masks t
 		if (originalImageDepth==16 || originalImageDepth==32) run(originalImageDepth + "-bit");
 		run("Enhance Contrast...", "saturated=0 normalize");
 		divider = (100 / abs(oShadowDarkness));
-		run("Divide...", "value=[divider]");
+		run("Divide...", "value=&divider");
 	}
 	function getColorArrayFromColorName(colorName) {
 		/* v180828 added Fluorescent Colors

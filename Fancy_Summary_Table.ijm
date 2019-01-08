@@ -2,7 +2,8 @@
 	This macro adds a statistical summary of the analysis to the image in the selection box or at one of the corners of the image.
 	This version defaults to choosing units automatically.
 	v170411 removes spaces in new image names to fix issue with naming new image combinations.
-	v180612 set to work on only one slice
+	v180612 set to work on only one slice.
+	v190108 fixed median for single object.
  */
 macro "Add Summary Table to Copy of Image"{
 	requires("1.47r");
@@ -57,8 +58,7 @@ macro "Add Summary Table to Copy of Image"{
 	outlineColor = "black"; 	
 	originalImageDepth = bitDepth();
 	paraLabFontSize = round((imageHeight+imageWidth)/60);
-	decPlacesSummary = -1;	//defaults to scientific notation
-		/* Then Dialog . . . */
+	decPlacesSummary = -1;	/* defaults to scientific notation */
 	Dialog.create("Label Formatting Options");
 		headings = split(String.getResultsHeadings);
 		Dialog.addChoice("Measurement:", headings, "Area");
@@ -153,7 +153,7 @@ macro "Add Summary Table to Copy of Image"{
 	Array.getStatistics(values, arrayMin, arrayMax, arrayMean, arraySD);
 	decPlacesSummary = autoCalculateDecPlacesFromValueOnly(arrayMean);
 	coeffVar = (100/arrayMean)*arraySD;
-	dpLab = decPlacesSummary+2; // Increase dp over ramp label autosetting		
+	dpLab = decPlacesSummary+2; /* Increase dp over ramp label autosetting */
 	coeffVar = d2s(coeffVar,dpLab);
 	arrayMeanLab = d2s(arrayMean,dpLab);
 	coeffVarLab = d2s((100/arrayMean)*arraySD,dpLab);
@@ -162,13 +162,12 @@ macro "Add Summary Table to Copy of Image"{
 	arrayMaxLab = d2s(arrayMax,dpLab);
 	sortedValues = Array.copy(values);
 	sortedValues = Array.sort(sortedValues);
-	arrayMedian = sortedValues[round(items/2)];
+	arrayMedian = sortedValues[floor(items/2)];
 	arrayMedianLab = d2s(arrayMedian,dpLab);
 				
-	if (selEType>=0) loc = 6; //default choice selector for dialog
-	else loc = 2; //default choice selector for dialog - center
+	if (selEType>=0) loc = 6; /* default choice selector for dialog */
+	else loc = 2; /* default choice selector for dialog - center */
 	paraLabel = expandLabel(paraLabel);
-		/* Then Dialog . . . */
 	Dialog.create("Feature Label Formatting Options");
 		if (selEType>=0) paraLocChoice = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection", "At Selection"); 
 		else paraLocChoice = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection"); 
@@ -303,8 +302,8 @@ macro "Add Summary Table to Copy of Image"{
 		run("Clear", "slice");
 		getSelectionFromMask("label_mask");
 		expansion = abs(shadowDisp) + abs(shadowDrop) + abs(shadowBlur);
-		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
-		if (shadowBlur>0) run("Gaussian Blur...", "sigma=[shadowBlur]");
+		if (expansion>0) run("Enlarge...", "enlarge=&expansion pixel");
+		if (shadowBlur>0) run("Gaussian Blur...", "sigma=&shadowBlur");
 		run("Select None");
 	}
 	/*	Create inner shadow if desired */
@@ -320,8 +319,8 @@ macro "Add Summary Table to Copy of Image"{
 		run("Clear Outside");
 		getSelectionFromMask("label_mask");
 		expansion = abs(innerShadowDisp) + abs(innerShadowDrop) + abs(innerShadowBlur);
-		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
-		if (innerShadowBlur>0) run("Mean...", "radius=[innerShadowBlur]"); /* Gaussian is too large */
+		if (expansion>0) run("Enlarge...", "enlarge=&expansion pixel");
+		if (innerShadowBlur>0) run("Mean...", "radius=&innerShadowBlur"); /* Gaussian is too large */
 		if (statsLabFontSize<12) run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen effect for small font sizes */
 		imageCalculator("Max", "inner_shadow","label_mask");
 		run("Select None");
@@ -331,7 +330,7 @@ macro "Add Summary Table to Copy of Image"{
 		imageCalculator("Subtract", flatImage,"shadow");
 	run("Select None");
 	getSelectionFromMask("label_mask");
-	run("Enlarge...", "enlarge=[outlineStroke] pixel");
+	run("Enlarge...", "enlarge=&outlineStroke pixel");
 	setBackgroundFromColorName(outlineColor); // functionoutlineColor]")
 	run("Clear", "slice");
 	run("Select None");

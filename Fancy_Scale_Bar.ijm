@@ -20,7 +20,8 @@ v181019 Fixed issue with filenames with spaces.
 v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the overlay to display on all stack slices. "Replace overlay" now replaces All overlays (so be careful).
 v181217 Removed shadow color option.
 v181219 For overlay version uses text overlays for top layers instead of masks to reduce jaggies.
-v190108 Overlay shadow now always darker than background (or brighter if "glow"). Implemented variable passing by preceding with "&" introduced in ImageJ 1.43. 
+v190108 Overlay shadow now always darker than background (or brighter if "glow"). Implemented variable passing by preceding with "&" introduced in ImageJ 1.43.
+v190125 Add "Bottom Center" location.
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -94,12 +95,12 @@ v190108 Overlay shadow now always darker than background (or brighter if "glow")
 		Dialog.addChoice("Scale bar and text color:", colorChoice, colorChoice[0]);
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
 		if (selEType>=0) {
-			locChoice = newArray("Top Left", "Top Right", "Bottom Left", "Bottom Right", "At Center of New Selection", "At Selection"); 
-			Dialog.addChoice("Scale bar position:", locChoice, locChoice[5]); 
+			locChoice = newArray("Top Left", "Top Right", "Bottom Center", "Bottom Left", "Bottom Right", "At Center of New Selection", "At Selection"); 
+			Dialog.addChoice("Scale bar position:", locChoice, locChoice[6]); 
 		}
 		else {
-			locChoice = newArray("Top Left", "Top Right", "Bottom Left", "Bottom Right", "At Center of New Selection"); 
-			Dialog.addChoice("Scale bar position:", locChoice, locChoice[3]); 
+			locChoice = newArray("Top Left", "Top Right", "Bottom Center", "Bottom Left", "Bottom Right", "At Center of New Selection"); 
+			Dialog.addChoice("Scale bar position:", locChoice, locChoice[4]); 
 		}
 		Dialog.addCheckbox("No text", false);
 		Dialog.addNumber("Font size:", sbFontSize);
@@ -197,6 +198,9 @@ v190108 Overlay shadow now always darker than background (or brighter if "glow")
 	} else if (selPos == "Top Right") {
 		selEX = imageWidth - selLengthInPixels - selOffsetX;
 		selEY = selOffsetY;// + fontSize;
+	} else if (selPos == "Bottom Center") {
+		selEX = imageWidth/2 - selLengthInPixels/2;
+		selEY = imageHeight - selHeight - (selOffsetY); 
 	} else if (selPos == "Bottom Left") {
 		selEX = selOffsetX;
 		selEY = imageHeight - selHeight - (selOffsetY); 

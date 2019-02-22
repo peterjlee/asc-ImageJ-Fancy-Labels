@@ -14,6 +14,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		v181207 "Replace overlay" now replaces All overlays (so be careful).
 		v181214 Overlay fonts on BW images can now be in color. Overlay shadow now works as expected.
 		v190108 Overlay shadow now set to be always darker than background (except for "glow").
+		v190222 Now works for 16 and 32 bit images.
 	 */
 	requires("1.47r");
 	saveSettings;
@@ -66,19 +67,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	remSlices = slices-startSliceNumber;
 	imageDims = imageHeight + imageWidth;
 	originalImageDepth = bitDepth();
-	if (originalImageDepth==16) {
-		Dialog.create("Bit depth conversion");
-		Dialog.addMessage("Sorry, this macro does not work well with 16-bit images./nBut perhaps a labelled 16-bit image is unnecessary?");
-		conversionChoice = newArray("RGB Color", "8-bit Gray", "Exit");
-		Dialog.addRadioButtonGroup("Choose:", conversionChoice, 3, 1, "8-bit Gray");
-		Dialog.show();
-		convertTo = Dialog.getRadioButton();
-		if (convertTo=="8-bit Gray") run("8-bit");
-		else if (convertTo=="RGB Color") run("RGB Color");
-		else restoreExit("Goodbye");
-	}
 	id = getImageID();
-	fontSize = round(imageDims/50); /* default font size */
+	fontSize = round(imageDims/75); /* default font size */
 	if (fontSize < 10) fontSize = 10; /* set minimum default font size as 10 */
 	lineSpacing = 1.1;
 	outlineStroke = 7; /* default outline stroke: % of font size */
@@ -91,8 +81,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	innerShadowDisp = dIShO;
 	innerShadowBlur = floor(dIShO/2);
 	innerShadowDarkness = 16;
-	offsetX = round(1 + imageWidth/150); /* default offset of label from edge */
-	offsetY = round(1 + imageHeight/150); /* default offset of label from edge */
+	offsetX = round(8 + imageWidth/150); /* default offset of label from edge */
+	offsetY = round(8 + imageHeight/150); /* default offset of label from edge */
 	textRot = 0;
 	textAboveLine = false;
 		
@@ -138,7 +128,6 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		else restoreSelection = false;
 
 		textJustChoices = newArray("auto", "left", "center", "right");
-		// Dialog.setInsets(-35, 280, 0); /* top, left, bottom */
 		if (selectionExists) Dialog.addChoice("Text justification, Auto = " + just, textJustChoices, textJustChoices[0]);
 		else Dialog.addChoice("Text justification", textJustChoices, textJustChoices[0]);
 		Dialog.addNumber("Default font size:", fontSize);
@@ -450,6 +439,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		List.setMeasurements ;
 		bgGray = List.getValue("Mean");
 		List.clear();
+		if (originalImageDepth==16 || originalImageDepth==32) bgGray = round(bgGray/256);
 		grayHex = toHex(round(bgGray*(100-shadowDarkness)/100));
 		shadowHex = "#" + ""+pad(grayHex) + ""+pad(grayHex) + ""+pad(grayHex);
 		setSelectionName("Fancy Text Label Shadow");
@@ -575,7 +565,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	  
   function getAngle(x1, y1, x2, y2) {
 	/* Returns the angle in degrees between the specified line and the horizontal axis.
-	https://imagej.nih.gov/ij/macros/Measure_Angle_And_Length.txt
+	https://wsr.imagej.net//macros/Measure_Angle_And_Length.txt
 	*/
       q1=0; q2orq3=2; q4=3; /* quadrant */
       dx = x2-x1;

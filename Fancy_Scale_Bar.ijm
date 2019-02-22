@@ -22,6 +22,7 @@ v181217 Removed shadow color option.
 v181219 For overlay version uses text overlays for top layers instead of masks to reduce jaggies.
 v190108 Overlay shadow now always darker than background (or brighter if "glow"). Implemented variable passing by preceding with "&" introduced in ImageJ 1.43.
 v190125 Add "Bottom Center" location.
+v190222 Fixed overlay shadows to work correctly for 16 bit gray and 32-bit image depths. Fixed "no text" option for overlays.
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -282,18 +283,21 @@ v190125 Add "Bottom Center" location.
 				List.setMeasurements ;
 				bgGray = List.getValue("Mean");
 				List.clear();
+				if (originalImageDepth==16 || originalImageDepth==32) bgGray = round(bgGray/256);
 				grayHex = toHex(round(bgGray*(100-shadowDarkness)/100));
 				shadowHex = "#" + ""+pad(grayHex) + ""+pad(grayHex) + ""+pad(grayHex);
 				setSelectionName("Scale Bar Shadow");
-				run("Add Selection...", "fill=&shadowHex");
+				run("Add Selection...", "fill="+shadowHex);
 			}
 			getSelectionFromMask("ovOutlineMask");
 			setSelectionName("Scale Bar Outline");
 			run("Add Selection...", "fill=&outlineColorHex");
-			Overlay.setPosition(sl);
-			Overlay.drawString(finalLabel, finalLabelX, finalLabelY);
-			Overlay.activateSelection(Overlay.size-1);
-			setSelectionName("Scale Text " + scaleBarColor);
+			if(!noText) {
+				Overlay.setPosition(sl);
+				Overlay.drawString(finalLabel, finalLabelX, finalLabelY);
+				Overlay.activateSelection(Overlay.size-1);
+				setSelectionName("Scale Text " + scaleBarColor);
+			}
 			Overlay.setPosition(sl);
 			makeRectangle(selEX, selEY, selLengthInPixels, selHeight);
 			setSelectionName("Scale Bar " + scaleBarColor);
@@ -327,6 +331,14 @@ v190125 Add "Bottom Center" location.
 			run("Duplicate...", "title=&tS duplicate");
 		}
 		selectWindow(tS);
+		/* Remove any scale related overlays from copied image */
+		if(Overlay.size>0) {
+			do {
+				Overlay.activateSelection(Overlay.size-1);
+				overlaySelectionName = getInfo("selection.name");
+				if (indexOf(overlaySelectionName,"cale")>=0) Overlay.removeSelection(Overlay.size-1);
+			} while (Overlay.size>0);
+		}
 		newImage("outline_template", "8-bit black", imageWidth, imageHeight, 1);
 		getSelectionFromMask("label_mask");
 		run("Enlarge...", "enlarge=&outlineStroke pixel");

@@ -23,6 +23,7 @@ v181219 For overlay version uses text overlays for top layers instead of masks t
 v190108 Overlay shadow now always darker than background (or brighter if "glow"). Implemented variable passing by preceding with "&" introduced in ImageJ 1.43.
 v190125 Add "Bottom Center" location.
 v190222 Fixed overlay shadows to work correctly for 16 bit gray and 32-bit image depths. Fixed "no text" option for overlays.
+v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -331,13 +332,19 @@ v190222 Fixed overlay shadows to work correctly for 16 bit gray and 32-bit image
 			run("Duplicate...", "title=&tS duplicate");
 		}
 		selectWindow(tS);
-		/* Remove any scale related overlays from copied image */
+		/* Tries to remove any old scale related overlays from copied image but usually leaves 2  ¯\_(?)_/¯ */
 		if(Overlay.size>0) {
-			do {
-				Overlay.activateSelection(Overlay.size-1);
-				overlaySelectionName = getInfo("selection.name");
-				if (indexOf(overlaySelectionName,"cale")>=0) Overlay.removeSelection(Overlay.size-1);
-			} while (Overlay.size>0);
+			initialOverlaySize = Overlay.size;
+			for (i=0; i<slices; i++){
+				for (j=0; j<initialOverlaySize; j++){
+					setSlice(i+1);
+					if (j<Overlay.size){
+						Overlay.activateSelection(j);
+						overlaySelectionName = getInfo("selection.name");
+						if (indexOf(overlaySelectionName,"cale")>=0) Overlay.removeSelection(j);
+					}
+				}
+			}
 		}
 		newImage("outline_template", "8-bit black", imageWidth, imageHeight, 1);
 		getSelectionFromMask("label_mask");

@@ -23,7 +23,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	scaledLineAngle = 0;
 	if (selEType>=0) {
 		selectionExists = true;
-		if (selEType>=5 && selEType<=7) {
+		if ((selEType>=5) && (selEType<=7)) {
 			line = true;
 			if (selEType>5) {
 				/*  for 6=segmented line or 7=freehand line do a linear fit */
@@ -114,8 +114,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			if (orSelEX<imageWidth*0.4) just = "left";
 			else if (orSelEX>imageWidth*0.6) just = "right";
 			else just = "center";
-			if (selEType>=5 && selEType<=7) {
-				if (scaledLineAngle<0 && scaledLineAngle>-180) textRot = 180-scaledLineAngle;
+			if ((selEType>=5) && (selEType<=7)) {
+				if ((scaledLineAngle<0) && (scaledLineAngle>-180)) textRot = 180-scaledLineAngle;
 				else if (scaledLineAngle>180) textRot = 360-scaledLineAngle;
 				// if (textRot>180) textRot-=180; /* it is assumed that upside-down is undesirable */
 				Dialog.addNumber("Text Rotation Angle = ", textRot);
@@ -184,7 +184,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			selEWidth =  Dialog.getNumber();
 			selEHeight =  Dialog.getNumber();
 			restoreSelection = Dialog.getCheckbox();
-			if (selEType>=5 && selEType<=7) {
+			if ((selEType>=5) && (selEType<=7)) {
 				textRot = Dialog.getNumber();
 				textAboveLine = Dialog.getCheckbox;
 			}
@@ -217,7 +217,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		tweakFormat = Dialog.getRadioButton();
 
 	if (startsWith(overWrite,"Replace")) while (Overlay.size!=0) Overlay.remove;
-	if (remSlices>0 && !endsWith(overWrite,"overlays")) labelRest = getBoolean("Add the same labels to this and next " + remSlices + " slices?");					
+	if ((remSlices>0) && !endsWith(overWrite,"overlays")) labelRest = getBoolean("Add the same labels to this and next " + remSlices + " slices?");					
 	else labelRest = false;
 	if (tweakFormat=="Yes") {	
 		Dialog.create("Advanced Formatting Options");
@@ -317,7 +317,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		selEY = imageHeight - (offsetY + linesSpace) + fontSize;
 		if (just=="auto") just = "right";
 	} else if (textLocChoice == "Center of New Selection"){
-		if (is("Batch Mode")==true) setBatchMode(false); /* Does not accept interaction while batch mode is on */
+		if (is("Batch Mode")) setBatchMode(false); /* Does not accept interaction while batch mode is on */
 		setTool("rectangle");
 		msgtitle="Location for the text labels...";
 		msg = "Draw a box in the image where you want to center the text labels...";
@@ -343,7 +343,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			shrinkF = shrunkFont/fontSize;
 		}	
 		else reduceFontSize = false;
-		if (reduceFontSize == true) {
+		if (reduceFontSize) {
 			fontSize = shrunkFont;
 			linesSpace = shrinkF * linesSpace;
 			longestStringWidth = shrinkF * longestStringWidth;
@@ -377,7 +377,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	textLabelX = selEX;
 	textLabelY = selEY;
 	/* Now offset from line for line label */
-	if (selEType>=5 && selEType<7 && textAboveLine) {
+	if ((selEType>=5) && (selEType<7) && textAboveLine) {
 		textLabelX += round(cos(textRot/(180/PI))*0.75*fontSize);
 		textLabelX += round(sin(textRot/(180/PI))*0.75*fontSize);
 	}	
@@ -450,6 +450,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		run("Enlarge...", "enlarge=&outlineStroke pixel");
 		setSelectionName("Fancy Text Label Outline");
 		Overlay.addSelection(outlineColorHex,outlineStroke,outlineColorHex);
+		/* Note that when the image is viewed at anything other than 100% the overlays will not appear to be lined up correctly */
 		run("Select None");
 		if (textRot==0) {
 			setColorFromColorName(fontColor);
@@ -497,7 +498,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			showProgress(-s/remSlices);
 			if (isOpen("shadow") && shadowDarkness>0)		
 				imageCalculator("Subtract", workingImage,"shadow");
-			else if (isOpen("shadow") && shadowDarkness<0)		
+			else if (isOpen("shadow") && (shadowDarkness<0))		
 				imageCalculator("Add", workingImage,"shadow");
 			run("Select None");
 			/* Create outline around text */
@@ -525,9 +526,9 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 				else imageCalculator("Max",workingImage,"antiAliased");
 			}
 			/* Create inner shadow or glow if requested */
-			if (isOpen("inner_shadow") && innerShadowDarkness>0)
+			if (isOpen("inner_shadow") && (innerShadowDarkness>0))
 				imageCalculator("Subtract", workingImage,"inner_shadow");
-			else if (isOpen("inner_shadow") && innerShadowDarkness<0)
+			else if (isOpen("inner_shadow") && (innerShadowDarkness<0))
 				imageCalculator("Add", workingImage,"inner_shadow");
 			if (labelRest==false) remSlices = 0;
 			else run("Next Slice [>]");
@@ -546,10 +547,10 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	restoreSettings;
 	run("Select None");
 	setBatchMode("exit & display");
-	if (endsWith(textLocChoice, "election") && (restoreSelection==true)) {
+	if (endsWith(textLocChoice, "election") && restoreSelection) {
 		if (selEType==0) makeRectangle(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
 		if (selEType==1) makeOval(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
-		if (selEType>=5 && selEType<7) {
+		if ((selEType>=5) && (selEType<7)) {
 			makeLine(orSelEX1, orSelEY1, orSelEX2, orSelEY2);
 			if (getBoolean("Create flattened image with line selection")) {
 				run("Add Selection..."); /* By adding selection to overlay this also works with the overlay label */
@@ -566,6 +567,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
   function getAngle(x1, y1, x2, y2) {
 	/* Returns the angle in degrees between the specified line and the horizontal axis.
 	https://wsr.imagej.net//macros/Measure_Angle_And_Length.txt
+	slightly mod pjl v190325
 	*/
       q1=0; q2orq3=2; q4=3; /* quadrant */
       dx = x2-x1;
@@ -573,22 +575,15 @@ macro "Add Multiple Lines of Fancy Text To Image" {
       if (dx!=0)
           angle = atan(dy/dx);
       else {
-          if (dy>=0)
-              angle = PI/2;
-          else
-              angle = -PI/2;
+          if (dy>=0) angle = PI/2;
+          else angle = -PI/2;
       }
       angle = (180/PI)*angle;
-      if (dx>=0 && dy>=0)
-           quadrant = q1;
-      else if (dx<0)
-          quadrant = q2orq3;
-      else
-          quadrant = q4;
-      if (quadrant==q2orq3)
-          angle = angle+180.0;
-      else if (quadrant==q4)
-          angle = angle+360.0;
+      if ((dx&&dy)>=0) quadrant = q1;
+      else if (dx<0) quadrant = q2orq3;
+      else quadrant = q4;
+      if (quadrant==q2orq3) angle = angle+180.0;
+      else if (quadrant==q4) angle = angle+360.0;
       return angle;
   }
 	/* 

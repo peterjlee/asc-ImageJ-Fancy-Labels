@@ -304,9 +304,9 @@ macro "Add Slice Label to Each Slice" {
 			showStatus("Creating inner shadow for labels . . . ");
 			createInnerShadowFromMask6("label_mask",innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
 		}	
-		if (isOpen("shadow") && shadowDarkness>0)		
+		if (isOpen("shadow") && (shadowDarkness>0))		
 		imageCalculator("Subtract", workingImage,"shadow");
-		else if (isOpen("shadow") && shadowDarkness<0)		
+		else if (isOpen("shadow") && (shadowDarkness<0))		
 			imageCalculator("Add", workingImage,"shadow");
 		run("Select None");
 		/* Create outline around text */
@@ -330,9 +330,9 @@ macro "Add Slice Label to Each Slice" {
 		/* Now restore antialiased text */
 		if (sliceTextLabels[i]!="-blank-") writeLabel_CFXY(sliceTextLabels[i],fontColor,fontName,fontSize,textLabelX, textLabelLineY);
 		/* Create inner shadow or glow if requested */
-		if (isOpen("inner_shadow") && innerShadowDarkness>0)
+		if (isOpen("inner_shadow") && (innerShadowDarkness>0))
 			imageCalculator("Subtract", workingImage,"inner_shadow");
-		else if (isOpen("inner_shadow") && innerShadowDarkness<0)
+		else if (isOpen("inner_shadow") && (innerShadowDarkness<0))
 			imageCalculator("Add", workingImage,"inner_shadow");
 		closeImageByTitle("shadow");
 		closeImageByTitle("inner_shadow");
@@ -592,7 +592,7 @@ macro "Add Slice Label to Each Slice" {
 		systemFonts = getFontList();
 		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
 		fontNameChoice = Array.concat(IJFonts,systemFonts);
-		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Arial Black", "SansSerif", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Times New Roman", "Helvetica");
+		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Fira Sans Ultra", "Fira Sans Condensed Ultra", "Arial Black", "Myriad Pro Black", "Montserrat Black", "Olympia-Extra Bold", "SansSerif", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Times New Roman", "Times", "Helvetica");
 		faveFontListCheck = newArray(faveFontList.length);
 		counter = 0;
 		for (i=0; i<faveFontList.length; i++) {

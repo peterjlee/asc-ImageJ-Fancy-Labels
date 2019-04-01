@@ -11,9 +11,11 @@
 <p>This macro adds multiple lines of text to a copy of the image. Slices can be named with sequential numbers using imageJ's "stack sorter." Non-formated slice labels can be applied with more variables and previews to images using ImageJ's "Label Stacks" and Dan White's (MPI-CBG) "Series Labeler", so you might want to try that more sophisticated programming first.</p>
 
 <h4 id = "Fancy_Feature_Labeler">Fancy Feature Labeler</h4>
-<p>This macro adds scaled result labels to each ROI object.</p>
+<p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/Fancy_Feature_Labeler.ijm" Title = "Applied Superconductivity Center Fancy Feature Labeler Macro" >link</a>) adds scaled result labels to each ROI object.</p>
+<p><img src="https://fs.magnet.fsu.edu/~lee/asc/ImageJUtilities/IA_Images/Bronze-Nb3Sn_FFL_sub_ID_717x135crop.png" alt="Fancy Feature Label example" width="717" /></p>
 
-<h4 id = "Fancy_Feature_Labeler_Summary">Fancy Feature Labeler with Summary</h4>
-<p>This macro adds scaled result labels to each ROI object and a summary of selected statistics.</p>
+<h4 id = "FancyFeatureLabelerSummary">Fancy Feature Labeler with Summary</h4>
+<p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/Fancy_Feature_Labeler+Summary.ijm" Title = "Applied Superconductivity Center Fancy Feature Labeler Macro" >link</a>) adds scaled result labels to each ROI object and a summary of selected statistics.</p>
+<p><img src="https://fs.magnet.fsu.edu/~lee/asc/ImageJUtilities/IA_Images/Bronze-Nb3Sn_FFL_Dp_512x160_anigif.gif" alt="Fancy Feature Label example" width="512" /></p>
 
 <p>&nbsp;</p></blockquote>

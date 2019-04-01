@@ -10,4 +10,10 @@
 <h4 id = "FancySliceLabels">Fancy Slice Labels</h4>
 <p>This macro adds multiple lines of text to a copy of the image. Slices can be named with sequential numbers using imageJ's "stack sorter." Non-formated slice labels can be applied with more variables and previews to images using ImageJ's "Label Stacks" and Dan White's (MPI-CBG) "Series Labeler", so you might want to try that more sophisticated programming first.</p>
 
+<h4 id = "Fancy_Feature_Labeler">Fancy Feature Labeler</h4>
+<p>This macro adds scaled result labels to each ROI object.</p>
+
+<h4 id = "Fancy_Feature_Labeler_Summary">Fancy Feature Labeler with Summary</h4>
+<p>This macro adds scaled result labels to each ROI object and a summary of selected statistics.</p>
+
 <p>&nbsp;</p></blockquote>

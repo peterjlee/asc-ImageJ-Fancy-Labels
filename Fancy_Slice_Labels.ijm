@@ -6,6 +6,7 @@ macro "Add Slice Label to Each Slice" {
 		Non-formated slice labels can be applied with more variables and previews to images using ImageJ's "Label Stacks" and Dan White's (MPI-CBG) "Series Labeler", so you might want to try that more sophisticated programming first.
 		v180629 First version based on v180628 of the Fancy Text Label macro.
 		v181018 First working version  >:-}  .
+		v190415 Adds option to update embedded slice labels.
 	 */
 	requires("1.47r");
 	saveSettings;
@@ -100,7 +101,8 @@ macro "Add Slice Label to Each Slice" {
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
 		sliceLabelDialogLimit = minOf(20, remSlices+1);
-		Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc.\nThe number of slices to be labelled is limited to " + sliceLabelDialogLimit + "\nAdditional slices can be labelled by repeating this\nmacro from first unlabelled slice");
+		Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc.\nThe number of slices to be labeled is limited to " + sliceLabelDialogLimit + "\nAdditional slices can be labeled by repeating this\nmacro from first unlabeled slice");
+		Dialog.addCheckbox("Update embedded labels with input text below?", false);
 		for (i=0; i<sliceLabelDialogLimit; i++)
 			Dialog.addString("Slice No. "+(i+startSliceNumber)+":",allSliceLabels[i+startSliceNumber-1], maxLabelString);
 		Dialog.addRadioButtonGroup("Tweak the Formatting? ", newArray("Yes", "No"), 1, 2, "No");
@@ -122,6 +124,7 @@ macro "Add Slice Label to Each Slice" {
 		fontStyle = Dialog.getChoice();
 		fontName = Dialog.getChoice();
 		outlineColor = Dialog.getChoice();
+		reLabel = Dialog.getCheckbox();
 		sliceTextLabels = newArray(sliceLabelDialogLimit);
 		longestStringWidth = 0; /* reset longest string width for modified versions */
 		tweakFormat = Dialog.getRadioButton();
@@ -182,6 +185,11 @@ macro "Add Slice Label to Each Slice" {
 	setFont(fontName, fontSize, fontStyle);
 	for (i=0; i<sliceLabelDialogLimit; i++) {
 		sliceTextLabels[i] = Dialog.getString();
+		if (reLabel) {
+			setSlice(startSliceNumber + i);
+			newLabel = sliceTextLabels[i];
+			run("Set Label...", "label=[&newLabel]");
+		}
 		sliceTextLabels[i] = "" + convertToSymbols(sliceTextLabels[i]); /* Use degree symbol */
 		sliceTextLabels[i] = "" + cleanLabel(sliceTextLabels[i]);
 		stringLength = getStringWidth(sliceTextLabels[i]);
@@ -274,6 +282,7 @@ macro "Add Slice Label to Each Slice" {
 		else run("Duplicate...", "title=" + getTitle() + "+text duplicate");
 	}
 	workingImage = getTitle();
+	workingImageName = getInfo("window.title");
 	if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
 	for (i=0; i<sliceLabelDialogLimit; i++) {
 		setSlice(startSliceNumber + i);
@@ -340,7 +349,8 @@ macro "Add Slice Label to Each Slice" {
 	}
 	selectWindow(workingImage);
 	if (startsWith(overWrite, "New"))  {
-		if ((lastIndexOf(originalImage,"."))>0)  workingImageNameWOExt = unCleanLabel(substring(workingImage, 0, lastIndexOf(workingImage,".")));
+		suffixLoc = lastIndexOf(workingImageName,".");
+		if (suffixLoc>0) workingImageNameWOExt = unCleanLabel(substring(workingImageName, 0, suffixLoc));
 		else workingImageNameWOExt = unCleanLabel(workingImage);
 		rename(workingImageNameWOExt + "+text");
 	}

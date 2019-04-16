@@ -96,10 +96,10 @@ macro "Add Slice Label to Each Slice" {
 		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		Dialog.addChoice("Text color:", colorChoice, colorChoice[0]);
 		fontStyleChoice = newArray("bold", "bold antialiased", "italic", "italic antialiased", "bold italic", "bold italic antialiased", "unstyled");
-		Dialog.addChoice("Font style:", fontStyleChoice, fontStyleChoice[1]);
+		Dialog.addChoice("Font style:", fontStyleChoice, "white");
 		fontNameChoice = getFontChoiceList();
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
-		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
+		Dialog.addChoice("Outline (background) color:", colorChoice, "black");
 		sliceLabelDialogLimit = minOf(20, remSlices+1);
 		Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc.\nThe number of slices to be labeled is limited to " + sliceLabelDialogLimit + "\nAdditional slices can be labeled by repeating this\nmacro from first unlabeled slice");
 		Dialog.addCheckbox("Update embedded labels with input text below?", false);

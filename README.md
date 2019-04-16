@@ -10,6 +10,8 @@
 <h4 id = "FancySliceLabels">Fancy Slice Labels</h4>
 <p>This macro adds multiple lines of text to a copy of the image. Slices can be named with sequential numbers using imageJ's "stack sorter." Non-formated slice labels can be applied with more variables and previews to images using ImageJ's "Label Stacks" and Dan White's (MPI-CBG) "Series Labeler", so you might want to try that more sophisticated programming first.</p>
 
+<p><img src="https://fs.magnet.fsu.edu/~lee/asc/ImageJUtilities/IA_Images/FancySliceLabels_Menu1_298x499_041619_FramebyFrame_anigif.gif" alt="Fancy Slice Label example" width="298" /></p>
+
 <h4 id = "Fancy_Feature_Labeler">Fancy Feature Labeler</h4>
 <p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/Fancy_Feature_Labeler.ijm" Title = "Applied Superconductivity Center Fancy Feature Labeler Macro" >link</a>) adds scaled result labels to each ROI object.</p>
 <p><img src="https://fs.magnet.fsu.edu/~lee/asc/ImageJUtilities/IA_Images/Bronze-Nb3Sn_FFL_sub_ID_717x135crop.png" alt="Fancy Feature Label example" width="717" /></p>

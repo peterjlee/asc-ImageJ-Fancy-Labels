@@ -24,6 +24,7 @@ v190108 Overlay shadow now always darker than background (or brighter if "glow")
 v190125 Add "Bottom Center" location.
 v190222 Fixed overlay shadows to work correctly for 16 bit gray and 32-bit image depths. Fixed "no text" option for overlays.
 v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
+v190417 Changed bar thickness from pixels to % of chosen font height so it scales with chosen font.
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -41,17 +42,16 @@ v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 	startSliceNumber = getSliceNumber();
 	remSlices = slices-startSliceNumber;
 	imageDims = imageHeight+imageWidth;
-	sbHeight = round(imageDims / 320); /* default scale bar height */
-	if (sbHeight < 2) sbHeight = 2; /*  set minimum default bar height as 2 pixels */
+	sbFontSize = maxOf(12, round(imageDims/60)); /* set minimum default font size as 12 */
 	getVoxelSize(pixelWidth, pixelHeight, pixelDepth, selectedUnit);
 	if (selectedUnit == "um") selectedUnit = "µm";
-	if (pixelWidth>3 && selectedUnit=="nm") {
+	if ((pixelWidth>3) && (selectedUnit=="nm")) {
 		pixelWidth /= 1000;
 		pixelHeight /= 1000;
 		pixelDepth /= 1000;
 		selectedUnit = "µm";
 	}
-	if (pixelWidth>3 && selectedUnit=="µm") {
+	if ((pixelWidth>3) && (selectedUnit=="µm")) {
 		pixelWidth /= 1000;
 		pixelHeight /= 1000;
 		pixelDepth /= 1000;
@@ -60,8 +60,6 @@ v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 	setVoxelSize(pixelWidth, pixelHeight, pixelDepth, selectedUnit);
 	lcf=(pixelWidth+pixelHeight)/2;
 	lcfFactor=1/lcf;
-	sbFontSize = round(imageDims/60);
-	if (sbFontSize < 12) sbFontSize = 12; /* set minimum default font size as 12 */
 	dOutS = 6; /* default outline stroke: % of font size */
 	dShO = 8;  /* default outer shadow drop: % of font size */
 	dIShO = 4; /* default inner shadow drop: % of font size */
@@ -78,7 +76,7 @@ v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 	else sbWidth = lcf*imageWidth/5;
 	selOffsetX = round(imageWidth/120);
 	if (selOffsetX<4) selOffsetX = 4;
-	selOffsetY = round(maxOf(imageHeight/180, sbHeight + sbFontSize/6));
+	selOffsetY = round(maxOf(imageHeight/180, 0.35*sbFontSize));
 	if (selOffsetY<4) selOffsetY = 4;
 	run("Set Scale...", "distance=&lcfFactor known=1 pixel=1 selectedUnit=&selectedUnit");
 	indexSBWidth = parseInt(substring(d2s(sbWidth, -1),indexOf(d2s(sbWidth, -1), "E")+1));
@@ -90,7 +88,7 @@ v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 			newUnit = newArray(""+selectedUnit+" Length x1", "cm \(Length x"+nSF[1]+"\)","mm \(Length x"+nSF[2]+"\)","µm \(Length x"+nSF[3]+"\)","microns \(Length x"+nSF[4]+"\)", "nm \(Length x"+nSF[5]+"\)", "Å \(Length x"+nSF[6]+"\)", "pm \(Length x"+nSF[7]+"\)", "inches \(Length x"+nSF[8]+"\)", "human hair \(Length x"+nSF[9]+"\)");
 			Dialog.addChoice("Override unit with new choice?", newUnit, newUnit[0]);
 		}
-		Dialog.addNumber("Height of scale bar;", sbHeight);
+		Dialog.addNumber("Height of scale bar:",19,0,3,"% of font size");
 		if (originalImageDepth==24)
 			colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
 		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
@@ -134,12 +132,13 @@ v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 	Dialog.show();
 		selLengthInUnits = Dialog.getNumber;
 		if (sF!=0) overrideUnit = Dialog.getChoice;
-		selHeight = Dialog.getNumber;
+		sbHeightPC = Dialog.getNumber; /*  set minimum default bar height as 2 pixels */
 		scaleBarColor = Dialog.getChoice;
 		outlineColor = Dialog.getChoice;
 		selPos = Dialog.getChoice;
 		noText = Dialog.getCheckbox;
 		fontSize =  Dialog.getNumber;
+		sbHeight = maxOf(2,round(fontSize*sbHeightPC/100)); /*  set minimum default bar height as 2 pixels */
 		selOffsetX = Dialog.getNumber;
 		selOffsetY = Dialog.getNumber;
 		fontStyle = Dialog.getChoice;
@@ -160,7 +159,7 @@ v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 		if (slices>0) {
 			startSliceNumber = Dialog.getNumber;
 			endSlice = Dialog.getNumber;
-			if (startSliceNumber==0 && endSlice==slices) allSlices=true;
+			if ((startSliceNumber==0) && (endSlice==slices)) allSlices=true;
 			if (startSliceNumber==endSlice) labelRest=false;
 		}
 	if (sF!=0) { 
@@ -202,13 +201,13 @@ v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 		selEY = selOffsetY;// + fontSize;
 	} else if (selPos == "Bottom Center") {
 		selEX = imageWidth/2 - selLengthInPixels/2;
-		selEY = imageHeight - selHeight - (selOffsetY); 
+		selEY = imageHeight - sbHeight - (selOffsetY); 
 	} else if (selPos == "Bottom Left") {
 		selEX = selOffsetX;
-		selEY = imageHeight - selHeight - (selOffsetY); 
+		selEY = imageHeight - sbHeight - (selOffsetY); 
 	} else if (selPos == "Bottom Right") {
 		selEX = imageWidth - selLengthInPixels - selOffsetX;
-		selEY = imageHeight - selHeight - selOffsetY; 
+		selEY = imageHeight - sbHeight - selOffsetY; 
 	} else if (selPos=="At Center of New Selection"){
 		if (is("Batch Mode")==true) setBatchMode("exit & display");	/* toggle batch mode off */
 		run("Select None");
@@ -224,7 +223,7 @@ v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 		selEY += selEHeight;  /*  assume you want the annotation relative to the bottom of the selection */
 	
 	 /*  edge limits - assume intent is not to annotate edge objects */
-	maxSelEY = imageHeight - round(selHeight/2) + selOffsetY;
+	maxSelEY = imageHeight - round(sbHeight/2) + selOffsetY;
 	  if (selEY>maxSelEY) selEY = maxSelEY;
 	if (selEY<selOffsetY) selEY = selOffsetY;
 	maxSelEX = imageWidth - selLengthInPixels + selOffsetX;
@@ -233,8 +232,8 @@ v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 	
 	 /* Determine label size and location */
 	if (selEY<=1.5*fontSize)
-			textYcoord = selEY + 2*selHeight + fontSize;
-	else textYcoord = selEY - selHeight;
+			textYcoord = selEY + 2*sbHeight + fontSize;
+	else textYcoord = selEY - sbHeight;
 	selLengthLabel = removeTrailingZerosAndPeriod(toString(selLengthInUnits));
 	label = selLengthLabel + " " + selectedUnit;
 	// stop overrun on scale bar by label
@@ -248,7 +247,7 @@ v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 	finalLabelY = textYcoord;
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
 	setColorFromColorName("white"); // function
-	fillRect(selEX, selEY, selLengthInPixels, selHeight);
+	fillRect(selEX, selEY, selLengthInPixels, sbHeight);
 	if (!noText) writeLabel("white");
 	setThreshold(0, 128);
 	setOption("BlackBackground", false);
@@ -300,7 +299,7 @@ v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 				setSelectionName("Scale Text " + scaleBarColor);
 			}
 			Overlay.setPosition(sl);
-			makeRectangle(selEX, selEY, selLengthInPixels, selHeight);
+			makeRectangle(selEX, selEY, selLengthInPixels, sbHeight);
 			setSelectionName("Scale Bar " + scaleBarColor);
 			run("Add Selection...", "fill=&scaleBarColorHex");
 			Overlay.setPosition(sl);
@@ -356,8 +355,8 @@ v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 		for (sl=startSliceNumber; sl<endSlice+1; sl++) {
 			setSlice(sl);
 			run("Select None");
-			if (isOpen("shadow") && shadowDarkness>0 &&!noShadow) imageCalculator("Subtract", tS,"shadow");
-			else if (isOpen("shadow") && shadowDarkness<0 &&!noShadow) imageCalculator("Add", tS,"shadow");
+			if (isOpen("shadow") && (shadowDarkness>0) && !noShadow) imageCalculator("Subtract", tS,"shadow");
+			else if (isOpen("shadow") && (shadowDarkness<0) && !noShadow) imageCalculator("Add", tS,"shadow");
 			run("Select None");
 			/* apply outline around label */
 			getSelectionFromMask("outline_template");
@@ -627,7 +626,7 @@ v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 		systemFonts = getFontList();
 		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
 		fontNameChoice = Array.concat(IJFonts,systemFonts);
-		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Arial Black", "SansSerif", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Times New Roman", "Helvetica");
+		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Fira Sans Ultra", "Fira Sans Condensed Ultra", "Arial Black", "Myriad Pro Black", "Montserrat Black", "Olympia-Extra Bold", "SansSerif", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Times New Roman", "Times", "Helvetica");
 		faveFontListCheck = newArray(faveFontList.length);
 		counter = 0;
 		for (i=0; i<faveFontList.length; i++) {

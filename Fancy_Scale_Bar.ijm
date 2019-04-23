@@ -25,6 +25,7 @@ v190125 Add "Bottom Center" location.
 v190222 Fixed overlay shadows to work correctly for 16 bit gray and 32-bit image depths. Fixed "no text" option for overlays.
 v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 v190417 Changed bar thickness from pixels to % of chosen font height so it scales with chosen font. Saves Preferences.
+v190423 Updated indexOfArray function.
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -92,9 +93,9 @@ v190417 Changed bar thickness from pixels to % of chosen font height so it scale
 		if (originalImageDepth==24)
 			colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
 		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
-		iTC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.scale.font.color",colorChoice[0]));
+		iTC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.scale.font.color",colorChoice[0]),0);
 		Dialog.addChoice("Scale bar and text color:", colorChoice, colorChoice[iTC]);
-		iBC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.scale.outline.color",colorChoice[1]));
+		iBC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.scale.outline.color",colorChoice[1]),1);
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[iBC]);
 		if (selEType>=0) {
 			locChoice = newArray("Top Left", "Top Right", "Bottom Center", "Bottom Left", "Bottom Right", "At Center of New Selection", "At Selection"); 
@@ -109,10 +110,10 @@ v190417 Changed bar thickness from pixels to % of chosen font height so it scale
 		Dialog.addNumber("X Offset from Edge in Pixels \(applies to corners only\)", selOffsetX,0,1,"pixels");
 		Dialog.addNumber("Y Offset from Edge in Pixels \(applies to corners only\)", selOffsetY,0,1,"pixels");
 		fontStyleChoice = newArray("bold", "bold antialiased", "italic", "italic antialiased", "bold italic", "bold italic antialiased", "unstyled");
-		iFS = indexOfArray(fontStyleChoice, call("ij.Prefs.get", "fancy.scale.font.style",fontStyleChoice[1]));
+		iFS = indexOfArray(fontStyleChoice, call("ij.Prefs.get", "fancy.scale.font.style",fontStyleChoice[1]),1);
 		Dialog.addChoice("Font style:", fontStyleChoice, fontStyleChoice[iFS]);
 		fontNameChoice = getFontChoiceList();
-		iFN = indexOfArray(fontNameChoice, call("ij.Prefs.get", "fancy.scale.font",fontNameChoice[0]));
+		iFN = indexOfArray(fontNameChoice, call("ij.Prefs.get", "fancy.scale.font",fontNameChoice[0]),0);
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[iFN]);
 		Dialog.addNumber("Outline Stroke:", dOutS,0,3,"% of font size");
 		Dialog.addCheckbox("No Shadow \(Just Outline\)", false);
@@ -167,16 +168,17 @@ v190417 Changed bar thickness from pixels to % of chosen font height so it scale
 			if (startSliceNumber==endSlice) labelRest=false;
 		}
 	if (sF!=0) { 
-		oU = indexOfArray(newUnit, overrideUnit);
+		oU = indexOfArray(newUnit, overrideUnit,0);
 		oSF = nSF[oU];
 		selectedUnit = overrideUnitChoice[oU];
 	}
 	if (startsWith(overWrite,"Replace")) while (Overlay.size!=0) Overlay.remove;
 	setBatchMode(true);
-	call("ij.Prefs.set", "fancy.scale.font.color", scaleBarColor); /* save last used font style in preferences */
-	call("ij.Prefs.set", "fancy.scale.outline.color", outlineColor); /* save last used font name in preferences */
-	call("ij.Prefs.set", "fancy.scale.font.style", fontStyle); /* save last used font style in preferences */
-	call("ij.Prefs.set", "fancy.scale.font", fontName); /* save last used font name in preferences */
+	 /* save last used settings in user in preferences */
+	call("ij.Prefs.set", "fancy.scale.font.color", scaleBarColor);
+	call("ij.Prefs.set", "fancy.scale.outline.color", outlineColor);
+	call("ij.Prefs.set", "fancy.scale.font.style", fontStyle);
+	call("ij.Prefs.set", "fancy.scale.font", fontName);
 	fontFactor = fontSize/100;
 	if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
 	selLengthInPixels = selLengthInUnits / lcf;
@@ -681,17 +683,16 @@ v190417 Changed bar thickness from pixels to % of chosen font height so it scale
 		run("Restore Selection");
 		if (!batchMode) setBatchMode(false); /* Return to original batch mode setting */
 	}
-	function indexOfArray(array, value) {
-	/* v181003
-		v190417 stops on first index discovery */
-		index = -1;
-		for (i=0; i<lengthOf(array); i++) {
+	function indexOfArray(array, value, default) {
+		/* v190423 Adds "default" parameter (use -1 for backwards compatibility). Returns only first found value */
+		index = default;
+		for (i=0; i<lengthOf(array); i++){
 			if (array[i]==value) {
 				index = i;
 				i = lengthOf(array);
 			}
 		}
-		return index;
+	  return index;
 	}
 	function removeTrailingZerosAndPeriod(string) { /* Removes any trailing zeros after a period */
 		while (endsWith(string,".0")) string=substring(string,0, lastIndexOf(string, ".0"));

@@ -39,15 +39,11 @@ macro "Fancy Border" {
 		Dialog.addNumber("Width of center border:",dBrderThick,0,3,"pixels");
 		iCBC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.centerBorderColor",colorChoice[1]),1);
 		Dialog.addChoice("Center border color:", colorChoice, colorChoice[iCBC]);
-		if (selEType<2) {
-			if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays");
-			else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays", "Replace ALL overlays");
-			Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, overwriteChoice.length, overwriteChoice[1]);
-		}
-		else if (Overlay.size>0) {
-			overwriteChoice = newArray("Add overlays", "Replace ALL overlays");
-			Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, overwriteChoice.length, overwriteChoice[1]);
-		}
+		overwriteChoice = newArray("Add overlays");
+		if (Overlay.size>0) overwriteChoice = Array.concat(overwriteChoice, "Replace ALL overlays");
+		if (selEType<2) overwriteChoice = Array.concat(overwriteChoice, "Destructive overwrite", "New image");
+		if (overwriteChoice.length==1) Dialog.addMessage("Output:_________________ \n  \n  Borders added as overlays.\n  Use rectangle or ellipse selections for\n     destructive overwrite.\n  Use 'flatten' to merge overlays with image.");
+		else Dialog.addRadioButtonGroup("Output:_________________ ", overwriteChoice, 3, overwriteChoice.length, overwriteChoice[overwriteChoice.length-1]);
 	Dialog.show();
 		innerBorder = Dialog.getCheckbox();
 		innerBorderThickness = Dialog.getNumber; /*  set minimum default bar height as 2 pixels */

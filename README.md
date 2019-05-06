@@ -19,3 +19,7 @@
 <h4 id = "FancyFeatureLabelerSummary">Fancy Feature Labeler with Summary</h4>
 <p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/Fancy_Feature_Labeler+Summary.ijm" Title = "Applied Superconductivity Center Fancy Feature Labeler Macro" >link</a>) adds scaled result labels to each ROI object and a summary of selected statistics.</p>
 <p><img src="https://fs.magnet.fsu.edu/~lee/asc/ImageJUtilities/IA_Images/Bronze-Nb3Sn_FFL_Dp_512x160_anigif.gif" alt="Fancy Feature Label example" width="512" /></p>
+
+<h4 id = "FancyBorders">Fancy Border</h4>
+<p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/Fancy_Border.ijm" Title = "Applied Superconductivity Center Fancy Border Macro" >link</a>) adds a color border to a selection. The border can consist of up to 3 layers of different thickness and can be a non-destructive overlay.</p>
+<p><img src="https://fs.magnet.fsu.edu/~lee/asc/ImageJUtilities/IA_Images/Fancy_Borders_anigif_270x223_v190506.gif" alt="Fancy Border example" width="270" /></p>

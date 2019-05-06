@@ -4,6 +4,7 @@
 	v170411 removes spaces in new image names to fix issue with naming new image combinations.
 	v180612 set to work on only one slice.
 	v190108 fixed median for single object.
+	v190506 removed redundant function.
  */
 macro "Add Summary Table to Copy of Image"{
 	requires("1.47r");
@@ -18,7 +19,7 @@ macro "Add Summary Table to Copy of Image"{
 	getPixelSize(unit, pixWidth, pixHeight, pixDepth);
 	selEType = selectionType; 
 	if (selEType>=0) {
-		if (selEType>=5 && selEType<=7) {
+		if ((selEType>=5) && (selEType<=7)) {
 			line==true;
 			if (selEType>5) {
 				/*  for 6=segmented line or 7=freehand line do a linear fit */
@@ -73,16 +74,16 @@ macro "Add Summary Table to Copy of Image"{
 		Dialog.addNumber("Line Spacing", lineSpacing,0,3,"");
 		unitChoice = newArray("Auto", "Manual", unit, unit+"^2", "None", "pixels", "pixels^2", fromCharCode(0x00B0), "degrees", "radians", "%", "arb.");
 		Dialog.addChoice("Unit Label \(if needed\):", unitChoice, unitChoice[0]);
-		Dialog.addNumber("Outline Stroke:", outlineStroke,0,3,"% of font size");
+		Dialog.addNumber("Outline stroke:", outlineStroke,0,3,"% of font size");
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
-		Dialog.addNumber("Shadow Drop: ±", shadowDrop,0,3,"% of font size");
-		Dialog.addNumber("Shadow Displacement Right: ±", shadowDrop,0,3,"% of font size");
-		Dialog.addNumber("Shadow Gaussian Blur:", floor(0.75 * shadowDrop),0,3,"% of font size");
+		Dialog.addNumber("Shadow drop: ±", shadowDrop,0,3,"% of font size");
+		Dialog.addNumber("Shadow displacement right: ±", shadowDrop,0,3,"% of font size");
+		Dialog.addNumber("Shadow Gaussian blur:", floor(0.75 * shadowDrop),0,3,"% of font size");
 		Dialog.addNumber("Shadow Darkness:", 75,0,3,"%\(darkest = 100%\)");
 		Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay scale bar");
-		Dialog.addNumber("Inner Shadow Drop: ±", dIShO,0,3,"% of font size");
-		Dialog.addNumber("Inner Displacement Right: ±", dIShO,0,3,"% of font size");
-		Dialog.addNumber("Inner Shadow Mean Blur:",floor(dIShO/2),1,3,"% of font size");
+		Dialog.addNumber("Inner shadow drop: ±", dIShO,0,3,"% of font size");
+		Dialog.addNumber("Inner displacement right: ±", dIShO,0,3,"% of font size");
+		Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,3,"% of font size");
 		Dialog.addNumber("Inner Shadow Darkness:", 20,0,3,"% \(darkest = 100%\)");
 						
 		Dialog.show();
@@ -262,7 +263,6 @@ macro "Add Summary Table to Copy of Image"{
 	if ((endX+offsetX)>imageWidth) selEX = imageWidth - longestStringWidth - offsetX;
 	paraLabelX = selEX;
 	paraLabelY = selEY;
-	setColorFromColorName("white");
 	roiManager("show none");
 	// roiManager("Show All without labels");
 	run("Flatten");
@@ -273,6 +273,7 @@ macro "Add Summary Table to Copy of Image"{
 	roiManager("show none");
 	roiManager("deselect");
 	run("Select None");
+	setColor(255,255,255);
 	/* Draw summary over top of image */
 	if (paraLabChoice=="Yes") {
 		setFont(fontName, paraLabFontSize, fontStyle);
@@ -356,30 +357,24 @@ macro "Add Summary Table to Copy of Image"{
 	  
   function getAngle(x1, y1, x2, y2) {
 	/* Returns the angle in degrees between the specified line and the horizontal axis.
-	https://imagej.nih.gov/ij/macros/Measure_Angle_And_Length.txt
+	https://wsr.imagej.net//macros/Measure_Angle_And_Length.txt
+	slightly mod pjl v190325
 	*/
-      q1=0; q2orq3=2; q4=3; //quadrant
+      q1=0; q2orq3=2; q4=3; /* quadrant */
       dx = x2-x1;
       dy = y1-y2;
       if (dx!=0)
           angle = atan(dy/dx);
       else {
-          if (dy>=0)
-              angle = PI/2;
-          else
-              angle = -PI/2;
+          if (dy>=0) angle = PI/2;
+          else angle = -PI/2;
       }
       angle = (180/PI)*angle;
-      if (dx>=0 && dy>=0)
-           quadrant = q1;
-      else if (dx<0)
-          quadrant = q2orq3;
-      else
-          quadrant = q4;
-      if (quadrant==q2orq3)
-          angle = angle+180.0;
-      else if (quadrant==q4)
-          angle = angle+360.0;
+      if ((dx&&dy)>=0) quadrant = q1;
+      else if (dx<0) quadrant = q2orq3;
+      else quadrant = q4;
+      if (quadrant==q2orq3) angle = angle+180.0;
+      else if (quadrant==q4) angle = angle+360.0;
       return angle;
   }
   
@@ -445,10 +440,6 @@ macro "Add Summary Table to Copy of Image"{
 		else if (colorName == "Hot Magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
 		else restoreExit("No color match to " + colorName);
 		return cA;
-	}
-	function setColorFromColorName(colorName) {
-		colorArray = getColorArrayFromColorName(colorName);
-		setColor(colorArray[0], colorArray[1], colorArray[2]);
 	}
 	function setBackgroundFromColorName(colorName) {
 		colorArray = getColorArrayFromColorName(colorName);

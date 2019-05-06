@@ -1,5 +1,6 @@
 macro "Fancy Border" {
 /* v190503 1st version PJL 5/3/2019 4:54 PM
+	v190506 Adds ability to add all three of inner, outer and center borders.
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -228,10 +229,6 @@ macro "Fancy Border" {
 		else if (colorName == "Hot Magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
 		else restoreExit("No color match to " + colorName);
 		return cA;
-	}
-	function setColorFromColorName(colorName) {
-		colorArray = getColorArrayFromColorName(colorName);
-		setColor(colorArray[0], colorArray[1], colorArray[2]);
 	}
 	function setBackgroundFromColorName(colorName) {
 		colorArray = getColorArrayFromColorName(colorName);

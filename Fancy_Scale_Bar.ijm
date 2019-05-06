@@ -25,7 +25,7 @@ v190125 Add "Bottom Center" location.
 v190222 Fixed overlay shadows to work correctly for 16 bit gray and 32-bit image depths. Fixed "no text" option for overlays.
 v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 v190417 Changed bar thickness from pixels to % of chosen font height so it scales with chosen font. Saves Preferences.
-v190423 Updated indexOfArray function.
+v190423 Updated indexOfArray function. v190506 removed redundant function code.
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -42,8 +42,7 @@ v190423 Updated indexOfArray function.
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
 	startSliceNumber = getSliceNumber();
 	remSlices = slices-startSliceNumber;
-	imageDims = imageHeight+imageWidth;
-	sbFontSize = maxOf(12, round(imageDims/60)); /* set minimum default font size as 12 */
+	sbFontSize = maxOf(12, round((imageHeight+imageWidth)/60)); /* set minimum default font size as 12 */
 	getVoxelSize(pixelWidth, pixelHeight, pixelDepth, selectedUnit);
 	if (selectedUnit == "um") selectedUnit = "µm";
 	if ((pixelWidth>3) && (selectedUnit=="nm")) {
@@ -107,25 +106,25 @@ v190423 Updated indexOfArray function.
 		}
 		Dialog.addCheckbox("No text", false);
 		Dialog.addNumber("Font size:", sbFontSize);
-		Dialog.addNumber("X Offset from Edge in Pixels \(applies to corners only\)", selOffsetX,0,1,"pixels");
-		Dialog.addNumber("Y Offset from Edge in Pixels \(applies to corners only\)", selOffsetY,0,1,"pixels");
+		Dialog.addNumber("X offset from edge \(for corners only\)", selOffsetX,0,1,"pixels");
+		Dialog.addNumber("Y offset from edge \(for corners only\)", selOffsetY,0,1,"pixels");
 		fontStyleChoice = newArray("bold", "bold antialiased", "italic", "italic antialiased", "bold italic", "bold italic antialiased", "unstyled");
 		iFS = indexOfArray(fontStyleChoice, call("ij.Prefs.get", "fancy.scale.font.style",fontStyleChoice[1]),1);
 		Dialog.addChoice("Font style:", fontStyleChoice, fontStyleChoice[iFS]);
 		fontNameChoice = getFontChoiceList();
 		iFN = indexOfArray(fontNameChoice, call("ij.Prefs.get", "fancy.scale.font",fontNameChoice[0]),0);
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[iFN]);
-		Dialog.addNumber("Outline Stroke:", dOutS,0,3,"% of font size");
-		Dialog.addCheckbox("No Shadow \(Just Outline\)", false);
-		Dialog.addNumber("Shadow Drop: ±", dShO,0,3,"% of font size");
-		Dialog.addNumber("Shadow Displacement Right: ±", dShO,0,3,"% of font size");
-		Dialog.addNumber("Shadow Gaussian Blur:", floor(0.75*dShO),0,3,"% of font size");
-		Dialog.addNumber("Shadow Darkness \(darkest = 100%\):", 30,0,3,"% \(negative = glow\)");
+		Dialog.addNumber("Outline stroke:", dOutS,0,3,"% of font size");
+		Dialog.addCheckbox("No shadow \(just outline and fill\)", false);
+		Dialog.addNumber("Shadow drop: ±", dShO,0,3,"% of font size");
+		Dialog.addNumber("Shadow displacement right: ±", dShO,0,3,"% of font size");
+		Dialog.addNumber("Shadow Gaussian blur:", floor(0.75*dShO),0,3,"% of font size");
+		Dialog.addNumber("Shadow darkness \(darkest = 100%\):", 30,0,3,"% \(negative = glow\)");
 		Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay scale bar");
-		Dialog.addNumber("Inner Shadow Drop: ±", dIShO,0,1,"% of font size");
-		Dialog.addNumber("Inner Displacement Right: ±", dIShO,0,1,"% of font size");
-		Dialog.addNumber("Inner Shadow Mean Blur:",floor(dIShO/2),1,2,"% of font size");
-		Dialog.addNumber("Inner Shadow Darkness \(darkest = 100%\):", 20,0,3,"% \(negative = glow\)");
+		Dialog.addNumber("Inner shadow drop: ±", dIShO,0,1,"% of font size");
+		Dialog.addNumber("Inner displacement right: ±", dIShO,0,1,"% of font size");
+		Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,2,"% of font size");
+		Dialog.addNumber("Inner shadow darkness \(darkest = 100%\):", 20,0,3,"% \(negative = glow\)");
 		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays");
 		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays", "Replace ALL overlays");
 		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, overwriteChoice.length, overwriteChoice[1]);
@@ -256,7 +255,7 @@ v190423 Updated indexOfArray function.
 	finalLabelX = selEX + textOffset;
 	finalLabelY = textYcoord;
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
-	setColorFromColorName("white"); // function
+	setColor(255,255,255);
 	fillRect(selEX, selEY, selLengthInPixels, sbHeight);
 	if (!noText) writeLabel("white");
 	setThreshold(0, 128);
@@ -672,11 +671,11 @@ v190423 Updated indexOfArray function.
 		else restoreExit("No recognized units defined; macro will exit");
 		return scaleFactor;
 	}
-	function getSelectionFromMask(selection_Mask){
+	function getSelectionFromMask(sel_M){
 		batchMode = is("Batch Mode"); /* Store batch status mode before toggling */
 		if (!batchMode) setBatchMode(true); /* Toggle batch mode on if previously off */
 		tempTitle = getTitle();
-		selectWindow(selection_Mask);
+		selectWindow(sel_M);
 		run("Create Selection"); /* Selection inverted perhaps because the mask has an inverted LUT? */
 		run("Make Inverse");
 		selectWindow(tempTitle);

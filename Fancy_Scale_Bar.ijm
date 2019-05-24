@@ -26,6 +26,7 @@ v190222 Fixed overlay shadows to work correctly for 16 bit gray and 32-bit image
 v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 v190417 Changed bar thickness from pixels to % of chosen font height so it scales with chosen font. Saves Preferences.
 v190423 Updated indexOfArray function. v190506 removed redundant function code.
+v190524 Added alternatives to simple bar using makeArrow macro function
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -97,14 +98,18 @@ v190423 Updated indexOfArray function. v190506 removed redundant function code.
 		iBC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.scale.outline.color",colorChoice[1]),1);
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[iBC]);
 		if (selEType>=0) {
-			locChoice = newArray("Top Left", "Top Right", "Bottom Center", "Bottom Left", "Bottom Right", "At Center of New Selection", "At Selection"); 
+			locChoice = newArray("Top Left", "Top Right", "Bottom Center", "Bottom Left", "Bottom Right", "At Center of New Selection", "At Selection");
 			Dialog.addChoice("Scale bar position:", locChoice, locChoice[6]); 
 		}
 		else {
-			locChoice = newArray("Top Left", "Top Right", "Bottom Center", "Bottom Left", "Bottom Right", "At Center of New Selection"); 
-			Dialog.addChoice("Scale bar position:", locChoice, locChoice[4]); 
+			locChoice = newArray("Top Left", "Top Right", "Bottom Center", "Bottom Left", "Bottom Right", "At Center of New Selection");
+			iLoc = indexOfArray(locChoice, call("ij.Prefs.get", "fancy.scale.location",locChoice[4]),4);			
+			Dialog.addChoice("Scale bar position:", locChoice, locChoice[iLoc]); 
 		}
 		Dialog.addCheckbox("No text", false);
+		sBStyleChoices = newArray("Solid Bar", "I-Bar", "Simple Arrows", "Notched Arrows");
+		iSBS = indexOfArray(sBStyleChoices, call("ij.Prefs.get", "fancy.scale.bar.style",sBStyleChoices[0]),0);
+		Dialog.addRadioButtonGroup("Bar Styles:", sBStyleChoices, 1, 3, sBStyleChoices[iSBS]);
 		Dialog.addNumber("Font size:", sbFontSize);
 		Dialog.addNumber("X offset from edge \(for corners only\)", selOffsetX,0,1,"pixels");
 		Dialog.addNumber("Y offset from edge \(for corners only\)", selOffsetY,0,1,"pixels");
@@ -127,7 +132,8 @@ v190423 Updated indexOfArray function. v190506 removed redundant function code.
 		Dialog.addNumber("Inner shadow darkness \(darkest = 100%\):", 20,0,3,"% \(negative = glow\)");
 		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays");
 		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays", "Replace ALL overlays");
-		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, overwriteChoice.length, overwriteChoice[1]);
+		if(overwriteChoice.length==3) Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, 3,overwriteChoice[1]);
+		else Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 2, 2, overwriteChoice[1]);
 		if (slices>0) {
 			Dialog.addMessage("Slice range for labeling \(1-"+slices+"\):");
 			Dialog.addNumber("First slice in label range:", startSliceNumber);
@@ -141,6 +147,7 @@ v190423 Updated indexOfArray function. v190506 removed redundant function code.
 		outlineColor = Dialog.getChoice;
 		selPos = Dialog.getChoice;
 		noText = Dialog.getCheckbox;
+		sBStyle = Dialog.getRadioButton;
 		fontSize =  Dialog.getNumber;
 		sbHeight = maxOf(2,round(fontSize*sbHeightPC/100)); /*  set minimum default bar height as 2 pixels */
 		selOffsetX = Dialog.getNumber;
@@ -178,6 +185,8 @@ v190423 Updated indexOfArray function. v190506 removed redundant function code.
 	call("ij.Prefs.set", "fancy.scale.outline.color", outlineColor);
 	call("ij.Prefs.set", "fancy.scale.font.style", fontStyle);
 	call("ij.Prefs.set", "fancy.scale.font", fontName);
+	call("ij.Prefs.set", "fancy.scale.bar.style", sBStyle);
+	call("ij.Prefs.set", "fancy.scale.location", selPos);
 	fontFactor = fontSize/100;
 	if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
 	selLengthInPixels = selLengthInUnits / lcf;
@@ -205,18 +214,23 @@ v190423 Updated indexOfArray function. v190506 removed redundant function code.
 	if (selPos == "Top Left") {
 		selEX = selOffsetX;
 		selEY = selOffsetY; // + fontSize;
+		if (sBStyle!="Solid Bar") selEY += sbHeight;
 	} else if (selPos == "Top Right") {
 		selEX = imageWidth - selLengthInPixels - selOffsetX;
 		selEY = selOffsetY;// + fontSize;
+		if (sBStyle!="Solid Bar") selEY += sbHeight;
 	} else if (selPos == "Bottom Center") {
 		selEX = imageWidth/2 - selLengthInPixels/2;
-		selEY = imageHeight - sbHeight - (selOffsetY); 
+		selEY = imageHeight - sbHeight - (selOffsetY);
+		if (sBStyle!="Solid Bar") selEY -= sbHeight/2;
 	} else if (selPos == "Bottom Left") {
 		selEX = selOffsetX;
-		selEY = imageHeight - sbHeight - (selOffsetY); 
+		selEY = imageHeight - sbHeight - (selOffsetY);
+		if (sBStyle!="Solid Bar") selEY -= sbHeight/2;
 	} else if (selPos == "Bottom Right") {
 		selEX = imageWidth - selLengthInPixels - selOffsetX;
-		selEY = imageHeight - sbHeight - selOffsetY; 
+		selEY = imageHeight - sbHeight - selOffsetY;
+		if (sBStyle!="Solid Bar") selEY -= sbHeight/2;
 	} else if (selPos=="At Center of New Selection"){
 		if (is("Batch Mode")==true) setBatchMode("exit & display");	/* toggle batch mode off */
 		run("Select None");
@@ -256,7 +270,20 @@ v190423 Updated indexOfArray function. v190506 removed redundant function code.
 	finalLabelY = textYcoord;
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
 	setColor(255,255,255);
-	fillRect(selEX, selEY, selLengthInPixels, sbHeight);
+	if (sBStyle=="Solid Bar")	fillRect(selEX, selEY, selLengthInPixels, sbHeight);
+	else {
+		if (sBStyle=="I-Bar") arrowStyle = "Bar Double Small";
+		else if (sBStyle=="Notched Arrows")  arrowStyle = "Notched Double Small";
+		else arrowStyle = "Double Small";
+		makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
+        Roi.setStrokeColor("white");
+        Roi.setStrokeWidth(sbHeight/2);
+        run("Add Selection...");
+		Overlay.flatten;
+		run("8-bit");
+		closeImageByTitle("label_mask");
+		rename("label_mask");
+	}
 	if (!noText) writeLabel("white");
 	setThreshold(0, 128);
 	setOption("BlackBackground", false);
@@ -289,7 +316,7 @@ v190423 Updated indexOfArray function. v190506 removed redundant function code.
 			if (allSlices) sl=0;
 			if(!noShadow) {
 				getSelectionFromMask("ovShadowMask");
-				List.setMeasurements ;
+				List.setMeasurements;
 				bgGray = List.getValue("Mean");
 				List.clear();
 				if (originalImageDepth==16 || originalImageDepth==32) bgGray = round(bgGray/256);
@@ -308,10 +335,19 @@ v190423 Updated indexOfArray function. v190506 removed redundant function code.
 				setSelectionName("Scale Text " + scaleBarColor);
 			}
 			Overlay.setPosition(sl);
-			makeRectangle(selEX, selEY, selLengthInPixels, sbHeight);
-			setSelectionName("Scale Bar " + scaleBarColor);
-			run("Add Selection...", "fill=&scaleBarColorHex");
-			Overlay.setPosition(sl);
+			if (sBStyle=="Solid Bar"){
+				makeRectangle(selEX, selEY, selLengthInPixels, sbHeight);
+				setSelectionName("Scale Bar " + scaleBarColor);
+				run("Add Selection...", "fill=&scaleBarColorHex");
+				Overlay.setPosition(sl);
+			}else {
+				makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
+				Roi.setStrokeColor(scaleBarColorHex);
+				Roi.setStrokeWidth(sbHeight/2);
+				setSelectionName("Scale Bar " + scaleBarColor);
+				run("Add Selection...");
+				Overlay.setPosition(sl);
+			}
 			run("Select None");
 			if (allSlices) sl = endSlice+1;
 		}

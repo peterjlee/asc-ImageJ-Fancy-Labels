@@ -26,7 +26,8 @@ v190222 Fixed overlay shadows to work correctly for 16 bit gray and 32-bit image
 v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
 v190417 Changed bar thickness from pixels to % of chosen font height so it scales with chosen font. Saves Preferences.
 v190423 Updated indexOfArray function. v190506 removed redundant function code.
-v190524 Added alternatives to simple bar using makeArrow macro function
+v190524 Added alternatives to simple bar using makeArrow macro function.
+v190528 Restored missing overlay font color line.
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -330,6 +331,7 @@ v190524 Added alternatives to simple bar using makeArrow macro function
 			run("Add Selection...", "fill=&outlineColorHex");
 			if(!noText) {
 				Overlay.setPosition(sl);
+				setColor(scaleBarColorHex);
 				Overlay.drawString(finalLabel, finalLabelX, finalLabelY);
 				Overlay.activateSelection(Overlay.size-1);
 				setSelectionName("Scale Text " + scaleBarColor);

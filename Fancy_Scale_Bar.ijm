@@ -188,7 +188,6 @@ v190618-9 Because 16 and 32-bit images do no anti-alias the fonts an alternative
 		oSF = nSF[oU];
 		selectedUnit = overrideUnitChoice[oU];
 	}
-	print(fontSize);
 	if (startsWith(overWrite,"Replace")) while (Overlay.size!=0) Overlay.remove;
 	setBatchMode(true);
 	 /* save last used settings in user in preferences */

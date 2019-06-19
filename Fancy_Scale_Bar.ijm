@@ -28,10 +28,11 @@ v190417 Changed bar thickness from pixels to % of chosen font height so it scale
 v190423 Updated indexOfArray function. v190506 removed redundant function code.
 v190524 Added alternatives to simple bar using makeArrow macro function.
 v190528 Restored missing overlay font color line.
+v190618-9 Because 16 and 32-bit images do no anti-alias the fonts an alternative was added, also an emboss effect option was added.
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
-	if (is("Inverting LUT")==true) run("Invert LUT"); /* more effectively removes Inverting LUT */
+	if(is("Inverting LUT")) run("Invert LUT"); /* more effectively removes Inverting LUT */
 	selEType = selectionType; 
 	if (selEType>=0) {
 		getSelectionBounds(selEX, selEY, selEWidth, selEHeight);
@@ -107,6 +108,7 @@ v190528 Restored missing overlay font color line.
 			iLoc = indexOfArray(locChoice, call("ij.Prefs.get", "fancy.scale.location",locChoice[4]),4);			
 			Dialog.addChoice("Scale bar position:", locChoice, locChoice[iLoc]); 
 		}
+		Dialog.setInsets(-2, 245, -20);
 		Dialog.addCheckbox("No text", false);
 		sBStyleChoices = newArray("Solid Bar", "I-Bar", "Simple Arrows", "Notched Arrows");
 		iSBS = indexOfArray(sBStyleChoices, call("ij.Prefs.get", "fancy.scale.bar.style",sBStyleChoices[0]),0);
@@ -114,19 +116,25 @@ v190528 Restored missing overlay font color line.
 		Dialog.addNumber("Font size:", sbFontSize);
 		Dialog.addNumber("X offset from edge \(for corners only\)", selOffsetX,0,1,"pixels");
 		Dialog.addNumber("Y offset from edge \(for corners only\)", selOffsetY,0,1,"pixels");
-		fontStyleChoice = newArray("bold", "bold antialiased", "italic", "italic antialiased", "bold italic", "bold italic antialiased", "unstyled");
-		iFS = indexOfArray(fontStyleChoice, call("ij.Prefs.get", "fancy.scale.font.style",fontStyleChoice[1]),1);
-		Dialog.addChoice("Font style:", fontStyleChoice, fontStyleChoice[iFS]);
+		fontStyleChoice = newArray("bold", "italic", "bold italic", "unstyled");
+		iFS = indexOfArray(fontStyleChoice, call("ij.Prefs.get", "fancy.scale.font.style",fontStyleChoice[0]),0);
+		Dialog.addChoice("Font style*:", fontStyleChoice, fontStyleChoice[iFS]);
+		Dialog.setInsets(-8, 200, 2) ;
+		if (originalImageDepth==16 || originalImageDepth==32) Dialog.addMessage("* = Anti-aliasing will be approximated,\nconsider reducing bit depth for true anti-aliasing.");
+		else Dialog.addMessage("*=Anti-aliasing will be applied to all styles.");
 		fontNameChoice = getFontChoiceList();
 		iFN = indexOfArray(fontNameChoice, call("ij.Prefs.get", "fancy.scale.font",fontNameChoice[0]),0);
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[iFN]);
 		Dialog.addNumber("Outline stroke:", dOutS,0,3,"% of font size");
+		Dialog.setInsets(-2, 245, 0);
+		Dialog.addCheckbox("Emboss effect", false);
+		Dialog.setInsets(-2, 245, 0);
 		Dialog.addCheckbox("No shadow \(just outline and fill\)", false);
 		Dialog.addNumber("Shadow drop: ±", dShO,0,3,"% of font size");
 		Dialog.addNumber("Shadow displacement right: ±", dShO,0,3,"% of font size");
 		Dialog.addNumber("Shadow Gaussian blur:", floor(0.75*dShO),0,3,"% of font size");
 		Dialog.addNumber("Shadow darkness \(darkest = 100%\):", 30,0,3,"% \(negative = glow\)");
-		Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay scale bar");
+		Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay scale bar.");
 		Dialog.addNumber("Inner shadow drop: ±", dIShO,0,1,"% of font size");
 		Dialog.addNumber("Inner displacement right: ±", dIShO,0,1,"% of font size");
 		Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,2,"% of font size");
@@ -156,6 +164,7 @@ v190528 Restored missing overlay font color line.
 		fontStyle = Dialog.getChoice;
 		fontName = Dialog.getChoice;
 		outlineStroke = Dialog.getNumber;
+		emboss = Dialog.getCheckbox;
 		noShadow = Dialog.getCheckbox;
 		shadowDrop = Dialog.getNumber;
 		shadowDisp = Dialog.getNumber;
@@ -179,6 +188,7 @@ v190528 Restored missing overlay font color line.
 		oSF = nSF[oU];
 		selectedUnit = overrideUnitChoice[oU];
 	}
+	print(fontSize);
 	if (startsWith(overWrite,"Replace")) while (Overlay.size!=0) Overlay.remove;
 	setBatchMode(true);
 	 /* save last used settings in user in preferences */
@@ -188,6 +198,7 @@ v190528 Restored missing overlay font color line.
 	call("ij.Prefs.set", "fancy.scale.font", fontName);
 	call("ij.Prefs.set", "fancy.scale.bar.style", sBStyle);
 	call("ij.Prefs.set", "fancy.scale.location", selPos);
+	if (originalImageDepth!=16 && originalImageDepth!=32) fontStyle += "antialiased"; /* antialising will be applied if possible */ 
 	fontFactor = fontSize/100;
 	if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
 	selLengthInPixels = selLengthInUnits / lcf;
@@ -266,7 +277,6 @@ v190528 Restored missing overlay font color line.
 	setFont(fontName,fontSize, fontStyle);
 	textOffset = round((selLengthInPixels - getStringWidth(label))/2);
 	finalLabel = label;
-	finalFontSize = fontSize;
 	finalLabelX = selEX + textOffset;
 	finalLabelY = textYcoord;
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
@@ -285,7 +295,7 @@ v190528 Restored missing overlay font color line.
 		closeImageByTitle("label_mask");
 		rename("label_mask");
 	}
-	if (!noText) writeLabel("white");
+	if (!noText) writeLabel7(fontName, fontSize, "white", label,finalLabelX,finalLabelY,false);
 	setThreshold(0, 128);
 	setOption("BlackBackground", false);
 	run("Convert to Mask");
@@ -415,10 +425,30 @@ v190528 Restored missing overlay font color line.
 			setBackgroundFromColorName(scaleBarColor);
 			run("Clear", "slice");
 			run("Select None");
-			if (!noText) writeLabel(scaleBarColor); /* restore antialiasing */
 			if (!noShadow) {
 				if (isOpen("inner_shadow")) imageCalculator("Subtract", tS,"inner_shadow");
 			}
+			/* Fonts do not anti-alias in 16 and 32-bit images so this is an alternative approach */
+			if (!noText && outlineStroke>0 && fontSize > 12 && (originalImageDepth==16 || originalImageDepth==32)) {
+				imageCalculator("XOR create", "label_mask","outline_template");
+				selectWindow("Result of label_mask");
+				rename("outline_only_template");
+				selectWindow(tS);
+				getSelectionFromMask("outline_only_template");
+				run("Enlarge...", "enlarge=1 pixel");
+				run("Gaussian Blur...", "sigma=0.55");
+				run("Convolve...", "text1=[-0.0556 -0.0556 -0.0556 \n-0.0556 1.4448  -0.0556 \n-0.0556 -0.0556 -0.0556]"); /* moderate sharpen */
+				closeImageByTitle("outline_only_template");
+				run("Select None");
+			}
+			else if (!noText){writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true); /* force anti-aliasing */
+			}
+			if(emboss) {
+				getSelectionFromMask("label_mask");
+				run("Convolve...", "text1=[0.25 0 0 0 0\n0 0.25  0 0 0\n0 0 1 0 0\n0 0 0 -0.25  0\n0 0 0 0 -0.25 ]");
+				run("Select None");
+			}
+
 		}
 	}
 	closeImageByTitle("shadow");
@@ -791,8 +821,8 @@ v190528 Restored missing overlay font color line.
 	+ 041117 to remove spaces as well */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); /* superscript -1 */
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); /* superscript -2 */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
 		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces deg */
@@ -803,7 +833,11 @@ v190528 Restored missing overlay font color line.
 		string= replace(string, "__", "_"); /* Clean up autofilenames */
 		return string;
 	}
-	function writeLabel(labelColor){
-		setColorFromColorName(labelColor);
-		drawString(finalLabel, finalLabelX, finalLabelY); 
+	function writeLabel7(font, size, color, text,x,y,aA){
+	/* Requires the functions setColorFromColorName, getColorArrayFromColorName(colorName) etc. 
+	v190619 all variables as options */
+		if (aA == true) setFont(font , size, "antialiased");
+		else setFont(font, size);
+		setColorFromColorName(color);
+		drawString(text, x, y); 
 	}

@@ -29,6 +29,7 @@ v190423 Updated indexOfArray function. v190506 removed redundant function code.
 v190524 Added alternatives to simple bar using makeArrow macro function.
 v190528 Restored missing overlay font color line.
 v190618-9 Because 16 and 32-bit images do no anti-alias the fonts an alternative was added, also an emboss effect option was added.
+v190625 Fixed missing bottom and top offset for prior selection. Minor fixes to previous update.
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -197,7 +198,7 @@ v190618-9 Because 16 and 32-bit images do no anti-alias the fonts an alternative
 	call("ij.Prefs.set", "fancy.scale.font", fontName);
 	call("ij.Prefs.set", "fancy.scale.bar.style", sBStyle);
 	call("ij.Prefs.set", "fancy.scale.location", selPos);
-	if (originalImageDepth!=16 && originalImageDepth!=32) fontStyle += "antialiased"; /* antialising will be applied if possible */ 
+	if (originalImageDepth!=16 && originalImageDepth!=32 && fontStyle!="unstyled") fontStyle += "antialiased"; /* antialising will be applied if possible */ 
 	fontFactor = fontSize/100;
 	if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
 	selLengthInPixels = selLengthInUnits / lcf;
@@ -251,11 +252,12 @@ v190618-9 Because 16 and 32-bit images do no anti-alias the fonts an alternative
 		waitForUser(title, msg);
 		getSelectionBounds(newSelEX, newSelEY, newSelEWidth, newSelEHeight);
 		selEX = newSelEX + round((newSelEWidth/2) - selLengthInPixels/2);
-		selEY = newSelEY + round(newSelEHeight/2);
+		selEY = newSelEY + round(newSelEHeight/2)- sbHeight - selOffsetY;
 		if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
-	} else if (selPos=="At Selection")
-		selEY += selEHeight;  /*  assume you want the annotation relative to the bottom of the selection */
-	
+	} else if (selPos=="At Selection"){
+		if (selEY>imageHeight/2) selEY += selEHeight;  /*  Annotation relative to the bottom of the selection if in lower half of image */
+		selEY = minOf(selEY, imageHeight-(sbHeight/2 + selOffsetY));
+	}
 	 /*  edge limits - assume intent is not to annotate edge objects */
 	maxSelEY = imageHeight - round(sbHeight/2) + selOffsetY;
 	  if (selEY>maxSelEY) selEY = maxSelEY;
@@ -424,6 +426,7 @@ v190618-9 Because 16 and 32-bit images do no anti-alias the fonts an alternative
 			setBackgroundFromColorName(scaleBarColor);
 			run("Clear", "slice");
 			run("Select None");
+			if (!noText && (originalImageDepth==16 || originalImageDepth==32)) writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true); /* force anti-aliasing */
 			if (!noShadow) {
 				if (isOpen("inner_shadow")) imageCalculator("Subtract", tS,"inner_shadow");
 			}
@@ -439,8 +442,6 @@ v190618-9 Because 16 and 32-bit images do no anti-alias the fonts an alternative
 				run("Convolve...", "text1=[-0.0556 -0.0556 -0.0556 \n-0.0556 1.4448  -0.0556 \n-0.0556 -0.0556 -0.0556]"); /* moderate sharpen */
 				closeImageByTitle("outline_only_template");
 				run("Select None");
-			}
-			else if (!noText){writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true); /* force anti-aliasing */
 			}
 			if(emboss) {
 				getSelectionFromMask("label_mask");

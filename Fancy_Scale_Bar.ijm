@@ -30,6 +30,7 @@ v190524 Added alternatives to simple bar using makeArrow macro function.
 v190528 Restored missing overlay font color line.
 v190618-9 Because 16 and 32-bit images do no anti-alias the fonts an alternative was added, also an emboss effect option was added.
 v190625 Fixed missing bottom and top offset for prior selection. Minor fixes to previous update.
+v190627 Fixed issue with font sizes not being reproducible and text overrunning image edge.
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -191,6 +192,7 @@ v190625 Fixed missing bottom and top offset for prior selection. Minor fixes to 
 	}
 	if (startsWith(overWrite,"Replace")) while (Overlay.size!=0) Overlay.remove;
 	setBatchMode(true);
+	setFont(fontName,fontSize, fontStyle);
 	 /* save last used settings in user in preferences */
 	call("ij.Prefs.set", "fancy.scale.font.color", scaleBarColor);
 	call("ij.Prefs.set", "fancy.scale.outline.color", outlineColor);
@@ -222,7 +224,6 @@ v190625 Fixed missing bottom and top offset for prior selection. Minor fixes to 
 		if (selOffsetY<(shadowDrop+shadowBlur+1)) selOffsetY += (shadowDrop+shadowBlur+1);
 	}
 	if (fontStyle=="unstyled") fontStyle="";
-
 	if (selPos == "Top Left") {
 		selEX = selOffsetX;
 		selEY = selOffsetY; // + fontSize;
@@ -265,20 +266,30 @@ v190625 Fixed missing bottom and top offset for prior selection. Minor fixes to 
 	maxSelEX = imageWidth - selLengthInPixels + selOffsetX;
 	  if (selEX>maxSelEX) selEX = maxSelEX;
 	if (selEX<selOffsetX) selEX = selOffsetX;
-	
-	 /* Determine label size and location */
-	if (selEY<=1.5*fontSize)
-			textYcoord = selEY + 2*sbHeight + fontSize;
-	else textYcoord = selEY - sbHeight;
 	selLengthLabel = removeTrailingZerosAndPeriod(toString(selLengthInUnits));
 	label = selLengthLabel + " " + selectedUnit;
-	// stop overrun on scale bar by label
-	if (getStringWidth(label)>(selLengthInPixels/1.2))
-		fontSize=round(fontSize*(selLengthInPixels/(1.2*(getStringWidth(label)))));
-	setFont(fontName,fontSize, fontStyle);
-	textOffset = round((selLengthInPixels - getStringWidth(label))/2);
+	/* stop overrun on scale bar by label of more than 20% */
+	stringOF = getStringWidth(label)/selLengthInPixels;
+	
+	if (stringOF > 1.2) {
+		shrinkFont = getBoolean("Shrink font size by " + 1/stringOF + "x to fit within scale bar?");
+		if (shrinkFont) fontSize = round(fontSize/stringOF);
+		setFont("",fontSize);
+	}
+	/* stop text overrun */
+	stringOver = (getStringWidth(label)-selLengthInPixels)/2;
+	if (stringOver > 0) {
+		if ((selEX-stringOver) < selOffsetX) selEX +=stringOver;
+		if ((selEX+getStringWidth(label)) > (imageWidth-selOffsetX)) selEX -= stringOver;
+	}
+	fontHeight = getValue("font.height");
+	/* Adjust label location */
+	if (selEY<=1.5*fontHeight)
+			textYcoord = selEY + sbHeight + fontHeight;
+	else textYcoord = selEY - sbHeight;
+	textXOffset = round((selLengthInPixels - getStringWidth(label))/2);
 	finalLabel = label;
-	finalLabelX = selEX + textOffset;
+	finalLabelX = selEX + textXOffset;
 	finalLabelY = textYcoord;
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
 	setColor(255,255,255);

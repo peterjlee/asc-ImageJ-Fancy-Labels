@@ -7,6 +7,7 @@ macro "Add Slice Label to Each Slice" {
 		v180629 First version based on v180628 of the Fancy Text Label macro.
 		v181018 First working version  >:-}  .
 		v190415 Adds option to update embedded slice labels.
+		v190627 Skips slices without labels rather than clearing them :-$ . Also Function updates.
 	 */
 	requires("1.47r");
 	saveSettings;
@@ -26,10 +27,10 @@ macro "Add Slice Label to Each Slice" {
 	if (matches(originalImage, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + originalImage + " ?"); 
 	setBatchMode(true);
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
+	maxLabelString = imageHeight/10; /* Assumes font size of 10 */
 	startSliceNumber = getSliceNumber();
 	remSlices = slices-startSliceNumber;
 	allSliceLabels = newArray(slices);
-	maxLabelString = 0;
 	for (i=0; i<slices; i++) {
 		setSlice(i+1);
 		allSliceLabels[i] = getInfo("slice.label");
@@ -40,7 +41,7 @@ macro "Add Slice Label to Each Slice" {
 	originalImageDepth = bitDepth();
 	if (originalImageDepth==16) {
 		Dialog.create("Bit depth conversion");
-		Dialog.addMessage("Sorry, this macro does not work well with 16-bit images./nBut perhaps a labelled 16-bit image is unnecessary?");
+		Dialog.addMessage("Sorry, this macro does not work well with 16-bit images./nBut perhaps a labeled 16-bit image is unnecessary?");
 		conversionChoice = newArray("RGB Color", "8-bit Gray", "Exit");
 		Dialog.addRadioButtonGroup("Choose:", conversionChoice, 3, 1, "8-bit Gray");
 		Dialog.show();
@@ -104,7 +105,7 @@ macro "Add Slice Label to Each Slice" {
 		Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc.\nThe number of slices to be labeled is limited to " + sliceLabelDialogLimit + "\nAdditional slices can be labeled by repeating this\nmacro from first unlabeled slice");
 		Dialog.addCheckbox("Update embedded labels with input text below?", false);
 		for (i=0; i<sliceLabelDialogLimit; i++)
-			Dialog.addString("Slice No. "+(i+startSliceNumber)+":",allSliceLabels[i+startSliceNumber-1], maxLabelString);
+			Dialog.addString("Slice No. "+(i+startSliceNumber)+":",allSliceLabels[i+startSliceNumber-1], minOf(50,maxLabelString));
 		Dialog.addRadioButtonGroup("Tweak the Formatting? ", newArray("Yes", "No"), 1, 2, "No");
 		overwriteChoice = newArray("Destructive overwrite", "New image");
 		Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 2, 1, overwriteChoice[1]);
@@ -132,16 +133,16 @@ macro "Add Slice Label to Each Slice" {
 	if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */	
 	if (tweakFormat=="Yes") {
 		Dialog.create("Advanced Formatting Options");
-		Dialog.addNumber("Outline Stroke:", outlineStroke,0,3,"% of font size");
+		Dialog.addNumber("Outline stroke:", outlineStroke,0,3,"% of font size");
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
 		Dialog.addNumber("Shadow Drop: ?", shadowDrop,0,3,"% of font size");
 		Dialog.addNumber("Shadow Displacement Right: ?", shadowDrop,0,3,"% of font size");
-		Dialog.addNumber("Shadow Gaussian Blur:", floor(0.4 * shadowDrop),0,3,"% of font size");
+		Dialog.addNumber("Shadow Gaussian blur:", floor(0.4 * shadowDrop),0,3,"% of font size");
 		Dialog.addNumber("Shadow Darkness:", 100,0,3,"%\(darkest = 100%\)");
 		// Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay Labels");
 		Dialog.addNumber("Inner Shadow Drop: ?", dIShO,0,3,"% of font size");
 		Dialog.addNumber("Inner Displacement Right: ?", dIShO,0,3,"% of font size");
-		Dialog.addNumber("Inner Shadow Mean Blur:",floor(dIShO/2),1,3,"% of font size");
+		Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,3,"% of font size");
 		Dialog.addNumber("Inner Shadow Darkness:", 20,0,3,"% \(darkest = 100%\)");
 						
 		Dialog.show();
@@ -171,7 +172,7 @@ macro "Add Slice Label to Each Slice" {
 	if (innerShadowDisp<0) innerShadowDisp *= negAdj;
 	if (innerShadowBlur<0) innerShadowBlur *= negAdj;
 	fontFactor = fontSize/100;
-	outlineStroke = round(fontFactor * outlineStroke);
+	if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
 	shadowDrop = round(fontFactor * shadowDrop);
 	shadowDisp = round(fontFactor * shadowDisp);
 	shadowBlur = round(fontFactor * shadowBlur);
@@ -188,7 +189,7 @@ macro "Add Slice Label to Each Slice" {
 		if (reLabel) {
 			setSlice(startSliceNumber + i);
 			newLabel = sliceTextLabels[i];
-			run("Set Label...", "label=[&newLabel]");
+			run("Set Label...", "label=&newLabel");
 		}
 		sliceTextLabels[i] = "" + convertToSymbols(sliceTextLabels[i]); /* Use degree symbol */
 		sliceTextLabels[i] = "" + cleanLabel(sliceTextLabels[i]);
@@ -286,66 +287,68 @@ macro "Add Slice Label to Each Slice" {
 	if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
 	for (i=0; i<sliceLabelDialogLimit; i++) {
 		setSlice(startSliceNumber + i);
-		/* Create Label Mask */
-		newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
-		roiManager("deselect");
-		run("Select None");
-		setFont(fontName,fontSize, fontStyle);
-		textLabelLineY = textLabelY;
-		setColor("white");
-		if (sliceTextLabels[i]!="-blank-") {
-			if (just=="right") textLabelX += longestStringWidth - getStringWidth(sliceTextLabels[i]);
-			else if (just!="left") textLabelX += (longestStringWidth-getStringWidth(sliceTextLabels[i]))/2;
-			drawString(sliceTextLabels[i], textLabelX, textLabelLineY);
+		if (sliceTextLabels[i]!="") {
+			/* Create Label Mask */
+			newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
+			roiManager("deselect");
+			run("Select None");
+			setFont(fontName,fontSize, fontStyle);
+			textLabelLineY = textLabelY;
+			setColor("white");
+			if (sliceTextLabels[i]!="-blank-") {
+				if (just=="right") textLabelX += longestStringWidth - getStringWidth(sliceTextLabels[i]);
+				else if (just!="left") textLabelX += (longestStringWidth-getStringWidth(sliceTextLabels[i]))/2;
+				drawString(sliceTextLabels[i], textLabelX, textLabelLineY);
+			}
+			selectWindow("label_mask");
+			setThreshold(0, 128);
+			setOption("BlackBackground", false);
+			run("Convert to Mask");
+			// selectWindow("label_mask");
+			/* Create drop shadow if desired */
+			if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0) {
+				showStatus("Creating drop shadow for labels . . . ");
+				createShadowDropFromMask7("label_mask", shadowDrop, shadowDisp, shadowBlur, shadowDarkness, outlineStroke);
+			}
+			/*	Create inner shadow if desired */
+			if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0) {
+				showStatus("Creating inner shadow for labels . . . ");
+				createInnerShadowFromMask6("label_mask",innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
+			}	
+			if (isOpen("shadow") && (shadowDarkness>0))		
+			imageCalculator("Subtract", workingImage,"shadow");
+			else if (isOpen("shadow") && (shadowDarkness<0))		
+				imageCalculator("Add", workingImage,"shadow");
+			run("Select None");
+			/* Create outline around text */
+			selectWindow(workingImage);
+			getSelectionFromMask("label_mask");
+			getSelectionBounds(maskX, maskY, null, null);
+			outlineStrokeOffset = minOf(round(shadowDisp/2), round(maxOf(0,(outlineStroke/2)-1)));
+			setSelectionLocation(maskX+outlineStrokeOffset, maskY+outlineStrokeOffset); /* Offset selection to create shadow effect */
+			run("Enlarge...", "enlarge=&outlineStroke pixel");
+			setBackgroundFromColorName(outlineColor);
+			run("Clear", "slice");
+			outlineStrokeOffsetMod = outlineStrokeOffset/2;
+			run("Enlarge...", "enlarge=&outlineStrokeOffsetMod pixel");
+			run("Gaussian Blur...", "sigma=&outlineStrokeOffsetMod");
+			run("Select None");
+			/* Create text */
+			getSelectionFromMask("label_mask");
+			setBackgroundFromColorName(fontColor);
+			run("Clear", "slice");
+			run("Select None");
+			/* Now restore antialiased text */
+			if (sliceTextLabels[i]!="-blank-") writeLabel_CFXY(sliceTextLabels[i],fontColor,fontName,fontSize,textLabelX, textLabelLineY);
+			/* Create inner shadow or glow if requested */
+			if (isOpen("inner_shadow") && (innerShadowDarkness>0))
+				imageCalculator("Subtract", workingImage,"inner_shadow");
+			else if (isOpen("inner_shadow") && (innerShadowDarkness<0))
+				imageCalculator("Add", workingImage,"inner_shadow");
+			closeImageByTitle("shadow");
+			closeImageByTitle("inner_shadow");
+			closeImageByTitle("label_mask");
 		}
-		selectWindow("label_mask");
-		setThreshold(0, 128);
-		setOption("BlackBackground", false);
-		run("Convert to Mask");
-		// selectWindow("label_mask");
-		/* Create drop shadow if desired */
-		if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0) {
-			showStatus("Creating drop shadow for labels . . . ");
-			createShadowDropFromMask7("label_mask", shadowDrop, shadowDisp, shadowBlur, shadowDarkness, outlineStroke);
-		}
-		/*	Create inner shadow if desired */
-		if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0) {
-			showStatus("Creating inner shadow for labels . . . ");
-			createInnerShadowFromMask6("label_mask",innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
-		}	
-		if (isOpen("shadow") && (shadowDarkness>0))		
-		imageCalculator("Subtract", workingImage,"shadow");
-		else if (isOpen("shadow") && (shadowDarkness<0))		
-			imageCalculator("Add", workingImage,"shadow");
-		run("Select None");
-		/* Create outline around text */
-		selectWindow(workingImage);
-		getSelectionFromMask("label_mask");
-		getSelectionBounds(maskX, maskY, null, null);
-		outlineStrokeOffset = minOf(round(shadowDisp/2), round(maxOf(0,(outlineStroke/2)-1)));
-		setSelectionLocation(maskX+outlineStrokeOffset, maskY+outlineStrokeOffset); /* Offset selection to create shadow effect */
-		run("Enlarge...", "enlarge=[outlineStroke] pixel");
-		setBackgroundFromColorName(outlineColor);
-		run("Clear", "slice");
-		outlineStrokeOffsetMod = outlineStrokeOffset/2;
-		run("Enlarge...", "enlarge=[outlineStrokeOffsetMod] pixel");
-		run("Gaussian Blur...", "sigma=[outlineStrokeOffsetMod]");
-		run("Select None");
-		/* Create text */
-		getSelectionFromMask("label_mask");
-		setBackgroundFromColorName(fontColor);
-		run("Clear", "slice");
-		run("Select None");
-		/* Now restore antialiased text */
-		if (sliceTextLabels[i]!="-blank-") writeLabel_CFXY(sliceTextLabels[i],fontColor,fontName,fontSize,textLabelX, textLabelLineY);
-		/* Create inner shadow or glow if requested */
-		if (isOpen("inner_shadow") && (innerShadowDarkness>0))
-			imageCalculator("Subtract", workingImage,"inner_shadow");
-		else if (isOpen("inner_shadow") && (innerShadowDarkness<0))
-			imageCalculator("Add", workingImage,"inner_shadow");
-		closeImageByTitle("shadow");
-		closeImageByTitle("inner_shadow");
-		closeImageByTitle("label_mask");
 	}
 	selectWindow(workingImage);
 	if (startsWith(overWrite, "New"))  {
@@ -469,8 +472,8 @@ macro "Add Slice Label to Each Slice" {
 		run("Clear Outside");
 		getSelectionFromMask(mask);
 		expansion = abs(iShadowDisp) + abs(iShadowDrop) + abs(iShadowBlur);
-		if (expansion>0) run("Enlarge...", "enlarge=[expansion] pixel");
-		if (iShadowBlur>0) run("Gaussian Blur...", "sigma=[iShadowBlur]");
+		if (expansion>0) run("Enlarge...", "enlarge=&expansion pixel");
+		if (iShadowBlur>0) run("Gaussian Blur...", "sigma=&iShadowBlur");
 		run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen the effect for small font sizes */
 		imageCalculator("Max", "inner_shadow",mask);
 		run("Select None");
@@ -479,7 +482,7 @@ macro "Add Slice Label to Each Slice" {
 		run("Enhance Contrast...", "saturated=0 normalize");
 		run("Invert");  /* Create an image that can be subtracted - this works better for color than Min */
 		divider = (100 / abs(iShadowDarkness));
-		run("Divide...", "value=[divider]");
+		run("Divide...", "value=&divider");
 	}
 	function createShadowDropFromMask7(mask, oShadowDrop, oShadowDisp, oShadowBlur, oShadowDarkness, oStroke) {
 		/* Requires previous run of: originalImageDepth = bitDepth();
@@ -492,16 +495,16 @@ macro "Add Slice Label to Each Slice" {
 		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
 		setSelectionLocation(selMaskX + oShadowDisp, selMaskY + oShadowDrop);
 		setBackgroundColor(255,255,255);
-		if (oStroke>0) run("Enlarge...", "enlarge=[oStroke] pixel"); /* Adjust shadow size so that shadow extends beyond stroke thickness */
+		if (oStroke>0) run("Enlarge...", "enlarge=&oStroke pixel"); /* Adjust shadow size so that shadow extends beyond stroke thickness */
 		run("Clear");
 		run("Select None");
 		if (oShadowBlur>0) {
-			run("Gaussian Blur...", "sigma=[oShadowBlur]");
-			run("Unsharp Mask...", "radius=[oShadowBlur] mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
+			run("Gaussian Blur...", "sigma=&oShadowBlur");
+			run("Unsharp Mask...", "radius=&oShadowBlur mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
 		}
 		/* Now make sure shadow or glow does not impact outline */
 		getSelectionFromMask(mask);
-		if (oStroke>0) run("Enlarge...", "enlarge=[oStroke] pixel");
+		if (oStroke>0) run("Enlarge...", "enlarge=&oStroke pixel");
 		setBackgroundColor(0,0,0);
 		run("Clear");
 		run("Select None");
@@ -509,7 +512,7 @@ macro "Add Slice Label to Each Slice" {
 		if (originalImageDepth==16 || originalImageDepth==32) run(originalImageDepth + "-bit");
 		run("Enhance Contrast...", "saturated=0 normalize");
 		divider = (100 / abs(oShadowDarkness));
-		run("Divide...", "value=[divider]");
+		run("Divide...", "value=&divider");
 	}
 	function getSelectionFromMask(selection_Mask){
 		tempTitle = getTitle();
@@ -597,8 +600,10 @@ macro "Add Slice Label to Each Slice" {
 	function pad(n) {
 		n= toString(n); if (lengthOf(n)==1) n= "0"+n; return n;
 	}
-	function getFontChoiceList() {
-		/* v180723 first version */
+  	function getFontChoiceList() {
+		/*	v180723 first version
+			v180828 Changed order of favorites
+		*/
 		systemFonts = getFontList();
 		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
 		fontNameChoice = Array.concat(IJFonts,systemFonts);
@@ -623,8 +628,8 @@ macro "Add Slice Label to Each Slice" {
 	/* mod 041117 to remove spaces as well */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); /* superscript -1 */
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); /* superscript -2 */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
 		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces deg */

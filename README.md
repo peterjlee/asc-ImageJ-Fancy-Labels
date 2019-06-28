@@ -8,9 +8,10 @@
 <h4 id = "FancyTextLabels">Fancy Text Labels</h4><p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/FancyTextLabels.ijm" Title = "Applied Superconductivity Center Fancy Text Label Macro Directory" >link</a>) adds up to 8 lines of user created text to an image. There are extensive formatting options including outlines and shadows to help the text stand out against the image. If the image is in color there are multiple color options.</p><p><img src="https://fs.magnet.fsu.edu/~lee/asc/ImageJUtilities/IA_Images/FancyTextLabels_ColorExample_512x92.gif" alt="Fancy Summary Table Label example" width="512" /></p>
 
 <h4 id = "FancySliceLabels">Fancy Slice Labels</h4>
-<p>This macro adds multiple lines of text to a copy of the image. Slices can be named with sequential numbers using imageJ's "stack sorter." Non-formated slice labels can be applied with more variables and previews to images using ImageJ's "Label Stacks" and Dan White's (MPI-CBG) "Series Labeler", so you might want to try that more sophisticated programming first.</p>
-
-<p><img src="https://fs.magnet.fsu.edu/~lee/asc/ImageJUtilities/IA_Images/FancySliceLabels_Menu1_298x499_041619_FramebyFrame_anigif.gif" alt="Fancy Slice Label example" width="298" /></p>
+<p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/Fancy_Slice_Labels.ijm" Title = "Applied Superconductivity Center Fancy Text Label Macro Directory" >link</a>) adds multiple lines of text to a copy of the image. Sequential numbers can be added as well as prefixes and suffixes. Text in the slice labels can be globally replaced. Non-formated slice labels can be applied with more counter variables and previews to images using ImageJ's "Label Stacks" and Dan White's (MPI-CBG) "Series Labeler", so you might want to try that more sophisticated programming first to see if it meets your needs sufficiently. You can also try utilize imageJ's "stack sorter."</p>
+    
+<p><img src="https://fs.magnet.fsu.edu/~lee/asc/ImageJUtilities/IA_Images/FancySliceLabels_Menus_839x520_pal32.png" alt="Fancy Slice Label menus" width="839" /></p>
+<p><img src="https://fs.magnet.fsu.edu/~lee/asc/ImageJUtilities/IA_Images/FancySliceLabels_Example_451x172.gif" alt="Fancy Slice Label example" width="451" /></p>
 
 <h4 id = "Fancy_Feature_Labeler">Fancy Feature Labeler</h4>
 <p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/Fancy_Feature_Labeler.ijm" Title = "Applied Superconductivity Center Fancy Feature Labeler Macro" >link</a>) adds scaled result labels to each ROI object.</p>

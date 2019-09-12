@@ -15,7 +15,7 @@ v180730 rounds the scale bar width guess to two figures.
 v180921 add no-shadow option - useful for optimizing GIF color palettes for animations.
 v180927 Overlay quality greatly improved and 16-bit stacks now finally work as expected.
 v181003 Automatically adjusts scale units to ranges applicable to scale bars.
-v181018 Fixed color issue with scale text and added off-white and off-black for transparent gifs.
+v181018 Fixed color issue with scale text and added off-white and off-black for transparent GIFs.
 v181019 Fixed issue with filenames with spaces.
 v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the overlay to display on all stack slices. "Replace overlay" now replaces All overlays (so be careful).
 v181217 Removed shadow color option.
@@ -31,9 +31,11 @@ v190528 Restored missing overlay font color line.
 v190618-9 Because 16 and 32-bit images do no anti-alias the fonts an alternative was added, also an emboss effect option was added.
 v190625 Fixed missing bottom and top offset for prior selection. Minor fixes to previous update.
 v190627 Fixed issue with font sizes not being reproducible and text overrunning image edge.
+v190912 Added list of preferred scale bar widths; Now attempts to label all channels for multi-channel stack.
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
+	micron = getInfo("micrometer.abbreviation");
 	if(is("Inverting LUT")) run("Invert LUT"); /* more effectively removes Inverting LUT */
 	selEType = selectionType; 
 	if (selEType>=0) {
@@ -49,26 +51,42 @@ v190627 Fixed issue with font sizes not being reproducible and text overrunning 
 	remSlices = slices-startSliceNumber;
 	sbFontSize = maxOf(12, round((imageHeight+imageWidth)/60)); /* set minimum default font size as 12 */
 	getVoxelSize(pixelWidth, pixelHeight, pixelDepth, selectedUnit);
-	if (selectedUnit == "um") selectedUnit = "µm";
-	if ((pixelWidth>3) && (selectedUnit=="nm")) {
-		pixelWidth /= 1000;
-		pixelHeight /= 1000;
-		pixelDepth /= 1000;
-		selectedUnit = "µm";
+	if (selectedUnit == "um") selectedUnit = micron;
+	sF = getScaleFactor(selectedUnit);
+	scaleFactors = newArray(1.0000E3,1.0000,1.0000E-2,1.0000E-3,1.0000E-6,1.0000E-9,1.0000E-12);
+	metricUnits = newArray("km","m","cm","mm","µm","nm","pm");
+	for (i=0; i<5; i++){
+		newUnitI = -1;
+		if (pixelWidth*imageWidth/5 > 1000) { /* test whether scale bar is likely to be more than 1000 units */
+			for (j=0; j<lengthOf(scaleFactors); j++){
+				if (scaleFactors[j] > sF){
+					newSF = scaleFactors[j];
+					newUnitI = j;
+				}
+				else j = lengthOf(scaleFactors);
+			}
+		}
+		else if (pixelWidth*imageWidth/5 < 1) { /* test whether scale bar is likely to have tiny units */
+			for (j=0; j<lengthOf(scaleFactors); j++){
+				if (scaleFactors[j] < sF){
+					newSF = scaleFactors[j];
+					newUnitI = j;
+					j = lengthOf(scaleFactors);
+				}
+			}
+		}
+		if (newUnitI>=0){
+			selectedUnit = metricUnits[newUnitI];
+			nPW = pixelWidth*sF/newSF; nPH = pixelHeight*sF/newSF;
+			setVoxelSize(nPW, nPH, pixelDepth, selectedUnit);
+			getVoxelSize(pixelWidth, pixelHeight, pixelDepth, selectedUnit);
+		}
 	}
-	if ((pixelWidth>3) && (selectedUnit=="µm")) {
-		pixelWidth /= 1000;
-		pixelHeight /= 1000;
-		pixelDepth /= 1000;
-		selectedUnit = "mm";
-	}
-	setVoxelSize(pixelWidth, pixelHeight, pixelDepth, selectedUnit);
 	lcf=(pixelWidth+pixelHeight)/2;
 	lcfFactor=1/lcf;
 	dOutS = 6; /* default outline stroke: % of font size */
 	dShO = 8;  /* default outer shadow drop: % of font size */
 	dIShO = 4; /* default inner shadow drop: % of font size */
-	sF = getScaleFactor(selectedUnit);
 	if (sF!=0) {
 		nSF = newArray(1,sF/(1E-2),sF/(1E-3),sF/(1E-6),sF/(1E-6),sF/(1E-9),sF/(1E-10),sF/(1E-12), sF/(2.54E-2), sF/(1E-4));
 		overrideUnitChoice = newArray(selectedUnit, "cm", "mm", "µm", "microns", "nm", "Å", "pm", "inches", "human hairs");
@@ -86,9 +104,13 @@ v190627 Fixed issue with font sizes not being reproducible and text overrunning 
 	run("Set Scale...", "distance=&lcfFactor known=1 pixel=1 selectedUnit=&selectedUnit");
 	indexSBWidth = parseInt(substring(d2s(sbWidth, -1),indexOf(d2s(sbWidth, -1), "E")+1));
 	dpSB = maxOf(0,1 - indexSBWidth);
-	sbWidth = pow(10,indexSBWidth-1)*(round((sbWidth)/pow(10,indexSBWidth-1)));
+	sbWidth1SF = round(sbWidth/pow(10,indexSBWidth));
+	sbWidth2SF = round(sbWidth/pow(10,indexSBWidth-1));
+	preferredSBW = newArray(10,15,20,25,40,50,60,75); /* Edit this list to your preferred 2 digit numbers */
+	sbWidth2SFC = closestValueFromArray(preferredSBW,sbWidth2SF,sbWidth1SF*10);
+	sbWidth = pow(10,indexSBWidth-1)*sbWidth2SFC;
 	Dialog.create("Scale Bar Parameters");
-		Dialog.addNumber("Length of scale bar in " + selectedUnit + "s:", sbWidth, dpSB, 10, selectedUnit);
+		Dialog.addNumber("Length of scale bar in " + selectedUnit + ":", sbWidth, dpSB, 10, selectedUnit);
 		if (sF!=0) {
 			newUnit = newArray(""+selectedUnit+" Length x1", "cm \(Length x"+nSF[1]+"\)","mm \(Length x"+nSF[2]+"\)","µm \(Length x"+nSF[3]+"\)","microns \(Length x"+nSF[4]+"\)", "nm \(Length x"+nSF[5]+"\)", "Å \(Length x"+nSF[6]+"\)", "pm \(Length x"+nSF[7]+"\)", "inches \(Length x"+nSF[8]+"\)", "human hair \(Length x"+nSF[9]+"\)");
 			Dialog.addChoice("Override unit with new choice?", newUnit, newUnit[0]);
@@ -145,10 +167,13 @@ v190627 Fixed issue with font sizes not being reproducible and text overrunning 
 		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays", "Replace ALL overlays");
 		if(overwriteChoice.length==3) Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, 3,overwriteChoice[1]);
 		else Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 2, 2, overwriteChoice[1]);
-		if (slices>0) {
+		if (slices>1) {
 			Dialog.addMessage("Slice range for labeling \(1-"+slices+"\):");
 			Dialog.addNumber("First slice in label range:", startSliceNumber);
 			Dialog.addNumber("Last slice in label range:", slices);
+		}
+		else if (channels>0) {
+			Dialog.addMessage("All "+channels+" channels will be identically labeled.");
 		}
 	Dialog.show();
 		selLengthInUnits = Dialog.getNumber;
@@ -179,12 +204,13 @@ v190627 Fixed issue with font sizes not being reproducible and text overrunning 
 		overWrite = Dialog.getRadioButton;
 		allSlices = false;
 		labelRest = true;
-		if (slices>0) {
+		if (slices>1) {
 			startSliceNumber = Dialog.getNumber;
 			endSlice = Dialog.getNumber;
 			if ((startSliceNumber==0) && (endSlice==slices)) allSlices=true;
 			if (startSliceNumber==endSlice) labelRest=false;
 		}
+		else {startSliceNumber = 1;endSlice = 1;}
 	if (sF!=0) { 
 		oU = indexOfArray(newUnit, overrideUnit,0);
 		oSF = nSF[oU];
@@ -413,6 +439,18 @@ v190627 Fixed issue with font sizes not being reproducible and text overrunning 
 					}
 				}
 			}
+			if (slices==1 && channels>1) {
+				for (i=0; i<channels; i++){
+					for (j=0; j<initialOverlaySize; j++){
+						setChannel(i+1);
+						if (j<Overlay.size){
+							Overlay.activateSelection(j);
+							overlaySelectionName = getInfo("selection.name");
+							if (indexOf(overlaySelectionName,"cale")>=0) Overlay.removeSelection(j);
+						}
+					}
+				}
+			}
 		}
 		newImage("outline_template", "8-bit black", imageWidth, imageHeight, 1);
 		getSelectionFromMask("label_mask");
@@ -421,8 +459,15 @@ v190627 Fixed issue with font sizes not being reproducible and text overrunning 
 		run("Clear", "slice");
 		run("Select None");
 		selectWindow(tS);
+		if (slices==1 && channels>1){  /* process channels instead of slices */
+			labelChannels = true;
+			startSliceNumber = 1;
+			endSlice = channels;
+		}
+		else labelChannels = false;
 		for (sl=startSliceNumber; sl<endSlice+1; sl++) {
-			setSlice(sl);
+			if (labelChannels) Stack.setChannel(sl);
+			else setSlice(sl);
 			run("Select None");
 			if (isOpen("shadow") && (shadowDarkness>0) && !noShadow) imageCalculator("Subtract", tS,"shadow");
 			else if (isOpen("shadow") && (shadowDarkness<0) && !noShadow) imageCalculator("Add", tS,"shadow");
@@ -459,7 +504,6 @@ v190627 Fixed issue with font sizes not being reproducible and text overrunning 
 				run("Convolve...", "text1=[0.25 0 0 0 0\n0 0.25  0 0 0\n0 0 1 0 0\n0 0 0 -0.25  0\n0 0 0 0 -0.25 ]");
 				run("Select None");
 			}
-
 		}
 	}
 	closeImageByTitle("shadow");
@@ -567,6 +611,19 @@ v190627 Fixed issue with font sizes not being reproducible and text overrunning 
 			close();
 		}
 		if (isOpen(oIID)) selectImage(oIID);
+	}
+	function closestValueFromArray(array,value,default) {
+		/* v190912 1st version pjl */
+		closest = default;
+		proximity = abs(default-value);
+		for (i=0; i<lengthOf(array); i++){
+			proxI = abs(array[i]-value);
+			if (proxI<proximity) {
+				closest = array[i];
+				proximity = proxI;
+			}
+		}
+	  return closest;
 	}
 	function createInnerShadowFromMask6(mask,iShadowDrop, iShadowDisp, iShadowBlur, iShadowDarkness) {
 		/* Requires previous run of: originalImageDepth = bitDepth();
@@ -732,7 +789,7 @@ v190627 Fixed issue with font sizes not being reproducible and text overrunning 
 	}
 	function getScaleFactor(inputUnit){
 		/* v171024 */
-		if (inputUnit=="km") scaleFactor = 1e3;
+		if (inputUnit=="km") scaleFactor = 1E3;
 		else if (inputUnit=="m") scaleFactor = 1;
 		else if (inputUnit=="cm") scaleFactor = 1E-2;
 		else if (inputUnit=="mm") scaleFactor = 1E-3;

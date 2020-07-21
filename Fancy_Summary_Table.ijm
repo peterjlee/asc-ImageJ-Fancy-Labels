@@ -5,15 +5,17 @@
 	v180612 set to work on only one slice.
 	v190108 fixed median for single object.
 	v190506 removed redundant function.
+	v200706 Just changed imageDepth variable name to match other macros.
  */
 macro "Add Summary Table to Copy of Image"{
+	macroL = "Fancy_Summary_Table_v200706.ijm";
 	requires("1.47r");
 	saveSettings;
 	/* Set options for black objects on white background as this works better for publications */
 	run("Options...", "iterations=1 white count=1"); /* Set the background to white */
 	run("Colors...", "foreground=black background=white selection=yellow"); /* Set the preferred colors for these macros */
 	setOption("BlackBackground", false);
-	run("Appearance...", " "); /* Do not use Inverting LUT */
+	run("Appearance...", " "); if(is("Inverting LUT")) run("Invert LUT"); /* do not use Inverting LUT */
 	/*	The above should be the defaults but this makes sure (black particles on a white background)
 		http://imagejdocu.tudor.lu/doku.php?id=faq:technical:how_do_i_set_up_imagej_to_deal_with_white_particles_on_a_black_background_by_default */
 	getPixelSize(unit, pixWidth, pixHeight, pixDepth);
@@ -32,8 +34,8 @@ macro "Add Summary Table to Copy of Image"{
 			else = getLine(selEX1, selEY1, selEX2, selEY2, selLineWidth);
 			x1=selEX1*pixWidth; y1=selEY1*pixHeight; x2=selEX2*pixWidth; y2=selEY2*pixHeight; 
 			scaledLineAngle = getAngle(x1, y1, x2, y2);
-			scaledLineLength = sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
-			selLineLength = sqrt((selEX2-x1)*(selEX2-x1)+(selEY2-selEY1)*(selEY2-selEY1));
+			scaledLineLength = sqrt(pow(x2-x1,2)+pow(y2-y1,2));
+			selLineLength = sqrt(pow(selEX2-x1,2)+pow(selEY2-selEY1,2));
 		}
 		else {
 			line = false;
@@ -57,13 +59,13 @@ macro "Add Summary Table to Copy of Image"{
 	offsetX = round(1 + imageWidth/150); /* default offset of label from edge */
 	offsetY = round(1 + imageHeight/150); /* default offset of label from edge */
 	outlineColor = "black"; 	
-	originalImageDepth = bitDepth();
+	imageDepth = bitDepth();
 	paraLabFontSize = round((imageHeight+imageWidth)/60);
 	decPlacesSummary = -1;	/* defaults to scientific notation */
-	Dialog.create("Label Formatting Options");
+	Dialog.create("Label Formatting Options: " + macroL);
 		headings = split(String.getResultsHeadings);
 		Dialog.addChoice("Measurement:", headings, "Area");
-		if (originalImageDepth==24)
+		if (imageDepth==24)
 			colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
 		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		Dialog.addChoice("Text color:", colorChoice, colorChoice[0]);
@@ -76,13 +78,13 @@ macro "Add Summary Table to Copy of Image"{
 		Dialog.addChoice("Unit Label \(if needed\):", unitChoice, unitChoice[0]);
 		Dialog.addNumber("Outline stroke:", outlineStroke,0,3,"% of font size");
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
-		Dialog.addNumber("Shadow drop: ±", shadowDrop,0,3,"% of font size");
-		Dialog.addNumber("Shadow displacement right: ±", shadowDrop,0,3,"% of font size");
+		Dialog.addNumber("Shadow drop: Â±", shadowDrop,0,3,"% of font size");
+		Dialog.addNumber("Shadow displacement right: Â±", shadowDrop,0,3,"% of font size");
 		Dialog.addNumber("Shadow Gaussian blur:", floor(0.75 * shadowDrop),0,3,"% of font size");
 		Dialog.addNumber("Shadow Darkness:", 75,0,3,"%\(darkest = 100%\)");
 		Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay scale bar");
-		Dialog.addNumber("Inner shadow drop: ±", dIShO,0,3,"% of font size");
-		Dialog.addNumber("Inner displacement right: ±", dIShO,0,3,"% of font size");
+		Dialog.addNumber("Inner shadow drop: Â±", dIShO,0,3,"% of font size");
+		Dialog.addNumber("Inner displacement right: Â±", dIShO,0,3,"% of font size");
 		Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,3,"% of font size");
 		Dialog.addNumber("Inner Shadow Darkness:", 20,0,3,"% \(darkest = 100%\)");
 						
@@ -266,7 +268,7 @@ macro "Add Summary Table to Copy of Image"{
 	roiManager("show none");
 	// roiManager("Show All without labels");
 	run("Flatten");
-	if (originalImageDepth==8) run("8-bit"); /* restores to 8-bit after flatten */
+	if (imageDepth==8) run("8-bit"); /* restores to 8-bit after flatten */
 	flatImage = getTitle();
 	if (is("Batch Mode")==false) setBatchMode(true);
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
@@ -350,14 +352,16 @@ macro "Add Summary Table to Copy of Image"{
 	rename(labeledImageNameWOExt + "_" + parameter);
 	restoreSettings;
 	setBatchMode("exit & display");
+	beep();beep();beep();
+	call("java.lang.System.gc");	
 	showStatus("Fancy Summary Table Macro Finished");
-	
+}	
 	
 /*  **********  ImageJ Functions  ********** */	
 	  
   function getAngle(x1, y1, x2, y2) {
 	/* Returns the angle in degrees between the specified line and the horizontal axis.
-	https://wsr.imagej.net//macros/Measure_Angle_And_Length.txt
+	https://imagej.nih.gov/ij//macros/Measure_Angle_And_Length.txt
 	slightly mod pjl v190325
 	*/
       q1=0; q2orq3=2; q4=3; /* quadrant */
@@ -512,12 +516,12 @@ macro "Add Summary Table to Copy of Image"{
 		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
 		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
 		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micron units */
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ångström unit symbol */
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ã…ngstrÃ¶m unit symbol */
 		string= replace(string, "  ", " "); /* Replace double spaces with single spaces */
 		string= replace(string, "_", fromCharCode(0x2009)); /* Replace underlines with thin spaces */
 		string= replace(string, "px", "pixels"); /* Expand pixel abbreviation */
 		string = replace(string, " " + fromCharCode(0x00B0), fromCharCode(0x00B0)); /* Remove space before degree symbol */
-		string= replace(string, " °", fromCharCode(0x2009)+"°"); /* Remove space before degree symbol */
+		string= replace(string, " Â°", fromCharCode(0x2009)+"Â°"); /* Remove space before degree symbol */
 		return string;
 	}
 	function closeImageByTitle(windowTitle) {  /* Cannot be used with tables */
@@ -537,10 +541,10 @@ macro "Add Summary Table to Copy of Image"{
 		string = replace(string, "Dp", "Diam:perim.");
 		string = replace(string, "equiv", "equiv.");
 		string = replace(string, "_", " ");
-		string = replace(string, "°", "degrees");
-		string = replace(string, "0-90", "0-90°"); /* An exception to the above */
-		string = replace(string, "°, degrees", "°"); /* That would be otherwise be too many degrees */
-		string = replace(string, fromCharCode(0x00C2), ""); /* Remove mystery Â */
+		string = replace(string, "Â°", "degrees");
+		string = replace(string, "0-90", "0-90Â°"); /* An exception to the above */
+		string = replace(string, "Â°, degrees", "Â°"); /* That would be otherwise be too many degrees */
+		string = replace(string, fromCharCode(0x00C2), ""); /* Remove mystery Ã‚ */
 		string = replace(string, " ", fromCharCode(0x2009)); /* Use this last so all spaces converted */
 		return string;
 	}
@@ -585,10 +589,10 @@ macro "Add Summary Table to Copy of Image"{
 	/* mod 041117 to remove spaces as well */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); /* superscript -1 */
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); /* superscript -2 */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* Ã…ngstrÃ¶m unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */
@@ -620,4 +624,3 @@ macro "Add Summary Table to Copy of Image"{
 	}
 	return unitLabel;
 	}
-}

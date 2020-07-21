@@ -4,6 +4,7 @@ Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects
 This no-option version based on Fancy Scale-Bar v190912
 Uses preferences from the previous run of the full version of Fancy Scale Bar
 Only the creation of new images with bitmap scale bars is supported but redundant code is left in place for ease of later modification
+v200706: changed variable names to match v200706 version of Fancy Scale Bar macro.
 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -15,29 +16,29 @@ Only the creation of new images with bitmap scale bars is supported but redundan
 		if ((selEWidth + selEHeight)<6) selEType=-1; /* Ignore junk selections that are suspiciously small */
 	}
 	run("Select None");
-	originalImage = getTitle();
-	originalImageDepth = bitDepth();
+	activeImage = getTitle();
+	activeImageDepth = bitDepth();
 	checkForUnits();
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
 	/* This version only creates new RGB and 8-bit gray images */
-	if (channels==3 || originalImageDepth==32){
+	if (channels==3 || imageDepth==32){
 		run("RGB Color");
-		originalImageDepth = 24;
+		imageDepth = 24;
 		channels = 1;
-		rename(stripKnownExtensionFromString(unCleanLabel(originalImage)) + "_RGB");
-		close(originalImage);
-		originalImage = getTitle();
+		rename(stripKnownExtensionFromString(unCleanLabel(activeImage)) + "_RGB");
+		close(activeImage);
+		activeImage = getTitle();
 	}
-	if (originalImageDepth==16){
+	else if (imageDepth==16){
 		run("8-bit");
-		originalImageDepth = 8;
+		imageDepth = 8;
 	}
 	sbFontSize = maxOf(20, round((imageHeight+imageWidth)/60)); /* set minimum default font size as 12 */
 	getVoxelSize(pixelWidth, pixelHeight, pixelDepth, selectedUnit);
 	if (selectedUnit == "um" || selectedUnit == "microns" || selectedUnit == "micron") selectedUnit = micron;
 	sF = getScaleFactor(selectedUnit);
 	scaleFactors = newArray(1.0000E3,1.0000,1.0000E-2,1.0000E-3,1.0000E-6,1.0000E-9,1.0000E-12);
-	metricUnits = newArray("km","m","cm","mm","µm","nm","pm");
+	metricUnits = newArray("km","m","cm","mm","Âµm","nm","pm");
 	for (i=0; i<5; i++){
 		newUnitI = -1;
 		if (pixelWidth*imageWidth/5 > 1000) { /* test whether scale bar is likely to be more than 1000 units */
@@ -72,7 +73,7 @@ Only the creation of new images with bitmap scale bars is supported but redundan
 	dIShO = 4; /* default inner shadow drop: % of font size */
 	if (sF!=0) {
 		nSF = newArray(1,sF/(1E-2),sF/(1E-3),sF/(1E-6),sF/(1E-6),sF/(1E-9),sF/(1E-10),sF/(1E-12), sF/(2.54E-2), sF/(1E-4));
-		overrideUnitChoice = newArray(selectedUnit, "cm", "mm", "µm", "microns", "nm", "Å", "pm", "inches", "human hairs");
+		overrideUnitChoice = newArray(selectedUnit, "cm", "mm", "Âµm", "microns", "nm", "Ã…", "pm", "inches", "human hairs");
 	}
 	if (selEType>=0) {	
 		sbWidth = lcf*selEWidth;
@@ -217,12 +218,12 @@ Only the creation of new images with bitmap scale bars is supported but redundan
 	/* Create inner shadow if desired */
 	if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0)
 		createInnerShadowFromMask6("label_mask",innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
-	tS = "" + stripKnownExtensionFromString(unCleanLabel(originalImage)) + "+scale";
+	tS = "" + stripKnownExtensionFromString(unCleanLabel(activeImage)) + "+scale";
 	run("Select None");
-	selectWindow(originalImage);
+	selectWindow(activeImage);
 	run("Duplicate...", "title=&tS duplicate");
 	selectWindow(tS);
-	/* Tries to remove any old scale related overlays from copied image but usually leaves 2  ¯\_(?)_/¯ */
+	/* Tries to remove any old scale related overlays from copied image but usually leaves 2  Â¯\_(?)_/Â¯ */
 	if(Overlay.size>0) {
 		initialOverlaySize = Overlay.size;
 		for (i=0; i<slices; i++){
@@ -289,7 +290,7 @@ Only the creation of new images with bitmap scale bars is supported but redundan
 	restoreSettings();
 	setSlice(1);
 	setBatchMode("exit & display"); /* exit batch mode */
-	run("Collect Garbage");
+	call("java.lang.System.gc");
 	showStatus("Fancy Scale Bar Added");
 }
 	/*
@@ -402,7 +403,7 @@ Only the creation of new images with bitmap scale bars is supported but redundan
 	  return closest;
 	}
 	function createInnerShadowFromMask6(mask,iShadowDrop, iShadowDisp, iShadowBlur, iShadowDarkness) {
-		/* Requires previous run of: originalImageDepth = bitDepth();
+		/* Requires previous run of: imageDepth = bitDepth();
 		because this version works with different bitDepths
 		v161115 calls four variables: drop, displacement blur and darkness
 		v180627 and calls mask label */
@@ -423,14 +424,14 @@ Only the creation of new images with bitmap scale bars is supported but redundan
 		imageCalculator("Max", "inner_shadow",mask);
 		run("Select None");
 		/* The following are needed for different bit depths */
-		if (originalImageDepth==16 || originalImageDepth==32) run(originalImageDepth + "-bit");
+		if (imageDepth==16 || imageDepth==32) run(imageDepth + "-bit");
 		run("Enhance Contrast...", "saturated=0 normalize");
 		run("Invert");  /* Create an image that can be subtracted - this works better for color than Min */
 		divider = (100 / abs(iShadowDarkness));
 		run("Divide...", "value=&divider");
 	}
 	function createShadowDropFromMask7(mask, oShadowDrop, oShadowDisp, oShadowBlur, oShadowDarkness, oStroke) {
-		/* Requires previous run of: originalImageDepth = bitDepth();
+		/* Requires previous run of: imageDepth = bitDepth();
 		because this version works with different bitDepths
 		v161115 calls five variables: drop, displacement blur and darkness
 		v180627 adds mask label to variables	*/
@@ -454,7 +455,7 @@ Only the creation of new images with bitmap scale bars is supported but redundan
 		run("Clear");
 		run("Select None");
 		/* The following are needed for different bit depths */
-		if (originalImageDepth==16 || originalImageDepth==32) run(originalImageDepth + "-bit");
+		if (imageDepth==16 || imageDepth==32) run(imageDepth + "-bit");
 		run("Enhance Contrast...", "saturated=0 normalize");
 		divider = (100 / abs(oShadowDarkness));
 		run("Divide...", "value=&divider");
@@ -571,8 +572,8 @@ Only the creation of new images with bitmap scale bars is supported but redundan
 		else if (inputUnit=="mm") scaleFactor = 1E-3;
 		else if (inputUnit=="um") scaleFactor = 1E-6;
 		else if (inputUnit==(fromCharCode(181)+"m")) scaleFactor = 1E-6;
-		else if (inputUnit=="µm") scaleFactor =  1E-6;
-		else if (inputUnit=="microns") scaleFactor =  1E-6; /* Preferred by Bio-Formats over µm but beware: Bio-Formats import of Ziess >1024 wide is incorrect */
+		else if (inputUnit=="Âµm") scaleFactor =  1E-6;
+		else if (inputUnit=="microns") scaleFactor =  1E-6; /* Preferred by Bio-Formats over Âµm but beware: Bio-Formats import of Ziess >1024 wide is incorrect */
 		else if (inputUnit=="nm") scaleFactor = 1E-9;
 		else if (inputUnit=="A") scaleFactor = 1E-10;
 		else if (inputUnit==fromCharCode(197)) scaleFactor = 1E-10;
@@ -614,7 +615,7 @@ Only the creation of new images with bitmap scale bars is supported but redundan
 		/* 9/9/2017 added Garbage clean up suggested by Luc LaLonde - LBNL */
 		restoreSettings(); /* Restore previous settings before exiting */
 		setBatchMode("exit & display"); /* Probably not necessary if exiting gracefully but otherwise harmless */
-		run("Collect Garbage");
+		call("java.lang.System.gc");
 		exit(message);
 	}
 	function setScaleFromCZSemHeader() {
@@ -668,7 +669,7 @@ Only the creation of new images with bitmap scale bars is supported but redundan
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* Ã…ngstrÃ¶m unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces deg */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */

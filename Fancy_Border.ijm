@@ -1,7 +1,9 @@
 macro "Fancy Border" {
 /* v190503 1st version PJL 5/3/2019 4:54 PM
 	v190506 Adds ability to add all three of inner, outer and center borders.
+	+ v200706 Changed imageDepth variable name added macro label.
 */
+	macroL = "Fancy_Border_v200706";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	selEType = selectionType;  /* Returns the selection type, where 0=rectangle, 1=oval, 2=polygon, 3=freehand, 4=traced, 5=straight line, 6=segmented line, 7=freehand line, 8=angle, 9=composite and 10=point.*/
@@ -12,21 +14,21 @@ macro "Fancy Border" {
 	else restoreExit("Sorry, a selection is required");
 	setBatchMode(true);
 	originalImage = getTitle();
-	originalImageDepth = bitDepth();
+	imageDepth = bitDepth();
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
 	run("Create Mask");
-	if (is("Inverting LUT")==true) run("Invert LUT"); /* more effectively removes Inverting LUT */
+	if(is("Inverting LUT")) run("Invert LUT"); /* more effectively removes Inverting LUT */
 	rename("selection_mask");
 	run("Select None");
 	selectWindow(originalImage);
 	startSliceNumber = getSliceNumber();
 	remSlices = slices-startSliceNumber;
 	dBrderThick = maxOf(round((imageWidth+imageHeight)/1000),1);
-	if (originalImageDepth==24) colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
+	if (imageDepth==24) colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
 	else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 	fancyBorderLocationsString = call("ij.Prefs.get", "fancy.borderLocations", "false|true|false");
 	fancyBorderLocations = split(fancyBorderLocationsString,"|");
-	Dialog.create("Border Format");
+	Dialog.create("Border Format: " + macroL);
 		Dialog.addMessage("Borders are added in the order: inner,outer,center")
 		Dialog.addCheckbox("Draw border marking inside of selection?", fancyBorderLocations[0]);
 		Dialog.addNumber("Width of inner border:",dBrderThick,0,3,"pixels");
@@ -102,7 +104,7 @@ macro "Fancy Border" {
 			run("Restore Selection");
 		}
 		selectWindow(tS);
-		/* Tries to remove any old scale related overlays from copied image but usually leaves 2  ¯\_(?)_/¯ */
+		/* Tries to remove any old scale related overlays from copied image but usually leaves 2  Â¯\_(?)_/Â¯ */
 		if(Overlay.size>0) {
 			initialOverlaySize = Overlay.size;
 			for (i=0; i<slices; i++){
@@ -290,10 +292,10 @@ macro "Fancy Border" {
 	+ 041117 to remove spaces as well */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); /* superscript -1 */
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); /* superscript -2 */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* Ã…ngstrÃ¶m unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */

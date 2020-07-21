@@ -3,7 +3,7 @@ macro "Fancy Scale Bar" {
 Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects.
 6/22/16-7/7/16  Add unit override option 7/13/2016 syntax updated 7/28/2016.
 Centered scale bar in new selection 8/9/2016 and tweaked manual location 8/10/2016.
-v161012 adds unified ASC function list and add 100 µm diameter human hair. v161031 adds "glow" option and sharpens shadow/glow edge.
+v161012 adds unified ASC function list and add 100 Âµm diameter human hair. v161031 adds "glow" option and sharpens shadow/glow edge.
 v161101 minor fixes v161104 now works with images other than 8-bit too.
 v161105 improved offset guesses.
 v180108 set outline to at least 1 pixel if desired, updated functions and fixed typos.
@@ -33,7 +33,10 @@ v190625 Fixed missing bottom and top offset for prior selection. Minor fixes to 
 v190627 Fixed issue with font sizes not being reproducible and text overrunning image edge.
 v190912 Added list of preferred scale bar widths; Now attempts to label all channels for multi-channel stack.
 v190913 Min font size changed to 20. Minimum +offset increased to default outline stroke (6).
+v200302 Added change image type pop-up as 16 and 32 but versions still do not look good.
+v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 */
+	macroL = "Fancy_Scale_Bar_v200709";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -44,8 +47,8 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 		if ((selEWidth + selEHeight)<6) selEType=-1; /* Ignore junk selections that are suspiciously small */
 	}
 	run("Select None");
-	originalImage = getTitle();
-	originalImageDepth = bitDepth();
+	activeImage = getTitle();
+	imageDepth = bitDepth();
 	checkForUnits();
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
 	startSliceNumber = getSliceNumber();
@@ -55,7 +58,7 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 	if (selectedUnit == "um") selectedUnit = micron;
 	sF = getScaleFactor(selectedUnit);
 	scaleFactors = newArray(1.0000E3,1.0000,1.0000E-2,1.0000E-3,1.0000E-6,1.0000E-9,1.0000E-12);
-	metricUnits = newArray("km","m","cm","mm","µm","nm","pm");
+	metricUnits = newArray("km","m","cm","mm","Âµm","nm","pm");
 	for (i=0; i<5; i++){
 		newUnitI = -1;
 		if (pixelWidth*imageWidth/5 > 1000) { /* test whether scale bar is likely to be more than 1000 units */
@@ -90,7 +93,7 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 	dIShO = 4; /* default inner shadow drop: % of font size */
 	if (sF!=0) {
 		nSF = newArray(1,sF/(1E-2),sF/(1E-3),sF/(1E-6),sF/(1E-6),sF/(1E-9),sF/(1E-10),sF/(1E-12), sF/(2.54E-2), sF/(1E-4));
-		overrideUnitChoice = newArray(selectedUnit, "cm", "mm", "µm", "microns", "nm", "Å", "pm", "inches", "human hairs");
+		overrideUnitChoice = newArray(selectedUnit, "cm", "mm", "Âµm", "microns", "nm", "Ã…", "pm", "inches", "human hairs");
 	}
 	if (selEType>=0) {	
 		sbWidth = lcf*selEWidth;
@@ -108,14 +111,14 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 	preferredSBW = newArray(10,20,25,50,75); /* Edit this list to your preferred 2 digit numbers */
 	sbWidth2SFC = closestValueFromArray(preferredSBW,sbWidth2SF,100); /* alternatively could be sbWidth1SF*10 */
 	sbWidth = pow(10,indexSBWidth-1)*sbWidth2SFC;
-	Dialog.create("Scale Bar Parameters");
+	Dialog.create("Scale Bar Parameters: " + macroL);
 		Dialog.addNumber("Length of scale bar in " + selectedUnit + ":", sbWidth, dpSB, 10, selectedUnit);
 		if (sF!=0) {
-			newUnit = newArray(""+selectedUnit+" Length x1", "cm \(Length x"+nSF[1]+"\)","mm \(Length x"+nSF[2]+"\)","µm \(Length x"+nSF[3]+"\)","microns \(Length x"+nSF[4]+"\)", "nm \(Length x"+nSF[5]+"\)", "Å \(Length x"+nSF[6]+"\)", "pm \(Length x"+nSF[7]+"\)", "inches \(Length x"+nSF[8]+"\)", "human hair \(Length x"+nSF[9]+"\)");
+			newUnit = newArray(""+selectedUnit+" Length x1", "cm \(Length x"+nSF[1]+"\)","mm \(Length x"+nSF[2]+"\)","Âµm \(Length x"+nSF[3]+"\)","microns \(Length x"+nSF[4]+"\)", "nm \(Length x"+nSF[5]+"\)", "Ã… \(Length x"+nSF[6]+"\)", "pm \(Length x"+nSF[7]+"\)", "inches \(Length x"+nSF[8]+"\)", "human hair \(Length x"+nSF[9]+"\)");
 			Dialog.addChoice("Override unit with new choice?", newUnit, newUnit[0]);
 		}
 		Dialog.addNumber("Height of scale bar:",19,0,3,"% of font size");
-		if (originalImageDepth==24)
+		if (imageDepth==24)
 			colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
 		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		iTC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.scale.font.color",colorChoice[0]),0);
@@ -142,9 +145,9 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 		fontStyleChoice = newArray("bold", "italic", "bold italic", "unstyled");
 		iFS = indexOfArray(fontStyleChoice, call("ij.Prefs.get", "fancy.scale.font.style",fontStyleChoice[0]),0);
 		Dialog.addChoice("Font style*:", fontStyleChoice, fontStyleChoice[iFS]);
-		Dialog.setInsets(-8, 200, 2) ;
-		if (originalImageDepth==16 || originalImageDepth==32) Dialog.addMessage("* = Anti-aliasing will be approximated,\nconsider reducing bit depth for true anti-aliasing.");
-		else Dialog.addMessage("*=Anti-aliasing will be applied to all styles.");
+		// Dialog.setInsets(-8, 200, 2) ;
+		// if (imageDepth==16 || imageDepth==32) Dialog.addMessage("* = 16/32 bit: Anti-aliasing will be approximated,\nconsider reducing bit depth for true anti-aliasing.");
+		// else Dialog.addMessage("*=Anti-aliasing will be applied to all styles.");
 		fontNameChoice = getFontChoiceList();
 		iFN = indexOfArray(fontNameChoice, call("ij.Prefs.get", "fancy.scale.font",fontNameChoice[0]),0);
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[iFN]);
@@ -153,19 +156,21 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 		Dialog.addCheckbox("Emboss effect", false);
 		Dialog.setInsets(-2, 245, 0);
 		Dialog.addCheckbox("No shadow \(just outline and fill\)", false);
-		Dialog.addNumber("Shadow drop: ±", dShO,0,3,"% of font size");
-		Dialog.addNumber("Shadow displacement right: ±", dShO,0,3,"% of font size");
+		Dialog.addNumber("Shadow drop: Â±", dShO,0,3,"% of font size");
+		Dialog.addNumber("Shadow displacement right: Â±", dShO,0,3,"% of font size");
 		Dialog.addNumber("Shadow Gaussian blur:", floor(0.75*dShO),0,3,"% of font size");
 		Dialog.addNumber("Shadow darkness \(darkest = 100%\):", 30,0,3,"% \(negative = glow\)");
 		Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay scale bar.");
-		Dialog.addNumber("Inner shadow drop: ±", dIShO,0,1,"% of font size");
-		Dialog.addNumber("Inner displacement right: ±", dIShO,0,1,"% of font size");
+		Dialog.addNumber("Inner shadow drop: Â±", dIShO,0,1,"% of font size");
+		Dialog.addNumber("Inner displacement right: Â±", dIShO,0,1,"% of font size");
 		Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,2,"% of font size");
 		Dialog.addNumber("Inner shadow darkness \(darkest = 100%\):", 20,0,3,"% \(negative = glow\)");
-		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays");
-		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays", "Replace ALL overlays");
-		if(overwriteChoice.length==3) Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, 3,overwriteChoice[1]);
-		else Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 2, 2, overwriteChoice[1]);
+		if (Overlay.size==0) overwriteChoice = newArray("New image","Destructive overwrite","Add overlays");
+		else overwriteChoice = newArray("New image","Destructive overwrite","Add overlays","Replace ALL overlays");
+		if (imageDepth==16) overwriteChoice = Array.concat("New 8-bit image",overwriteChoice);
+		else if (imageDepth==32) overwriteChoice = Array.concat("New RGB image",overwriteChoice);
+		if(overwriteChoice.length==3) Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, 3,overwriteChoice[0]);
+		else Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 2, 2, overwriteChoice[0]);
 		if (slices>1) {
 			Dialog.addMessage("Slice range for labeling \(1-"+slices+"\):");
 			Dialog.addNumber("First slice in label range:", startSliceNumber);
@@ -203,20 +208,33 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 		overWrite = Dialog.getRadioButton;
 		allSlices = false;
 		labelRest = true;
-		if (slices>1) {
-			startSliceNumber = Dialog.getNumber;
-			endSlice = Dialog.getNumber;
-			if ((startSliceNumber==0) && (endSlice==slices)) allSlices=true;
-			if (startSliceNumber==endSlice) labelRest=false;
-		}
-		else {startSliceNumber = 1;endSlice = 1;}
+	setBatchMode(true);
+	if (slices>1) {
+		startSliceNumber = Dialog.getNumber;
+		endSlice = Dialog.getNumber;
+		if ((startSliceNumber==0) && (endSlice==slices)) allSlices=true;
+		if (startSliceNumber==endSlice) labelRest=false;
+	}
+	else {startSliceNumber = 1;endSlice = 1;}
 	if (sF!=0) { 
 		oU = indexOfArray(newUnit, overrideUnit,0);
 		oSF = nSF[oU];
 		selectedUnit = overrideUnitChoice[oU];
 	}
 	if (startsWith(overWrite,"Replace")) while (Overlay.size!=0) Overlay.remove;
-	setBatchMode(true);
+	if (startsWith(overWrite,"New")){
+		tS = "" + stripKnownExtensionFromString(unCleanLabel(activeImage)) + "+scale";
+		run("Select None");
+		selectWindow(activeImage);
+		run("Duplicate...", "title=&tS duplicate");
+		if (startsWith(overWrite,"New 8") || startsWith(overWrite,"New R")){
+			if (startsWith(overWrite,"New 8")) run("8-bit");
+			else run("RGB Color");
+			call("ij.Prefs.set", "fancy.scale.reduceDepth", true); /* not used here but saved for future version of fast'n fancy variant */
+		}
+		activeImage = getTitle();
+		imageDepth = bitDepth();
+	}
 	setFont(fontName,fontSize, fontStyle);
 	 /* save last used settings in user in preferences */
 	call("ij.Prefs.set", "fancy.scale.font.color", scaleBarColor);
@@ -225,7 +243,7 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 	call("ij.Prefs.set", "fancy.scale.font", fontName);
 	call("ij.Prefs.set", "fancy.scale.bar.style", sBStyle);
 	call("ij.Prefs.set", "fancy.scale.location", selPos);
-	if (originalImageDepth!=16 && originalImageDepth!=32 && fontStyle!="unstyled") fontStyle += "antialiased"; /* antialising will be applied if possible */ 
+	if (imageDepth!=16 && imageDepth!=32 && fontStyle!="unstyled") fontStyle += "antialiased"; /* antialising will be applied if possible */ 
 	fontFactor = fontSize/100;
 	if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
 	selLengthInPixels = selLengthInUnits / lcf;
@@ -355,9 +373,9 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 		run("Duplicate...", "title=ovOutlineMask");
 		run("BinaryDilate ", "coefficient=0 iterations=&outlineStroke");
 		run("Select None");
-		selectWindow(originalImage);
+		selectWindow(activeImage);
 		/* shadow and outline selection masks have now been created */
-		selectWindow(originalImage);
+		selectWindow(activeImage);
 		for (sl=startSliceNumber; sl<endSlice+1; sl++) {
 			setSlice(sl);
 			if (allSlices) sl=0;
@@ -366,7 +384,7 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 				List.setMeasurements;
 				bgGray = List.getValue("Mean");
 				List.clear();
-				if (originalImageDepth==16 || originalImageDepth==32) bgGray = round(bgGray/256);
+				if (imageDepth==16 || imageDepth==32) bgGray = round(bgGray/256);
 				grayHex = toHex(round(bgGray*(100-shadowDarkness)/100));
 				shadowHex = "#" + ""+pad(grayHex) + ""+pad(grayHex) + ""+pad(grayHex);
 				setSelectionName("Scale Bar Shadow");
@@ -415,16 +433,10 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 				createInnerShadowFromMask6("label_mask",innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
 		}
 		if (startsWith(overWrite,"Destructive overwrite")) {
-			tS = originalImage;
-		}
-		else {
-			tS = "" + stripKnownExtensionFromString(unCleanLabel(originalImage)) + "+scale";
-			run("Select None");
-			selectWindow(originalImage);
-			run("Duplicate...", "title=&tS duplicate");
+			tS = activeImage;
 		}
 		selectWindow(tS);
-		/* Tries to remove any old scale related overlays from copied image but usually leaves 2  ¯\_(?)_/¯ */
+		/* Tries to remove any old scale related overlays from copied image but usually leaves 2  Â¯\_(?)_/Â¯ */
 		if(Overlay.size>0) {
 			initialOverlaySize = Overlay.size;
 			for (i=0; i<slices; i++){
@@ -480,12 +492,12 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 			setBackgroundFromColorName(scaleBarColor);
 			run("Clear", "slice");
 			run("Select None");
-			if (!noText && (originalImageDepth==16 || originalImageDepth==32)) writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true); /* force anti-aliasing */
+			if (!noText && (imageDepth==16 || imageDepth==32)) writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true); /* force anti-aliasing */
 			if (!noShadow) {
 				if (isOpen("inner_shadow")) imageCalculator("Subtract", tS,"inner_shadow");
 			}
 			/* Fonts do not anti-alias in 16 and 32-bit images so this is an alternative approach */
-			if (!noText && outlineStroke>0 && fontSize > 12 && (originalImageDepth==16 || originalImageDepth==32)) {
+			if (!noText && outlineStroke>0 && fontSize > 12 && (imageDepth==16 || imageDepth==32)) {
 				imageCalculator("XOR create", "label_mask","outline_template");
 				selectWindow("Result of label_mask");
 				rename("outline_only_template");
@@ -513,7 +525,7 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 	setBatchMode("exit & display"); /* exit batch mode */
 	if (endsWith(overWrite,"verlays")) Overlay.selectable(true);
 	beep();beep();beep();
-	run("Collect Garbage");
+	call("java.lang.System.gc");
 	showStatus("Fancy Scale Bar Added");
 }
 	/*
@@ -626,7 +638,7 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 	  return closest;
 	}
 	function createInnerShadowFromMask6(mask,iShadowDrop, iShadowDisp, iShadowBlur, iShadowDarkness) {
-		/* Requires previous run of: originalImageDepth = bitDepth();
+		/* Requires previous run of: imageDepth = bitDepth();
 		because this version works with different bitDepths
 		v161115 calls four variables: drop, displacement blur and darkness
 		v180627 and calls mask label */
@@ -647,14 +659,14 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 		imageCalculator("Max", "inner_shadow",mask);
 		run("Select None");
 		/* The following are needed for different bit depths */
-		if (originalImageDepth==16 || originalImageDepth==32) run(originalImageDepth + "-bit");
+		if (imageDepth==16 || imageDepth==32) run(imageDepth + "-bit");
 		run("Enhance Contrast...", "saturated=0 normalize");
 		run("Invert");  /* Create an image that can be subtracted - this works better for color than Min */
 		divider = (100 / abs(iShadowDarkness));
 		run("Divide...", "value=&divider");
 	}
 	function createShadowDropFromMask7(mask, oShadowDrop, oShadowDisp, oShadowBlur, oShadowDarkness, oStroke) {
-		/* Requires previous run of: originalImageDepth = bitDepth();
+		/* Requires previous run of: imageDepth = bitDepth();
 		because this version works with different bitDepths
 		v161115 calls five variables: drop, displacement blur and darkness
 		v180627 adds mask label to variables	*/
@@ -678,7 +690,7 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 		run("Clear");
 		run("Select None");
 		/* The following are needed for different bit depths */
-		if (originalImageDepth==16 || originalImageDepth==32) run(originalImageDepth + "-bit");
+		if (imageDepth==16 || imageDepth==32) run(imageDepth + "-bit");
 		run("Enhance Contrast...", "saturated=0 normalize");
 		divider = (100 / abs(oShadowDarkness));
 		run("Divide...", "value=&divider");
@@ -795,8 +807,8 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 		else if (inputUnit=="mm") scaleFactor = 1E-3;
 		else if (inputUnit=="um") scaleFactor = 1E-6;
 		else if (inputUnit==(fromCharCode(181)+"m")) scaleFactor = 1E-6;
-		else if (inputUnit=="µm") scaleFactor =  1E-6;
-		else if (inputUnit=="microns") scaleFactor =  1E-6; /* Preferred by Bio-Formats over µm but beware: Bio-Formats import of Ziess >1024 wide is incorrect */
+		else if (inputUnit=="Âµm") scaleFactor =  1E-6;
+		else if (inputUnit=="microns") scaleFactor =  1E-6; /* Preferred by Bio-Formats over Âµm but beware: Bio-Formats import of Ziess >1024 wide is incorrect */
 		else if (inputUnit=="nm") scaleFactor = 1E-9;
 		else if (inputUnit=="A") scaleFactor = 1E-10;
 		else if (inputUnit==fromCharCode(197)) scaleFactor = 1E-10;
@@ -838,7 +850,7 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 		/* 9/9/2017 added Garbage clean up suggested by Luc LaLonde - LBNL */
 		restoreSettings(); /* Restore previous settings before exiting */
 		setBatchMode("exit & display"); /* Probably not necessary if exiting gracefully but otherwise harmless */
-		run("Collect Garbage");
+		call("java.lang.System.gc");
 		exit(message);
 	}
 	function setScaleFromCZSemHeader() {
@@ -892,7 +904,7 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* Ã…ngstrÃ¶m unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces deg */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */

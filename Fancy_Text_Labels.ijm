@@ -15,7 +15,9 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		v181214 Overlay fonts on BW images can now be in color. Overlay shadow now works as expected.
 		v190108 Overlay shadow now set to be always darker than background (except for "glow").
 		v190222 Now works for 16 and 32 bit images.
+		v200706 Changed variables to match Fancy Scale Bar macro version v200706.
 	 */
+	macroL = "Fancy_Text_Labels_v200706";
 	requires("1.47r");
 	saveSettings;
 	getPixelSize(unit, pixWidth, pixHeight, pixDepth);
@@ -36,12 +38,12 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			else getLine(orSelEX1, orSelEY1, orSelEX2, orSelEY2, selLineWidth);
 			x1=orSelEX1*pixWidth; y1=orSelEY1*pixHeight; x2=orSelEX2*pixWidth; y2=orSelEY2*pixHeight; 
 			scaledLineAngle = getAngle(x1, y1, x2, y2);
-			scaledLineLength = sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
+			scaledLineLength = sqrt(pow(x2-x1,2)+pow(y2-y1,2));
 			orSelEX = minOf(orSelEX1, orSelEX2);
 			orSelEY = minOf(orSelEY1, orSelEY2);
 			orSelEWidth = abs(orSelEX2-orSelEX1);
 			orSelEHeight = abs(orSelEY2-orSelEY1);
-			selLineLength = sqrt(orSelEWidth*orSelEWidth+orSelEHeight*orSelEHeight);
+			selLineLength = sqrt(pow(orSelEWidth,2)+pow(orSelEHeight,2));
 		}
 		else {
 			line = false;
@@ -66,7 +68,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	startSliceNumber = getSliceNumber();
 	remSlices = slices-startSliceNumber;
 	imageDims = imageHeight + imageWidth;
-	originalImageDepth = bitDepth();
+	imageDepth = bitDepth();
 	id = getImageID();
 	fontSize = round(imageDims/75); /* default font size */
 	if (fontSize < 10) fontSize = 10; /* set minimum default font size as 10 */
@@ -87,7 +89,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	textAboveLine = false;
 		
 	/* Then Dialog . . . */
-	Dialog.create("Basic Label Options");
+	Dialog.create("Basic Label Options: " + macroL);
 		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays");
 		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays", "Replace All overlays");
 		Dialog.setInsets(-140, 280, 0); /* top, left, bottom */
@@ -137,12 +139,12 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
 		grayChoice = newArray("white", "black", "light_gray", "gray", "dark_gray");
-		if (originalImageDepth==24) Dialog.addChoice("Line color:", colorChoice, colorChoice[2]);
+		if (imageDepth==24) Dialog.addChoice("Line color:", colorChoice, colorChoice[2]);
 		else {
 			Dialog.addChoice("Destructive text gray choices:", grayChoice, grayChoice[0]);
 			Dialog.addChoice("Overlay Text color choices:", colorChoice, colorChoice[0]);
 		}
-		if (originalImageDepth==24) Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[2]);
+		if (imageDepth==24) Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[2]);
 		else {
 			Dialog.addChoice("Destructive text outline gray choices:", grayChoice, grayChoice[1]);
 			Dialog.addChoice("Overlay text outline color choices:", colorChoice, colorChoice[1]);
@@ -193,14 +195,14 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		fontSize =  Dialog.getNumber();
 		fontStyle = Dialog.getChoice();
 		fontName = Dialog.getChoice();
-		if (originalImageDepth==24) fontColor = Dialog.getChoice;
+		if (imageDepth==24) fontColor = Dialog.getChoice;
 		else {
 			desFontGray = Dialog.getChoice();
 			ovFontColor = Dialog.getChoice();
 			if (endsWith(overWrite,"overlays")) fontColor = ovFontColor;
 			else fontColor = desFontGray;
 		}
-		if (originalImageDepth==24) outlineColor = Dialog.getChoice;
+		if (imageDepth==24) outlineColor = Dialog.getChoice;
 		else {
 			desOutlineGray = Dialog.getChoice();
 			ovOutlineColor = Dialog.getChoice();
@@ -212,7 +214,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			textInputLines[i] = Dialog.getString();
 			metaChoice = Dialog.getChoice();
 			if (metaChoice!="Input left box or select here from this list") textInputLines[i] = metaChoice;
-			textInputLines[i] = "" + convertToSymbols(textInputLines[i]); /* Use degree symbol */
+			textInputLines[i] = "" + toChar(textInputLines[i]); /* Use degree symbol */
 		}
 		tweakFormat = Dialog.getRadioButton();
 
@@ -222,17 +224,17 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	if (tweakFormat=="Yes") {	
 		Dialog.create("Advanced Formatting Options");
 		Dialog.addNumber("Line Spacing", lineSpacing,1,3,"\(default 1\)");
-		Dialog.addNumber("Outline Stroke:", outlineStroke,0,3,"% of font size");
-		if (endsWith(overWrite,"overlays") || originalImageDepth==24) Dialog.addChoice("Outline (background) color:", colorChoice, outlineColor);
+		Dialog.addNumber("Outline stroke:", outlineStroke,0,3,"% of font size");
+		if (endsWith(overWrite,"overlays") || imageDepth==24) Dialog.addChoice("Outline (background) color:", colorChoice, outlineColor);
 		else Dialog.addChoice("Outline (background) gray:", grayChoice, outlineColor);
 		Dialog.addNumber("Shadow Drop: ?", shadowDrop,0,3,"% of font size");
 		Dialog.addNumber("Shadow Displacement Right: ?", shadowDisp,0,3,"% of font size");
-		Dialog.addNumber("Shadow Gaussian Blur:", shadowBlur,0,3,"% of font size");
+		Dialog.addNumber("Shadow Gaussian blur:", shadowBlur,0,3,"% of font size");
 		Dialog.addNumber("Shadow Darkness:", shadowDarkness,0,3,"%\(darkest = 100%\)");
 		if (!endsWith(overWrite,"overlays")){
 			Dialog.addNumber("Inner Shadow Drop: ?", dIShO,0,3,"% of font size");
 			Dialog.addNumber("Inner Displacement Right: ?", dIShO,0,3,"% of font size");
-			Dialog.addNumber("Inner Shadow Mean Blur:",floor(dIShO/2),1,3,"% of font size");
+			Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,3,"% of font size");
 			Dialog.addNumber("Inner Shadow Darkness:", 20,0,3,"% \(darkest = 100%\)");
 		}
 	
@@ -399,7 +401,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	run("Select None");
 	setFont(fontName,fontSize, fontStyle);
 	textLabelLineY = textLabelY;
-	if (tIs >1) newImage("antiAliased", originalImageDepth, imageWidth, imageHeight, 1);
+	if (tIs >1) newImage("antiAliased", imageDepth, imageWidth, imageHeight, 1);
 	/* Draw text for mask and antialiased tweak */
 	for (t=0; t<tIs; t++) {
 		selectWindow(textImages[t]);
@@ -439,7 +441,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		List.setMeasurements ;
 		bgGray = List.getValue("Mean");
 		List.clear();
-		if (originalImageDepth==16 || originalImageDepth==32) bgGray = round(bgGray/256);
+		if (imageDepth==16 || imageDepth==32) bgGray = round(bgGray/256);
 		grayHex = toHex(round(bgGray*(100-shadowDarkness)/100));
 		shadowHex = "#" + ""+pad(grayHex) + ""+pad(grayHex) + ""+pad(grayHex);
 		setSelectionName("Fancy Text Label Shadow");
@@ -560,13 +562,13 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	}
 	else run("Select None");
 	showStatus("Fancy Text Labels Finished");
-	run("Collect Garbage"); 
+	call("java.lang.System.gc"); 
 }
 /*  **********  ImageJ Functions  ********** */	
 	  
   function getAngle(x1, y1, x2, y2) {
 	/* Returns the angle in degrees between the specified line and the horizontal axis.
-	https://wsr.imagej.net//macros/Measure_Angle_And_Length.txt
+	https://imagej.nih.gov/ij//macros/Measure_Angle_And_Length.txt
 	slightly mod pjl v190325
 	*/
       q1=0; q2orq3=2; q4=3; /* quadrant */
@@ -597,7 +599,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
 		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
 		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micron units */
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ångström unit symbol */ 
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ã…ngstrÃ¶m unit symbol */ 
 		string= replace(string, "  ", " "); /* Replace double spaces with single spaces */
 		string= replace(string, "_", fromCharCode(0x2009)); /* Replace underlines with thin spaces */
 		string= replace(string, "px", "pixels"); /* Expand pixel abbreviation */
@@ -610,14 +612,14 @@ macro "Add Multiple Lines of Fancy Text To Image" {
         close();
 		}
 	}
-	function convertToSymbols(string) {
+	function toChar(string) {
 		/* v180612 first version
 			v180627 Expanded, v180803 added "degrees" */
 		string= replace(string, "symbol-Angstrom", fromCharCode(0x212B)); /* ANGSTROM SIGN */
 		string= replace(string, "symbol-alpha", fromCharCode(0x03B1));
 		string= replace(string, "symbol-Alpha", fromCharCode(0x0391));
 		string= replace(string, "symbol-beta", fromCharCode(0x03B2)); /* Lower case beta */
-		string= replace(string, "symbol-Beta", fromCharCode(0x0392)); /* ß CAPITAL */
+		string= replace(string, "symbol-Beta", fromCharCode(0x0392)); /* ÃŸ CAPITAL */
 		string= replace(string, "symbol-gamma", fromCharCode(0x03B3)); /* MATHEMATICAL SMALL GAMMA */
 		string= replace(string, "symbol-Gamma", fromCharCode(0xD835)); /* MATHEMATICAL BOLD CAPITAL  GAMMA */
 		string= replace(string, "symbol-delta", fromCharCode(0x1E9F)); /*  SMALL LETTER DELTA */
@@ -634,7 +636,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, "symbol-Kappa", fromCharCode(0x0196)); /* GREEK CAPITAL LETTER KAPPA */
 		string= replace(string, "symbol-lambda", fromCharCode(0x03BB)); /* GREEK SMALL LETTER LAMDA */
 		string= replace(string, "symbol-Lambda", fromCharCode(0x039B)); /* GREEK CAPITAL LETTER LAMDA */
-		string= replace(string, "symbol-mu", fromCharCode(0x03BC)); /* µ GREEK SMALL LETTER MU */
+		string= replace(string, "symbol-mu", fromCharCode(0x03BC)); /* Âµ GREEK SMALL LETTER MU */
 		string= replace(string, "symbol-Mu", fromCharCode(0x039C)); /* GREEK CAPITAL LETTER MU */
 		string= replace(string, "symbol-nu", fromCharCode(0x03BD)); /*  GREEK SMALL LETTER NU */
 		string= replace(string, "symbol-Nu", fromCharCode( 0x039D)); /*  GREEK CAPITAL LETTER NU */
@@ -661,9 +663,9 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, "symbol->=", fromCharCode(0x2265)); /* GREATER-THAN OR EQUAL TO */
 		string= replace(string, "symbol-<=", fromCharCode(0x2264)); /* LESS-THAN OR EQUAL TO */
 		string= replace(string, "symbol-xx", fromCharCode(0x00D7)); /* MULTIPLICATION SIGN */
-		string= replace(string, "symbol-copyright=", fromCharCode(0x00A9)); /* © */
+		string= replace(string, "symbol-copyright=", fromCharCode(0x00A9)); /* Â© */
 		string= replace(string, "symbol-ro", fromCharCode(0x00AE)); /* registered sign */
-		string= replace(string, "symbol-tm", fromCharCode(0x2122)); /* ™ */
+		string= replace(string, "symbol-tm", fromCharCode(0x2122)); /* â„¢ */
 		string= replace(string, "symbol-parallelto", fromCharCode(0x2225)); /* PARALLEL TO  note CANNOT use "|" key */
 		// string= replace(string, "symbol-perpendicularto", fromCharCode(0x27C2)); /* PERPENDICULAR note CANNOT use "|" key */
 		string= replace(string, "symbol-degree", fromCharCode(0x00B0)); /* Degree */
@@ -676,7 +678,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		return string;
 	}
 	function createInnerShadowFromMask6(mask,iShadowDrop, iShadowDisp, iShadowBlur, iShadowDarkness) {
-		/* Requires previous run of: originalImageDepth = bitDepth();
+		/* Requires previous run of: imageDepth = bitDepth();
 		because this version works with different bitDepths
 		v161115 calls four variables: drop, displacement blur and darkness
 		v180627 and calls mask label
@@ -700,14 +702,14 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		imageCalculator("Max", "inner_shadow",mask);
 		run("Select None");
 		/* The following are needed for different bit depths */
-		if (originalImageDepth==16 || originalImageDepth==32) run(originalImageDepth + "-bit");
+		if (imageDepth==16 || imageDepth==32) run(imageDepth + "-bit");
 		run("Enhance Contrast...", "saturated=0 normalize");
 		run("Invert");  /* Create an image that can be subtracted - this works better for color than Min */
 		divider = (100 / abs(iShadowDarkness));
 		run("Divide...", "value=&divider");
 	}
 	function createShadowDropFromMask7(mask, oShadowDrop, oShadowDisp, oShadowBlur, oShadowDarkness, oStroke) {
-		/* Requires previous run of: originalImageDepth = bitDepth();
+		/* Requires previous run of: imageDepth = bitDepth();
 		because this version works with different bitDepths
 		v161115 calls five variables: drop, displacement blur and darkness
 		v180627 adds mask label to variables	
@@ -734,7 +736,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		run("Clear");
 		run("Select None");
 		/* The following are needed for different bit depths */
-		if (originalImageDepth==16 || originalImageDepth==32) run(originalImageDepth + "-bit");
+		if (imageDepth==16 || imageDepth==32) run(imageDepth + "-bit");
 		run("Enhance Contrast...", "saturated=0 normalize");
 		divider = (100 / abs(oShadowDarkness));
 		run("Divide...", "value=&divider");
@@ -747,7 +749,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		systemFonts = getFontList();
 		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
 		fontNameChoice = Array.concat(IJFonts,systemFonts);
-		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Arial Black", "Montserrat Black", "Lato Black", "Roboto Black", "Tahoma Bold", "Calibri Bold", "Helvetica", "SansSerif", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Merriweather Black", "Alegreya Black", "Times New Roman Bold", "Times Bold", "Calisto MT Bold", "Book Antiqua Bold", "Roboto Slab", "Serif");
+		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Noto Sans Black", "Arial Black", "Montserrat Black", "Lato Black", "Roboto Black", "Merriweather Black", "Alegreya Black", "Tahoma Bold", "Calibri Bold", "Helvetica", "SansSerif", "Calibri", "Roboto", "Tahoma", "Times New Roman Bold", "Times Bold", "Serif");
 		faveFontListCheck = newArray(faveFontList.length);
 		counter = 0;
 		for (i=0; i<faveFontList.length; i++) {
@@ -859,10 +861,10 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	/* mod 041117 to remove spaces as well */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); /* superscript -1 */
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); /* superscript -2 */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* Ã…ngstrÃ¶m unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces deg */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */

@@ -2,7 +2,7 @@
 <p>These label macros use outlines and shadows to create labels on images that stand out against the image underneath.</p>
 
 <h4 id = "FancyScaleBar">Fancy Scale Bar</h4><p>This macro (<a href=https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/fancy_scale_bar.ijm" Title = "Applied Superconductivity Center Fancy Scale Bar Macro Directory" >link</a>) adds extensive formatting options to the original version  by Wayne Rasband that was subsequently enhanced by<a href="https://imagej.588099.n2.nabble.com/Overlay-Scalebar-Plugins-td6380378.html#a6394996"> Frank Sprenger</a>. The scale bar can be an overlay or applied to the original or a copy of the image. If the image is in color there are multiple color options (the selection is restricted to grayscale choices for grayscale images to retain the original bit depth). The units can be changed from the original embedded scale (i.e. from nm to &micro;m etc.).</p><p>
-![Fancy Scale Bar Example Animation](https://fs.magnet.fsu.edu/~lee/asc/ImageJUtilities/IA_Images/ASC_Fancy_Scale_Bar_1302x267Anim.gif)
+<img src="https://fs.magnet.fsu.edu/~lee/asc/ImageJUtilities/IA_Images/ASC_Fancy_Scale_Bar_1302x267Anim.gif">
  </p>
 <h4 id = "FastnFancyScaleBarRerun">Fast'nFancy Scale Bar Rerun</h4><p>
   Variant of the Fancy Scale Bar macro that creates a copy of the active image with a fancy scale bar without any user interaction. It will use preferences saved by the Fancy Scale Bar macro.</p>

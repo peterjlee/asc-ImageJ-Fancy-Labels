@@ -7,14 +7,14 @@
 <h4 id = "FastnFancyScaleBarRerun">Fast'nFancy Scale Bar Rerun</h4><p>
   Variant of the Fancy Scale Bar macro that creates a copy of the active image with a fancy scale bar without any user interaction. It will use preferences saved by the Fancy Scale Bar macro.</p>
   
-<h4 id = "FancySummaryTable" >Fancy Summary Label Table</h4><p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/Fancy_Summary_Table.ijm" Title = "Applied Superconductivity Center Fancy Summary Table Label Macro Directory" >link</a>) adds up to 8 lines of statistical summary to an image. There are extensive formatting options including outlines and shadows to help the text stand out against the image. If the image is in color there are multiple color options.</p><p><img src="/images/fancy_summary_table_example_Daeq_gng_512x170.png" alt="Fancy Summary Table Label example" width="512" /></p>
+<h4 id = "FancySummaryTable" >Fancy Summary Label Table</h4><p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/Fancy_Summary_Table.ijm" Title = "Applied Superconductivity Center Fancy Summary Table Label Macro Directory" >link</a>) adds up to 8 lines of statistical summary to an image. There are extensive formatting options including outlines and shadows to help the text stand out against the image. If the image is in color there are multiple color options.</p><p><img src="/images/fancy_summary_table_example_Daeq_gng_512x170.png" alt="ASC Fancy Summary Table Label example" width="512" /></p>
 
-<h4 id = "FancyTextLabels">Fancy Text Labels</h4><p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/Fancy_Text_Labels.ijm" Title = "Applied Superconductivity Center Fancy Text Label Macro Directory" >link</a>) adds up to 8 lines of user created text to an image. There are extensive formatting options including outlines and shadows to help the text stand out against the image. If the image is in color there are multiple color options.</p><p><img src="/images/FancyTextLabels_ColorExample_512x92.gif" alt="Fancy Summary Table Label example" width="512" /></p>
+<h4 id = "FancyTextLabels">Fancy Text Labels</h4><p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/Fancy_Text_Labels.ijm" Title = "Applied Superconductivity Center Fancy Text Label Macro Directory" >link</a>) adds up to 8 lines of user created text to an image. There are extensive formatting options including outlines and shadows to help the text stand out against the image. If the image is in color there are multiple color options.</p><p><img src="/images/FancyTextLabels_ColorExample_512x92.gif" alt="ASC Fancy Text Label example" width="512" /></p>
 
 <h4 id = "FancySliceLabels">Fancy Slice Labels</h4>
 <p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/Fancy_Slice_Labels.ijm" Title = "Applied Superconductivity Center Fancy Text Label Macro Directory" >link</a>) adds multiple lines of text to a copy of the image. Sequential numbers can be added as well as prefixes and suffixes. Text in the slice labels can be globally replaced. Non-formated slice labels can be applied with more counter variables and previews to images using ImageJ's "Label Stacks" and Dan White's (MPI-CBG) "Series Labeler", so you might want to try that more sophisticated programming first to see if it meets your needs sufficiently. You can also try utilize imageJ's "stack sorter."</p>
     
-<p><img src="/images/FancySliceLabels_Menus_839x520_pal32.png" alt="Fancy Slice Label menus" width="839" /></p>
+<p><img src="/images/FancySliceLabels_Menus_839x520_pal32.png" alt="ASC Fancy Slice Label menus" width="839" /></p>
 <p><img src="/images/FancySliceLabels_Example_451x172.gif" alt="Fancy Slice Label example" width="451" /></p>Magneto optical images by Anatolii Polyanskii.
 <p><sub><sup>
  <strong>Legal Notice:</strong> <br />
@@ -27,12 +27,12 @@ The macros are continually being tweaked and new features and options are freque
 
 <h4 id = "Fancy_Feature_Labeler">Fancy Feature Labeler</h4>
 <p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/Fancy_Feature_Labeler.ijm" Title = "Applied Superconductivity Center Fancy Feature Labeler Macro" >link</a>) adds scaled result labels to each ROI object.</p>
-<p><img src="/images/Bronze-Nb3Sn_FFL_sub_ID_717x135crop.png" alt="Fancy Feature Label example" width="717" /></p>
+<p><img src="/images/Bronze-Nb3Sn_FFL_sub_ID_717x135crop.png" alt="ASC Fancy Feature Label example" width="717" /></p>
 
 <h4 id = "FancyFeatureLabelerSummary">Fancy Feature Labeler with Summary</h4>
 <p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/Fancy_Feature_Labeler+Summary.ijm" Title = "Applied Superconductivity Center Fancy Feature Labeler Macro" >link</a>) adds scaled result labels to each ROI object and a summary of selected statistics.</p>
-<p><img src="/images/Bronze-Nb3Sn_FFL_Dp_512x160_anigif.gif" alt="Fancy Feature Label example" width="512" /></p>
+<p><img src="/images/Bronze-Nb3Sn_FFL_Dp_512x160_anigif.gif" alt="ASC Fancy Feature Label example" width="512" /></p>
 
 <h4 id = "FancyBorders">Fancy Border</h4>
 <p>This macro (<a href="https://github.com/peterjlee/asc-ImageJ-Fancy-Labels/blob/master/Fancy_Border.ijm" Title = "Applied Superconductivity Center Fancy Border Macro" >link</a>) adds a color border to a selection. The border can consist of up to 3 layers of different thickness and can be a non-destructive overlay.</p>
-<p><img src="/images/Fancy_Borders_anigif_270x223_v190506.gif" alt="Fancy Border example" width="270" /></p>
+<p><img src="/images/Fancy_Borders_anigif_270x223_v190506.gif" alt="ASC Fancy Border example" width="270" /></p>

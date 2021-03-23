@@ -10,8 +10,9 @@ macro "Add Slice Label to Each Slice" {
 		v190627 Skips slices without labels rather than clearing them :-$ . Also Function updates.
 		v190628 Adds options to add prefixes, suffixes and a counter as well as replacing strings in slice labels. Minor fixes.
 		+ v200707 Changed imageDepth variable name added macro label.
+		+ v210316-v210323 Changed toChar function so shortcuts (i.e. "pi") only converted to symbols if followed by a space.
 	 */
-	macroL = "Fancy_Slice_Labels_v200707";
+	macroL = "Fancy_Slice_Labels_v210323";
 	requires("1.47r");
 	saveSettings;
 	if (selectionType>=0) {
@@ -81,7 +82,7 @@ macro "Add Slice Label to Each Slice" {
 	offsetX = round(1 + imageWidth/150); /* default offset of label from edge */
 	offsetY = round(1 + imageHeight/150); /* default offset of label from edge */
 	/* Then Dialog . . . */
-	Dialog.create("Basic Label Options: " + macroL);
+	Dialog.create("Label Format Options: " + macroL);
 		if (selectionExists==1) {
 			textLocChoices = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection", "Center of Selection"); 
 			loc = 6;
@@ -116,13 +117,35 @@ macro "Add Slice Label to Each Slice" {
 		fontNameChoices = getFontChoiceList();
 		Dialog.addChoice("Font name:", fontNameChoices, fontNameChoices[0]);
 		Dialog.addChoice("Outline (background) color:", colorChoices, "black");
+		Dialog.addCheckbox("Tweak the Formatting? ", false);
+		Dialog.addCheckbox("Destructive overwrite \(ignored if only renaming slices\)? ", false);
+	Dialog.show();	
+	textLocChoice = Dialog.getChoice();
+	if (selectionExists==1) {
+		selEX =  Dialog.getNumber(); /* Allows user to tweak pre-selection using dialog boxes */
+		selEY =  Dialog.getNumber();
+		selEWidth =  Dialog.getNumber();
+		selEHeight =  Dialog.getNumber();
+		restoreSelection = Dialog.getCheckbox();
+	}
+	just = Dialog.getChoice();
+	fontSize =  Dialog.getNumber();
+	fontColor = Dialog.getChoice();
+	fontStyle = Dialog.getChoice();
+	fontName = Dialog.getChoice();
+	outlineColor = Dialog.getChoice();
+	tweakFormat = Dialog.getCheckbox();
+	overWrite = Dialog.getCheckbox();	
+	
+	Dialog.create("Label Options: " + macroL);	
 		sliceLabelDialogLimit = minOf(maxMenuSlices, remSlices+1);
-		Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc.\nThe number of slices to be labeled is limited to " + maxMenuSlices + " by screen height.\nAdditional slices can be labeled by repeating this macro from first unlabeled slice.");
+		Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. if followed by a space.\nThe number of slices to be labeled is limited to " + maxMenuSlices + " by screen height.\nAdditional slices can be labeled by repeating this macro from first unlabeled slice.");
 		labelChoices = newArray("Add labels only", "Rename slices only", "Label & rename");
 		Dialog.addChoice("Label and/or rename slices:", labelChoices, "Add labels only");
 		Dialog.addString("Prefix text","", minOf(20,maxLabelString));
 		Dialog.addString("Suffix text","", minOf(20,maxLabelString));
-		Dialog.addNumber("Counter start",0,0,10,"");
+		Dialog.addNumber("Counter start",0,0,5,"");
+		Dialog.addToSameRow();
 		Dialog.addNumber("Counter increment",1,0,5,"");
 		Dialog.addString("Counter separation symbols: ","-", 3);
 		countPosChoices = newArray("None", "Before prefix", "After prefix", "Before suffix", "After suffix");
@@ -134,24 +157,8 @@ macro "Add Slice Label to Each Slice" {
 		Dialog.setInsets(5, 0, 10);
 		for (i=0; i<sliceLabelDialogLimit; i++)
 			Dialog.addString("Slice No. "+(i+startSliceNumber)+" input label:",allSliceLabels[i+startSliceNumber-1], minOf(sW/12,maxLabelString));
-		Dialog.addCheckbox("Tweak the Formatting? ", false);
-		Dialog.addCheckbox("Destructive overwrite \(ignored if only renaming slices\)? ", false);
 		Dialog.show();
-		
-		textLocChoice = Dialog.getChoice();
-		if (selectionExists==1) {
-			selEX =  Dialog.getNumber(); /* Allows user to tweak pre-selection using dialog boxes */
-			selEY =  Dialog.getNumber();
-			selEWidth =  Dialog.getNumber();
-			selEHeight =  Dialog.getNumber();
-			restoreSelection = Dialog.getCheckbox();
-		}
-		just = Dialog.getChoice();
-		fontSize =  Dialog.getNumber();
-		fontColor = Dialog.getChoice();
-		fontStyle = Dialog.getChoice();
-		fontName = Dialog.getChoice();
-		outlineColor = Dialog.getChoice();
+	
 		labelChoice = Dialog.getChoice();
 		prefix = Dialog.getString;
 		suffix = Dialog.getString;
@@ -191,8 +198,6 @@ macro "Add Slice Label to Each Slice" {
 			stringLength = getStringWidth(sliceTextLabels[i]);
 			if (stringLength>longestStringWidth) longestStringWidth = stringLength;
 		}
-		tweakFormat = Dialog.getCheckbox();
-		overWrite = Dialog.getCheckbox();
 	/* End of options dialog */	
 	/* Begin labeling of slices */
 	if (labelChoice!="Rename slices only"){
@@ -453,66 +458,67 @@ macro "Add Slice Label to Each Slice" {
 	}
 	function toChar(string) {
 		/* v180612 first version
-			v1v180627 Expanded */
-		string= replace(string,"Angstrom", fromCharCode(0x212B)); /* ANGSTROM SIGN */
-		string= replace(string,"alpha", fromCharCode(0x03B1));
-		string= replace(string,"Alpha", fromCharCode(0x0391));
-		string= replace(string,"beta", fromCharCode(0x03B2)); /* Lower case beta */
-		string= replace(string,"Beta", fromCharCode(0x0392)); /* ß CAPITAL */
-		string= replace(string,"gamma", fromCharCode(0x03B3)); /* MATHEMATICAL SMALL GAMMA */
-		string= replace(string,"Gamma", fromCharCode(0xD835)); /* MATHEMATICAL BOLD CAPITAL  GAMMA */
-		string= replace(string,"delta", fromCharCode(0x1E9F)); /*  SMALL LETTER DELTA */
-		string= replace(string,"Delta", fromCharCode(0x0394)); /*  CAPITAL LETTER DELTA */
-		string= replace(string,"epsilon", fromCharCode(0x03B5)); /* GREEK SMALL LETTER EPSILON */
-		string= replace(string,"Epsilon", fromCharCode(0x0395)); /* GREEK CAPITAL LETTER EPSILON */
-		string= replace(string,"zeta", fromCharCode(0x03B6)); /* GREEK SMALL LETTER ZETA */
-		string= replace(string,"Zeta", fromCharCode(0x0396)); /* GREEK CAPITAL LETTER ZETA */
-		string= replace(string,"theta", fromCharCode(0x03B8)); /* GREEK SMALL LETTER THETA */
-		string= replace(string,"Theta", fromCharCode(0x0398)); /* GREEK CAPITAL LETTER THETA */
-		string= replace(string,"iota", fromCharCode(0x03B9)); /* GREEK SMALL LETTER IOTA */
-		string= replace(string,"Iota", fromCharCode(0x0196)); /* GREEK CAPITAL LETTER IOTA */
-		string= replace(string,"kappa", fromCharCode(0x03BA)); /* GREEK SMALL LETTER KAPPA */
-		string= replace(string,"Kappa", fromCharCode(0x0196)); /* GREEK CAPITAL LETTER KAPPA */
-		string= replace(string,"lambda", fromCharCode(0x03BB)); /* GREEK SMALL LETTER LAMDA */
-		string= replace(string,"Lambda", fromCharCode(0x039B)); /* GREEK CAPITAL LETTER LAMDA */
-		string= replace(string,"mu", fromCharCode(0x03BC)); /* µ GREEK SMALL LETTER MU */
-		string= replace(string,"Mu", fromCharCode(0x039C)); /* GREEK CAPITAL LETTER MU */
-		string= replace(string,"nu", fromCharCode(0x03BD)); /*  GREEK SMALL LETTER NU */
-		string= replace(string,"Nu", fromCharCode( 0x039D)); /*  GREEK CAPITAL LETTER NU */
-		string= replace(string,"xi", fromCharCode(0x03BE)); /* GREEK SMALL LETTER XI */
-		string= replace(string,"Xi", fromCharCode(0x039E)); /* GREEK CAPITAL LETTER XI */
-		string= replace(string,"pi", fromCharCode(0x03C0)); /* GREEK SMALL LETTER Pl */
-		string= replace(string,"Pi", fromCharCode(0x03A0)); /* GREEK CAPITAL LETTER Pl */
-		string= replace(string,"rho", fromCharCode(0x03C1)); /* GREEK SMALL LETTER RHO */
-		string= replace(string,"Rho", fromCharCode(0x03A1)); /* GREEK CAPITAL LETTER RHO */
-		string= replace(string,"sigma", fromCharCode(0x03C3)); /* GREEK SMALL LETTER SIGMA */
-		string= replace(string,"Sigma", fromCharCode(0x03A3)); /* GREEK CAPITAL LETTER SIGMA */
-		string= replace(string,"phi", fromCharCode(0x03C6)); /* GREEK SMALL LETTER PHI */
-		string= replace(string,"Phi", fromCharCode(0x03A6)); /* GREEK CAPITAL LETTER PHI */
-		string= replace(string,"omega", fromCharCode(0x03C9)); /* GREEK SMALL LETTER OMEGA */
-		string= replace(string,"Omega", fromCharCode(0x03A9)); /* GREEK CAPITAL LETTER OMEGA */
-		string= replace(string,"eta", fromCharCode(0x03B7)); /*  GREEK SMALL LETTER ETA */
-		string= replace(string,"Eta", fromCharCode(0x0397)); /*  GREEK CAPITAL LETTER ETA */
-		string= replace(string,"sub2", fromCharCode(0x2082)); /*  subscript 2 */
-		string= replace(string,"sub3", fromCharCode(0x2083)); /*  subscript 3 */
-		string= replace(string,"sub4", fromCharCode(0x2084)); /*  subscript 4 */
-		string= replace(string,"sub5", fromCharCode(0x2085)); /*  subscript 5 */
-		string= replace(string,"sup2", fromCharCode(0x00B2)); /*  superscript 2 */
-		string= replace(string,"sup3", fromCharCode(0x00B3)); /*  superscript 3 */
-		string= replace(string,">=", fromCharCode(0x2265)); /* GREATER-THAN OR EQUAL TO */
-		string= replace(string,"<=", fromCharCode(0x2264)); /* LESS-THAN OR EQUAL TO */
-		string= replace(string,"xx", fromCharCode(0x00D7)); /* MULTIPLICATION SIGN */
-		string= replace(string,"copyright=", fromCharCode(0x00A9)); /* © */
-		string= replace(string,"ro", fromCharCode(0x00AE)); /* registered sign */
-		string= replace(string,"tm", fromCharCode(0x2122)); /* ™ */
-		string= replace(string,"parallelto", fromCharCode(0x2225)); /* PARALLEL TO  note CANNOT use "|" key */
-		// string= replace(string,"perpendicularto", fromCharCode(0x27C2)); /* PERPENDICULAR note CANNOT use "|" key */
-		string= replace(string,"degree", fromCharCode(0x00B0)); /* Degree */
-		string= replace(string, "degreeC", fromCharCode(0x00B0)+fromCharCode(0x2009) + "C"); /* Degree C */
-		string= replace(string, "arrow-up", fromCharCode(0x21E7)); /* 'UPWARDS WHITE ARROW */
-		string= replace(string, "arrow-down", fromCharCode(0x21E9)); /* 'DOWNWARDS WHITE ARROW */
-		string= replace(string, "arrow-left", fromCharCode(0x21E6)); /* 'LEFTWARDS WHITE ARROW */
-		string= replace(string, "arrow-right", fromCharCode(0x21E8)); /* 'RIGHTWARDS WHITE ARROW */
+			v1v180627 Expanded
+			v210316 only replaces text if followed by a space, fixes "pi" in pixel etc.  */
+		string= replace(string,"Angstrom ", fromCharCode(0x212B)+" "); /* ANGSTROM SIGN */
+		string= replace(string,"alpha ", fromCharCode(0x03B1)+" ");
+		string= replace(string,"Alpha ", fromCharCode(0x0391)+" ");
+		string= replace(string,"beta ", fromCharCode(0x03B2)+" "); /* Lower case beta */
+		string= replace(string,"Beta ", fromCharCode(0x0392)+" "); /* ß CAPITAL */
+		string= replace(string,"gamma ", fromCharCode(0x03B3)+" "); /* MATHEMATICAL SMALL GAMMA */
+		string= replace(string,"Gamma ", fromCharCode(0xD835)+" "); /* MATHEMATICAL BOLD CAPITAL  GAMMA */
+		string= replace(string,"delta ", fromCharCode(0x1E9F)+" "); /*  SMALL LETTER DELTA */
+		string= replace(string,"Delta ", fromCharCode(0x0394)+" "); /*  CAPITAL LETTER DELTA */
+		string= replace(string,"epsilon ", fromCharCode(0x03B5)+" "); /* GREEK SMALL LETTER EPSILON */
+		string= replace(string,"Epsilon ", fromCharCode(0x0395)+" "); /* GREEK CAPITAL LETTER EPSILON */
+		string= replace(string,"zeta ", fromCharCode(0x03B6)+" "); /* GREEK SMALL LETTER ZETA */
+		string= replace(string,"Zeta ", fromCharCode(0x0396)+" "); /* GREEK CAPITAL LETTER ZETA */
+		string= replace(string,"theta ", fromCharCode(0x03B8)+" "); /* GREEK SMALL LETTER THETA */
+		string= replace(string,"Theta ", fromCharCode(0x0398)+" "); /* GREEK CAPITAL LETTER THETA */
+		string= replace(string,"iota ", fromCharCode(0x03B9)+" "); /* GREEK SMALL LETTER IOTA */
+		string= replace(string,"Iota ", fromCharCode(0x0196)+" "); /* GREEK CAPITAL LETTER IOTA */
+		string= replace(string,"kappa ", fromCharCode(0x03BA)+" "); /* GREEK SMALL LETTER KAPPA */
+		string= replace(string,"Kappa ", fromCharCode(0x0196)+" "); /* GREEK CAPITAL LETTER KAPPA */
+		string= replace(string,"lambda ", fromCharCode(0x03BB)+" "); /* GREEK SMALL LETTER LAMDA */
+		string= replace(string,"Lambda ", fromCharCode(0x039B)+" "); /* GREEK CAPITAL LETTER LAMDA */
+		string= replace(string,"mu ", fromCharCode(0x03BC)+" "); /* µ GREEK SMALL LETTER MU */
+		string= replace(string,"Mu ", fromCharCode(0x039C)+" "); /* GREEK CAPITAL LETTER MU */
+		string= replace(string,"nu ", fromCharCode(0x03BD)+" "); /*  GREEK SMALL LETTER NU */
+		string= replace(string,"Nu ", fromCharCode( 0x039D)+" "); /*  GREEK CAPITAL LETTER NU */
+		string= replace(string,"xi ", fromCharCode(0x03BE)+" "); /* GREEK SMALL LETTER XI */
+		string= replace(string,"Xi ", fromCharCode(0x039E)+" "); /* GREEK CAPITAL LETTER XI */
+		string= replace(string,"pi ", fromCharCode(0x03C0)+" "); /* GREEK SMALL LETTER Pl */
+		string= replace(string,"Pi ", fromCharCode(0x03A0)+" "); /* GREEK CAPITAL LETTER Pl */
+		string= replace(string,"rho ", fromCharCode(0x03C1)+" "); /* GREEK SMALL LETTER RHO */
+		string= replace(string,"Rho ", fromCharCode(0x03A1)+" "); /* GREEK CAPITAL LETTER RHO */
+		string= replace(string,"sigma ", fromCharCode(0x03C3)+" "); /* GREEK SMALL LETTER SIGMA */
+		string= replace(string,"Sigma ", fromCharCode(0x03A3)+" "); /* GREEK CAPITAL LETTER SIGMA */
+		string= replace(string,"phi ", fromCharCode(0x03C6)+" "); /* GREEK SMALL LETTER PHI */
+		string= replace(string,"Phi ", fromCharCode(0x03A6)+" "); /* GREEK CAPITAL LETTER PHI */
+		string= replace(string,"omega ", fromCharCode(0x03C9)+" "); /* GREEK SMALL LETTER OMEGA */
+		string= replace(string,"Omega ", fromCharCode(0x03A9)+" "); /* GREEK CAPITAL LETTER OMEGA */
+		string= replace(string,"eta ", fromCharCode(0x03B7)+" "); /*  GREEK SMALL LETTER ETA */
+		string= replace(string,"Eta ", fromCharCode(0x0397)+" "); /*  GREEK CAPITAL LETTER ETA */
+		string= replace(string,"sub2 ", fromCharCode(0x2082)+" "); /*  subscript 2 */
+		string= replace(string,"sub3 ", fromCharCode(0x2083)+" "); /*  subscript 3 */
+		string= replace(string,"sub4 ", fromCharCode(0x2084)+" "); /*  subscript 4 */
+		string= replace(string,"sub5 ", fromCharCode(0x2085)+" "); /*  subscript 5 */
+		string= replace(string,"sup2 ", fromCharCode(0x00B2)+" "); /*  superscript 2 */
+		string= replace(string,"sup3 ", fromCharCode(0x00B3)+" "); /*  superscript 3 */
+		string= replace(string,">= ", fromCharCode(0x2265)+" "); /* GREATER-THAN OR EQUAL TO */
+		string= replace(string,"<= ", fromCharCode(0x2264)+" "); /* LESS-THAN OR EQUAL TO */
+		string= replace(string,"xx ", fromCharCode(0x00D7)+" "); /* MULTIPLICATION SIGN */
+		string= replace(string,"copyright ", fromCharCode(0x00A9)+" "); /* © */
+		string= replace(string,"ro ", fromCharCode(0x00AE)+" "); /* registered sign */
+		string= replace(string,"tm ", fromCharCode(0x2122)+" "); /* ™ */
+		string= replace(string,"parallelto ", fromCharCode(0x2225)+" "); /* PARALLEL TO  note CANNOT use "|" key */
+		// string= replace(string,"perpendicularto ", fromCharCode(0x27C2)+" "); /* PERPENDICULAR note CANNOT use "|" key */
+		string= replace(string,"degree ", fromCharCode(0x00B0)+" "); /* Degree */
+		string= replace(string, "degreeC ", fromCharCode(0x00B0)+fromCharCode(0x2009) + "C"); /* Degree C */
+		string= replace(string, "arrow-up ", fromCharCode(0x21E7)+" "); /* 'UPWARDS WHITE ARROW */
+		string= replace(string, "arrow-down ", fromCharCode(0x21E9)+" "); /* 'DOWNWARDS WHITE ARROW */
+		string= replace(string, "arrow-left ", fromCharCode(0x21E6)+" "); /* 'LEFTWARDS WHITE ARROW */
+		string= replace(string, "arrow-right ", fromCharCode(0x21E8)+" "); /* 'RIGHTWARDS WHITE ARROW */
 		return string;
 	}
 	function createInnerShadowFromMask6(mask,iShadowDrop, iShadowDisp, iShadowBlur, iShadowDarkness) {

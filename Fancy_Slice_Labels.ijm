@@ -10,9 +10,9 @@ macro "Add Slice Label to Each Slice" {
 		v190627 Skips slices without labels rather than clearing them :-$ . Also Function updates.
 		v190628 Adds options to add prefixes, suffixes and a counter as well as replacing strings in slice labels. Minor fixes.
 		+ v200707 Changed imageDepth variable name added macro label.
-		+ v210316-v210323 Changed toChar function so shortcuts (i.e. "pi") only converted to symbols if followed by a space.
+		+ v210316-v210325 Changed toChar function so shortcuts (i.e. "pi") only converted to symbols if followed by a space.
 	 */
-	macroL = "Fancy_Slice_Labels_v210323";
+	macroL = "Fancy_Slice_Labels_v210325";
 	requires("1.47r");
 	saveSettings;
 	if (selectionType>=0) {
@@ -146,7 +146,9 @@ macro "Add Slice Label to Each Slice" {
 		Dialog.addString("Suffix text","", minOf(20,maxLabelString));
 		Dialog.addNumber("Counter start",0,0,5,"");
 		Dialog.addToSameRow();
-		Dialog.addNumber("Counter increment",1,0,5,"");
+		Dialog.addNumber("Counter increment",1,0,7,"");
+		Dialog.addNumber("Counter label decimal places",0,0,2,"");
+		Dialog.addToSameRow();
 		Dialog.addString("Counter separation symbols: ","-", 3);
 		countPosChoices = newArray("None", "Before prefix", "After prefix", "Before suffix", "After suffix");
 		Dialog.addRadioButtonGroup("Counter position: ", countPosChoices, 1, 4, countPosChoices[0]);
@@ -164,6 +166,7 @@ macro "Add Slice Label to Each Slice" {
 		suffix = Dialog.getString;
 		startN = Dialog.getNumber;
 		addN = Dialog.getNumber;
+		decP = Dialog.getNumber;
 		cSep =  Dialog.getString;
 		countPos = Dialog.getRadioButton;
 		replaceString = false;
@@ -181,7 +184,7 @@ macro "Add Slice Label to Each Slice" {
 			}
 			if (countPos=="None")	sliceTextLabels[i] = prefix + sLabel + suffix;
 			else {
-				ctr = round(startN + i*addN);
+				ctr = d2s(startN + i*addN, decP);
 				if (countPos=="Before prefix") sliceTextLabels[i] = "" + ctr + cSep +prefix + sLabel + suffix;
 				else if (countPos=="After prefix") sliceTextLabels[i] = prefix + cSep + ctr + cSep + sLabel + suffix;
 				else if (countPos=="Before suffix") sliceTextLabels[i] = prefix + sLabel + cSep + ctr + cSep + suffix;
@@ -440,7 +443,7 @@ macro "Add Slice Label to Each Slice" {
 		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
 		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
 		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micron units */
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ã…ngstrÃ¶m unit symbol */ 
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ångström unit symbol */ 
 		string= replace(string, "  ", " "); /* Replace double spaces with single spaces */
 		string= replace(string, "_", fromCharCode(0x2009)); /* Replace underlines with thin spaces */
 		string= replace(string, "px", "pixels"); /* Expand pixel abbreviation */
@@ -464,7 +467,7 @@ macro "Add Slice Label to Each Slice" {
 		string= replace(string,"alpha ", fromCharCode(0x03B1)+" ");
 		string= replace(string,"Alpha ", fromCharCode(0x0391)+" ");
 		string= replace(string,"beta ", fromCharCode(0x03B2)+" "); /* Lower case beta */
-		string= replace(string,"Beta ", fromCharCode(0x0392)+" "); /* ÃŸ CAPITAL */
+		string= replace(string,"Beta ", fromCharCode(0x0392)+" "); /* ß CAPITAL */
 		string= replace(string,"gamma ", fromCharCode(0x03B3)+" "); /* MATHEMATICAL SMALL GAMMA */
 		string= replace(string,"Gamma ", fromCharCode(0xD835)+" "); /* MATHEMATICAL BOLD CAPITAL  GAMMA */
 		string= replace(string,"delta ", fromCharCode(0x1E9F)+" "); /*  SMALL LETTER DELTA */
@@ -481,7 +484,7 @@ macro "Add Slice Label to Each Slice" {
 		string= replace(string,"Kappa ", fromCharCode(0x0196)+" "); /* GREEK CAPITAL LETTER KAPPA */
 		string= replace(string,"lambda ", fromCharCode(0x03BB)+" "); /* GREEK SMALL LETTER LAMDA */
 		string= replace(string,"Lambda ", fromCharCode(0x039B)+" "); /* GREEK CAPITAL LETTER LAMDA */
-		string= replace(string,"mu ", fromCharCode(0x03BC)+" "); /* Âµ GREEK SMALL LETTER MU */
+		string= replace(string,"mu ", fromCharCode(0x03BC)+" "); /* µ GREEK SMALL LETTER MU */
 		string= replace(string,"Mu ", fromCharCode(0x039C)+" "); /* GREEK CAPITAL LETTER MU */
 		string= replace(string,"nu ", fromCharCode(0x03BD)+" "); /*  GREEK SMALL LETTER NU */
 		string= replace(string,"Nu ", fromCharCode( 0x039D)+" "); /*  GREEK CAPITAL LETTER NU */
@@ -508,9 +511,9 @@ macro "Add Slice Label to Each Slice" {
 		string= replace(string,">= ", fromCharCode(0x2265)+" "); /* GREATER-THAN OR EQUAL TO */
 		string= replace(string,"<= ", fromCharCode(0x2264)+" "); /* LESS-THAN OR EQUAL TO */
 		string= replace(string,"xx ", fromCharCode(0x00D7)+" "); /* MULTIPLICATION SIGN */
-		string= replace(string,"copyright ", fromCharCode(0x00A9)+" "); /* Â© */
+		string= replace(string,"copyright ", fromCharCode(0x00A9)+" "); /* © */
 		string= replace(string,"ro ", fromCharCode(0x00AE)+" "); /* registered sign */
-		string= replace(string,"tm ", fromCharCode(0x2122)+" "); /* â„¢ */
+		string= replace(string,"tm ", fromCharCode(0x2122)+" "); /* ™ */
 		string= replace(string,"parallelto ", fromCharCode(0x2225)+" "); /* PARALLEL TO  note CANNOT use "|" key */
 		// string= replace(string,"perpendicularto ", fromCharCode(0x27C2)+" "); /* PERPENDICULAR note CANNOT use "|" key */
 		string= replace(string,"degree ", fromCharCode(0x00B0)+" "); /* Degree */
@@ -696,7 +699,7 @@ macro "Add Slice Label to Each Slice" {
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ã…ngstrÃ¶m unit symbol */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces deg */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */

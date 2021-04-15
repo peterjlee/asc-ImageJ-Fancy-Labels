@@ -6,10 +6,10 @@
 	3/16/2017 Add labeling by ID number and additional image label locations.
 	v180612 set to work on only one slice.
 	v180723 Allows use of system fonts.
-	+ v200707 Changed imageDepth variable name added macro label.
+	+ v200707 Changed imageDepth variable name added macro label. + bugfix v210415
  */
 macro "Add scaled value labels to each ROI object"{
-	macroL = "Fancy_Feature_Labeler_v200707";
+	macroL = "Fancy_Feature_Labeler_v210415";
 	requires("1.47r");
 	saveSettings;
 	/* Some cleanup */
@@ -117,7 +117,7 @@ macro "Add scaled value labels to each ROI object"{
 		parameterWithLabel= Dialog.getChoice;
 		parameter= substring(parameterWithLabel, 0, indexOf(parameterWithLabel, ":  "));
 		labelColor = Dialog.getChoice();
-		fontSizeCorrection =  Dialog.getNumber()/100;
+		fontSizeCorrection = Dialog.getNumber/100;
 		minLFontSize = Dialog.getNumber(); 
 		maxLFontSize = Dialog.getNumber(); 
 		fontStyle = Dialog.getChoice();
@@ -664,8 +664,8 @@ macro "Add scaled value labels to each ROI object"{
 	/* mod 041117 to remove spaces as well */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
-		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
-		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
 		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */

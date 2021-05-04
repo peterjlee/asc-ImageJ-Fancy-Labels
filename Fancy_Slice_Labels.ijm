@@ -11,6 +11,7 @@ macro "Add Slice Label to Each Slice" {
 		v190628 Adds options to add prefixes, suffixes and a counter as well as replacing strings in slice labels. Minor fixes.
 		+ v200707 Changed imageDepth variable name added macro label.
 		+ v210316-v210325 Changed toChar function so shortcuts (i.e. "pi") only converted to symbols if followed by a space.
+		+ v210503 Split menu options so that auto-generation menu is simpler
 	 */
 	macroL = "Fancy_Slice_Labels_v210325";
 	requires("1.47r");
@@ -82,7 +83,8 @@ macro "Add Slice Label to Each Slice" {
 	offsetX = round(1 + imageWidth/150); /* default offset of label from edge */
 	offsetY = round(1 + imageHeight/150); /* default offset of label from edge */
 	/* Then Dialog . . . */
-	Dialog.create("Label Format Options: " + macroL);
+	Dialog.create("Label Format and Edit Options: ");
+		Dialog.addMessage("Macro: " +  macroL);
 		if (selectionExists==1) {
 			textLocChoices = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection", "Center of Selection"); 
 			loc = 6;
@@ -107,7 +109,7 @@ macro "Add Slice Label to Each Slice" {
 			restoreSelection = false;
 			Dialog.addChoice("Text justification", textJustChoices, textJustChoices[0]);
 		}
-		Dialog.addNumber("Default font size:", fontSize);
+		Dialog.addNumber("Font size:", fontSize);
 		if (imageDepth==24)
 			colorChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
 		else colorChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
@@ -119,6 +121,7 @@ macro "Add Slice Label to Each Slice" {
 		Dialog.addChoice("Outline (background) color:", colorChoices, "black");
 		Dialog.addCheckbox("Tweak the Formatting? ", false);
 		Dialog.addCheckbox("Destructive overwrite \(ignored if only renaming slices\)? ", false);
+		Dialog.addCheckbox("Auto-generate all labels as a sequence only?", true);
 	Dialog.show();	
 	textLocChoice = Dialog.getChoice();
 	if (selectionExists==1) {
@@ -136,71 +139,127 @@ macro "Add Slice Label to Each Slice" {
 	outlineColor = Dialog.getChoice();
 	tweakFormat = Dialog.getCheckbox();
 	overWrite = Dialog.getCheckbox();	
+	autoGenerate = Dialog.getCheckbox();
 	
-	Dialog.create("Label Options: " + macroL);	
-		sliceLabelDialogLimit = minOf(maxMenuSlices, remSlices+1);
-		Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. if followed by a space.\nThe number of slices to be labeled is limited to " + maxMenuSlices + " by screen height.\nAdditional slices can be labeled by repeating this macro from first unlabeled slice.");
-		labelChoices = newArray("Add labels only", "Rename slices only", "Label & rename");
-		Dialog.addChoice("Label and/or rename slices:", labelChoices, "Add labels only");
-		Dialog.addString("Prefix text","", minOf(20,maxLabelString));
-		Dialog.addString("Suffix text","", minOf(20,maxLabelString));
-		Dialog.addNumber("Counter start",0,0,5,"");
-		Dialog.addToSameRow();
-		Dialog.addNumber("Counter increment",1,0,7,"");
-		Dialog.addNumber("Counter label decimal places",0,0,2,"");
-		Dialog.addToSameRow();
-		Dialog.addString("Counter separation symbols: ","-", 3);
-		countPosChoices = newArray("None", "Before prefix", "After prefix", "Before suffix", "After suffix");
-		Dialog.addRadioButtonGroup("Counter position: ", countPosChoices, 1, 4, countPosChoices[0]);
-		if (maxLabelString>0) {
-			Dialog.addString("Replace this label text:","", minOf(20,maxLabelString));
-			Dialog.addString(" . . . with \(escape regEx characters\):","", minOf(20,maxLabelString));
-		}
-		Dialog.setInsets(5, 0, 10);
-		for (i=0; i<sliceLabelDialogLimit; i++)
-			Dialog.addString("Slice No. "+(i+startSliceNumber)+" input label:",allSliceLabels[i+startSliceNumber-1], minOf(sW/12,maxLabelString));
-		Dialog.show();
-	
-		labelChoice = Dialog.getChoice();
-		prefix = Dialog.getString;
-		suffix = Dialog.getString;
-		startN = Dialog.getNumber;
-		addN = Dialog.getNumber;
-		decP = Dialog.getNumber;
-		cSep =  Dialog.getString;
-		countPos = Dialog.getRadioButton;
-		replaceString = false;
-		if (maxLabelString>0) {
-			oldString = Dialog.getString;
-			newString = Dialog.getString;
-			if (lengthOf(oldString)>0) replaceString = true;
-		}
-		sliceTextLabels = newArray(sliceLabelDialogLimit);
-		longestStringWidth = 0; /* reset longest string width for modified versions */
-		for (i=0; i<sliceLabelDialogLimit; i++) {
-			sLabel = Dialog.getString();
-			if (replaceString){
-				sLabel = replace(sLabel, oldString, newString);
+	if (autoGenerate){
+		Dialog.create("Label Options:");	
+			Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. if followed by a space.");
+			labelChoices = newArray("Add labels only", "Rename slices only", "Label & rename");
+			// Dialog.addNumber("First slice to label:", getSliceNumber,0,4,""),
+			// Dialog.addNumber("Last slice to label:", nSlices,0,4,""),
+			Dialog.addChoice("Label and/or rename slices:", labelChoices, "Add labels only");
+			Dialog.addString("Prefix text","", minOf(20,maxLabelString));
+			Dialog.addString("Suffix text","", minOf(20,maxLabelString));
+			Dialog.addNumber("Counter start",0,0,5,"");
+			Dialog.addToSameRow();
+			Dialog.addNumber("Counter increment",1,0,7,"");
+			Dialog.addNumber("Counter label decimal places",0,0,2,"");
+			Dialog.addToSameRow();
+			Dialog.addString("Counter separation symbols: ","-", 3);
+			countPosChoices = newArray("None", "Before prefix", "After prefix", "Before suffix", "After suffix");
+			Dialog.addRadioButtonGroup("Counter position: ", countPosChoices, 1, 4, countPosChoices[0]);
+			Dialog.setInsets(5, 0, 10);
+			Dialog.show();
+			// startSlice = Dialog.getNumber;
+			// endSlice = Dialog.getNumber;
+			// sliceCount = endSlice-startSlice+1;
+			labelChoice = Dialog.getChoice();
+			prefix = Dialog.getString;
+			suffix = Dialog.getString;
+			startN = Dialog.getNumber;
+			addN = Dialog.getNumber;
+			decP = Dialog.getNumber;
+			cSep =  Dialog.getString;
+			countPos = Dialog.getRadioButton;
+			sliceTextLabels = newArray();
+			longestStringWidth = 0; /* reset longest string width for modified versions */
+			for (i=0; i<remSlices+1; i++) {
+				if (countPos=="None")	sliceTextLabels[i] = prefix + suffix;
+				else {
+					ctr = d2s(startN + i*addN, decP);
+					if (countPos=="Before prefix") sliceTextLabels[i] = "" + ctr + cSep +prefix + suffix;
+					else if (countPos=="After prefix") sliceTextLabels[i] = prefix + cSep + ctr + cSep + suffix;
+					else if (countPos=="Before suffix") sliceTextLabels[i] = prefix + cSep + ctr + cSep + suffix;
+					else sliceTextLabels[i] = prefix + suffix + cSep + ctr;
+				}
+				if (labelChoice!="Add labels only") {
+					setSlice(startSliceNumber + i);
+					newLabel = sliceTextLabels[i];
+					/* symbols are not converted for slice names */
+					run("Set Label...", "label=&newLabel");
+				}
+				sliceTextLabels[i] = "" + toChar(sliceTextLabels[i]); /* Use degree symbol */
+				sliceTextLabels[i] = "" + cleanLabel(sliceTextLabels[i]);
+				stringLength = getStringWidth(sliceTextLabels[i]);
+				if (stringLength>longestStringWidth) longestStringWidth = stringLength;
 			}
-			if (countPos=="None")	sliceTextLabels[i] = prefix + sLabel + suffix;
-			else {
-				ctr = d2s(startN + i*addN, decP);
-				if (countPos=="Before prefix") sliceTextLabels[i] = "" + ctr + cSep +prefix + sLabel + suffix;
-				else if (countPos=="After prefix") sliceTextLabels[i] = prefix + cSep + ctr + cSep + sLabel + suffix;
-				else if (countPos=="Before suffix") sliceTextLabels[i] = prefix + sLabel + cSep + ctr + cSep + suffix;
-				else sliceTextLabels[i] = prefix + sLabel + suffix + cSep + ctr;
+	}
+	else {
+		Dialog.create("Label Options: " + macroL);	
+			sliceLabelDialogLimit = minOf(maxMenuSlices, remSlices+1);
+			Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. if followed by a space.\nThe number of slices to be labeled is limited to " + maxMenuSlices + " by screen height.\nAdditional slices can be labeled by repeating this macro from first unlabeled slice.");
+			labelChoices = newArray("Add labels only", "Rename slices only", "Label & rename");
+			Dialog.addChoice("Label and/or rename slices:", labelChoices, "Add labels only");
+			Dialog.addString("Prefix text","", minOf(20,maxLabelString));
+			Dialog.addString("Suffix text","", minOf(20,maxLabelString));
+			Dialog.addNumber("Counter start",0,0,5,"");
+			Dialog.addToSameRow();
+			Dialog.addNumber("Counter increment",1,0,7,"");
+			Dialog.addNumber("Counter label decimal places",0,0,2,"");
+			Dialog.addToSameRow();
+			Dialog.addString("Counter separation symbols: ","-", 3);
+			countPosChoices = newArray("None", "Before prefix", "After prefix", "Before suffix", "After suffix");
+			Dialog.addRadioButtonGroup("Counter position: ", countPosChoices, 1, 4, countPosChoices[0]);
+			if (maxLabelString>0) {
+				Dialog.addString("Replace this label text:","", minOf(20,maxLabelString));
+				Dialog.addString(" . . . with \(escape regEx characters\):","", minOf(20,maxLabelString));
 			}
-			if (labelChoice!="Add labels only") {
-				setSlice(startSliceNumber + i);
-				newLabel = sliceTextLabels[i];
-				/* symbols are not converted for slice names */
-				run("Set Label...", "label=&newLabel");
+			Dialog.setInsets(5, 0, 10);
+			for (i=0; i<sliceLabelDialogLimit; i++)
+				Dialog.addString("Slice No. "+(i+startSliceNumber)+" input label:",allSliceLabels[i+startSliceNumber-1], minOf(sW/12,maxLabelString));
+			Dialog.show();
+		
+			labelChoice = Dialog.getChoice();
+			prefix = Dialog.getString;
+			suffix = Dialog.getString;
+			startN = Dialog.getNumber;
+			addN = Dialog.getNumber;
+			decP = Dialog.getNumber;
+			cSep =  Dialog.getString;
+			countPos = Dialog.getRadioButton;
+			replaceString = false;
+			if (maxLabelString>0) {
+				oldString = Dialog.getString;
+				newString = Dialog.getString;
+				if (lengthOf(oldString)>0) replaceString = true;
 			}
-			sliceTextLabels[i] = "" + toChar(sliceTextLabels[i]); /* Use degree symbol */
-			sliceTextLabels[i] = "" + cleanLabel(sliceTextLabels[i]);
-			stringLength = getStringWidth(sliceTextLabels[i]);
-			if (stringLength>longestStringWidth) longestStringWidth = stringLength;
-		}
+			sliceTextLabels = newArray();
+			longestStringWidth = 0; /* reset longest string width for modified versions */
+			for (i=0; i<sliceLabelDialogLimit; i++) {
+				sLabel = Dialog.getString();
+				if (replaceString){
+					sLabel = replace(sLabel, oldString, newString);
+				}
+				if (countPos=="None")	sliceTextLabels[i] = prefix + sLabel + suffix;
+				else {
+					ctr = d2s(startN + i*addN, decP);
+					if (countPos=="Before prefix") sliceTextLabels[i] = "" + ctr + cSep +prefix + sLabel + suffix;
+					else if (countPos=="After prefix") sliceTextLabels[i] = prefix + cSep + ctr + cSep + sLabel + suffix;
+					else if (countPos=="Before suffix") sliceTextLabels[i] = prefix + sLabel + cSep + ctr + cSep + suffix;
+					else sliceTextLabels[i] = prefix + sLabel + suffix + cSep + ctr;
+				}
+				if (labelChoice!="Add labels only") {
+					setSlice(startSliceNumber + i);
+					newLabel = sliceTextLabels[i];
+					/* symbols are not converted for slice names */
+					run("Set Label...", "label=&newLabel");
+				}
+				sliceTextLabels[i] = "" + toChar(sliceTextLabels[i]); /* Use degree symbol */
+				sliceTextLabels[i] = "" + cleanLabel(sliceTextLabels[i]);
+				stringLength = getStringWidth(sliceTextLabels[i]);
+				if (stringLength>longestStringWidth) longestStringWidth = stringLength;
+			}
+	}
 	/* End of options dialog */	
 	/* Begin labeling of slices */
 	if (labelChoice!="Rename slices only"){
@@ -344,7 +403,7 @@ macro "Add Slice Label to Each Slice" {
 		}
 		workingImage = getTitle();
 		workingImageName = getInfo("window.title");
-		for (i=0; i<sliceLabelDialogLimit; i++) {
+		for (i=0; i<lengthOf(sliceTextLabels); i++) {
 			setSlice(startSliceNumber + i);
 			if (sliceTextLabels[i]!="") {
 				/* Create Label Mask */

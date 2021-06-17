@@ -35,8 +35,10 @@ v190912 Added list of preferred scale bar widths; Now attempts to label all chan
 v190913 Min font size changed to 20. Minimum +offset increased to default outline stroke (6).
 v200302 Added change image type pop-up as 16 and 32 but versions still do not look good.
 v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
+v200925 Note "inner-shadow" closing issue fixed by close-image workaround but still not understood.
+v210616 Add ability to label lines with their calibrated lengths v210617 Added text outline for overlaps, fixed alignment of overlay labels
 */
-	macroL = "Fancy_Scale_Bar_v200709";
+	macroL = "Fancy_Scale_Bar_v210617c";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -45,6 +47,7 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 	if (selEType>=0) {
 		getSelectionBounds(selEX, selEY, selEWidth, selEHeight);
 		if ((selEWidth + selEHeight)<6) selEType=-1; /* Ignore junk selections that are suspiciously small */
+		if (selEType==5) getSelectionCoordinates(selLX, selLY);
 	}
 	run("Select None");
 	activeImage = getTitle();
@@ -53,7 +56,8 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
 	startSliceNumber = getSliceNumber();
 	remSlices = slices-startSliceNumber;
-	sbFontSize = maxOf(20, round((imageHeight+imageWidth)/60)); /* set minimum default font size as 12 */
+	if (selEType==5) sbFontSize = maxOf(10, round((imageHeight+imageWidth)/90)); /* set minimum default font size as 12 */
+	else sbFontSize = maxOf(12, round((imageHeight+imageWidth)/60)); /* set minimum default font size as 12 */
 	getVoxelSize(pixelWidth, pixelHeight, pixelDepth, selectedUnit);
 	if (selectedUnit == "um") selectedUnit = micron;
 	sF = getScaleFactor(selectedUnit);
@@ -95,10 +99,18 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 		nSF = newArray(1,sF/(1E-2),sF/(1E-3),sF/(1E-6),sF/(1E-6),sF/(1E-9),sF/(1E-10),sF/(1E-12), sF/(2.54E-2), sF/(1E-4));
 		overrideUnitChoice = newArray(selectedUnit, "cm", "mm", "µm", "microns", "nm", "Å", "pm", "inches", "human hairs");
 	}
-	if (selEType>=0) {	
-		sbWidth = lcf*selEWidth;
-		sbDP = autoCalculateDecPlacesFromValueOnly(sbWidth);
-		sbWidth = d2s(sbWidth, sbDP);
+	if (selEType>=0) {
+		if (selEType!=5){
+			sbWidth = lcf*selEWidth;
+			sbDP = autoCalculateDecPlacesFromValueOnly(sbWidth);
+			sbWidth = d2s(sbWidth, sbDP);
+		}
+		else {
+			lineLength = sqrt(pow((selLX[1]-selLX[0]),2) + pow((selLY[1]-selLY[0]),2));
+			sbWidth = lcf*lineLength;
+			sbDP = autoCalculateDecPlacesFromValueOnly(sbWidth)+2; /* Add more dp for line labeling */
+			sbWidth = d2s(sbWidth, sbDP);
+		}
 	}
 	else sbWidth = lcf*imageWidth/5;
 	selOffsetX = maxOf(dOutS,round(imageWidth/120));
@@ -110,33 +122,48 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 	sbWidth2SF = round(sbWidth/pow(10,indexSBWidth-1));
 	preferredSBW = newArray(10,20,25,50,75); /* Edit this list to your preferred 2 digit numbers */
 	sbWidth2SFC = closestValueFromArray(preferredSBW,sbWidth2SF,100); /* alternatively could be sbWidth1SF*10 */
-	sbWidth = pow(10,indexSBWidth-1)*sbWidth2SFC;
+	if (selEType!=5) sbWidth = pow(10,indexSBWidth-1)*sbWidth2SFC;
 	Dialog.create("Scale Bar Parameters: " + macroL);
-		Dialog.addNumber("Length of scale bar in " + selectedUnit + ":", sbWidth, dpSB, 10, selectedUnit);
+		if (selEType==5){
+			Dialog.addMessage("Length labeling mode: Select none or a non-straight-line selection to draw a scale bar",12,"#782F40");
+			Dialog.addNumber("Selected line length \(" + lineLength + " pixels\):", sbWidth, dpSB+2, 10, selectedUnit);
+			modeStr = "length line";
+		} else {
+			Dialog.addMessage("Scale bar mode: Use the straight line selection tool for length labeling",12,"#099FFF");
+			Dialog.addNumber("Length of scale bar:", sbWidth, dpSB, 10, selectedUnit);
+			modeStr = "scale bar";
+		}
 		if (sF!=0) {
 			newUnit = newArray(""+selectedUnit+" Length x1", "cm \(Length x"+nSF[1]+"\)","mm \(Length x"+nSF[2]+"\)","µm \(Length x"+nSF[3]+"\)","microns \(Length x"+nSF[4]+"\)", "nm \(Length x"+nSF[5]+"\)", "Å \(Length x"+nSF[6]+"\)", "pm \(Length x"+nSF[7]+"\)", "inches \(Length x"+nSF[8]+"\)", "human hair \(Length x"+nSF[9]+"\)");
 			Dialog.addChoice("Override unit with new choice?", newUnit, newUnit[0]);
 		}
-		Dialog.addNumber("Height of scale bar:",19,0,3,"% of font size");
+		Dialog.addNumber("Thickness of " + modeStr + ":",19,0,3,"% of font size");
 		if (imageDepth==24)
 			colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
 		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		iTC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.scale.font.color",colorChoice[0]),0);
-		Dialog.addChoice("Scale bar and text color:", colorChoice, colorChoice[iTC]);
+		Dialog.addChoice("Color of " + modeStr + " and text:", colorChoice, colorChoice[iTC]);
 		iBC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.scale.outline.color",colorChoice[1]),1);
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[iBC]);
 		if (selEType>=0) {
-			locChoice = newArray("Top Left", "Top Right", "Bottom Center", "Bottom Left", "Bottom Right", "At Center of New Selection", "At Selection");
-			Dialog.addChoice("Scale bar position:", locChoice, locChoice[6]); 
+			if (selEType!=5){
+				locChoice = newArray("Top Left", "Top Right", "Bottom Center", "Bottom Left", "Bottom Right", "At Center of New Selection", "At Selection");
+				iLoc = indexOfArray(locChoice, call("ij.Prefs.get", "fancy.scale.location",locChoice[6]),6);	
+			}
+			else {
+				locChoice = newArray("Center of Line", "Left of Center", "Right of Center", "Over Center", "Under Center"); /* location choices unique to straight line selection */
+				iLoc = indexOfArray(locChoice, call("ij.Prefs.get", "fancy.scale.location",locChoice[2]),2);	
+			}
 		}
 		else {
 			locChoice = newArray("Top Left", "Top Right", "Bottom Center", "Bottom Left", "Bottom Right", "At Center of New Selection");
 			iLoc = indexOfArray(locChoice, call("ij.Prefs.get", "fancy.scale.location",locChoice[4]),4);			
-			Dialog.addChoice("Scale bar position:", locChoice, locChoice[iLoc]); 
 		}
+		Dialog.addChoice("Location of " + modeStr + ":", locChoice, locChoice[iLoc]); 
 		Dialog.setInsets(-2, 245, -20);
 		Dialog.addCheckbox("No text", false);
-		sBStyleChoices = newArray("Solid Bar", "I-Bar", "Simple Arrows", "Notched Arrows");
+		if (selEType!=5) sBStyleChoices = newArray("Solid Bar", "I-Bar", "Simple Arrows", "Notched Arrows");
+		else sBStyleChoices = newArray("I-Bar", "Simple Arrows", "Notched Arrows");
 		iSBS = indexOfArray(sBStyleChoices, call("ij.Prefs.get", "fancy.scale.bar.style",sBStyleChoices[0]),0);
 		Dialog.addRadioButtonGroup("Bar Styles:", sBStyleChoices, 1, 3, sBStyleChoices[iSBS]);
 		Dialog.addNumber("Font size:", sbFontSize);
@@ -145,9 +172,6 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 		fontStyleChoice = newArray("bold", "italic", "bold italic", "unstyled");
 		iFS = indexOfArray(fontStyleChoice, call("ij.Prefs.get", "fancy.scale.font.style",fontStyleChoice[0]),0);
 		Dialog.addChoice("Font style*:", fontStyleChoice, fontStyleChoice[iFS]);
-		// Dialog.setInsets(-8, 200, 2) ;
-		// if (imageDepth==16 || imageDepth==32) Dialog.addMessage("* = 16/32 bit: Anti-aliasing will be approximated,\nconsider reducing bit depth for true anti-aliasing.");
-		// else Dialog.addMessage("*=Anti-aliasing will be applied to all styles.");
 		fontNameChoice = getFontChoiceList();
 		iFN = indexOfArray(fontNameChoice, call("ij.Prefs.get", "fancy.scale.font",fontNameChoice[0]),0);
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[iFN]);
@@ -223,7 +247,14 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 	}
 	if (startsWith(overWrite,"Replace")) while (Overlay.size!=0) Overlay.remove;
 	if (startsWith(overWrite,"New")){
-		tS = "" + stripKnownExtensionFromString(unCleanLabel(activeImage)) + "+scale";
+		tS = "" + stripKnownExtensionFromString(unCleanLabel(activeImage));
+		if (selEType!=5){
+			if (endsWith(tS, "_EmbScale")) tS = replace(tS, "_EmbScale", ""); /* just removes my preferred note for embedded scale */
+			if (!endsWith(tS, "cale")) tS = tS + "+scale";
+		} else {
+			if (endsWith(tS, "LLabel")) tS = tS + "s";
+			else if (!endsWith(tS, "LLabels")) tS += "+LLabel";
+		}
 		run("Select None");
 		selectWindow(activeImage);
 		run("Duplicate...", "title=&tS duplicate");
@@ -301,46 +332,75 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 	} else if (selPos=="At Selection"){
 		if (selEY>imageHeight/2) selEY += selEHeight;  /*  Annotation relative to the bottom of the selection if in lower half of image */
 		selEY = minOf(selEY, imageHeight-(sbHeight/2 + selOffsetY));
+	} else if (selPos=="Center of Line"){
+		selEX = (selLX[0]+selLX[1])/2 - selLengthInPixels/2;
+		selEY = (selLY[0]+selLY[1])/2 + fontSize/2;
+	} else if (selPos=="Left of Center"){
+		selEX = (selLX[0]+selLX[1])/2 - selLengthInPixels - fontSize;
+		selEY = (selLY[0]+selLY[1])/2 + fontSize;
+	} else if (selPos=="Right of Center"){
+		selEX = (selLX[0]+selLX[1])/2 + fontSize/2;
+		selEY = (selLY[0]+selLY[1])/2 + fontSize/2;
+	}	else if (selPos=="Over Center"){
+		selEX = (selLX[0]+selLX[1])/2 - selLengthInPixels/2;
+		selEY = minOf(selLY[0],selLY[1]);
+	} else if (selPos=="Under Center"){
+		selEX = (selLX[0]+selLX[1])/2 - selLengthInPixels/2;
+		selEY = maxOf(selLY[0],selLY[1]) + 1.5*fontSize;
 	}
 	 /*  edge limits - assume intent is not to annotate edge objects */
 	maxSelEY = imageHeight - round(sbHeight/2) + selOffsetY;
 	selEY = maxOf(minOf(selEY,maxSelEY),selOffsetY);
 	maxSelEX = imageWidth - selLengthInPixels + selOffsetX;
 	selEX = maxOf(minOf(selEX,maxSelEX),selOffsetX);
-
 	selLengthLabel = removeTrailingZerosAndPeriod(toString(selLengthInUnits));
 	label = selLengthLabel + " " + selectedUnit;
 	/* stop overrun on scale bar by label of more than 20% */
-	stringOF = getStringWidth(label)/selLengthInPixels;
-	
-	if (stringOF > 1.2) {
-		shrinkFont = getBoolean("Shrink font size by " + 1/stringOF + "x to fit within scale bar?");
-		if (shrinkFont) fontSize = round(fontSize/stringOF);
-		setFont("",fontSize);
+	if (selEType!=5){
+		stringOF = getStringWidth(label)/selLengthInPixels;
+		if (stringOF > 1.2) {
+			shrinkFont = getBoolean("Shrink font size by " + 1/stringOF + "x to fit within scale bar?");
+			if (shrinkFont) fontSize = round(fontSize/stringOF);
+			setFont("",fontSize);
+		}
+		/* stop text overrun */
+		stringOver = (getStringWidth(label)-selLengthInPixels)/2;
+		if (stringOver > 0) {
+			if ((selEX-stringOver) < selOffsetX) selEX +=stringOver;
+			if ((selEX+getStringWidth(label)) > (imageWidth-selOffsetX)) selEX -= stringOver;
+		}
+		fontHeight = getValue("font.height");
+		/* Adjust label location */
+		if (selEY<=1.5*fontHeight)
+				textYcoord = selEY + sbHeight + fontHeight;
+		else textYcoord = selEY - sbHeight;
+		textXOffset = round((selLengthInPixels - getStringWidth(label))/2);
+		finalLabel = label;
+		finalLabelX = selEX + textXOffset;
+		finalLabelY = textYcoord;
 	}
-	/* stop text overrun */
-	stringOver = (getStringWidth(label)-selLengthInPixels)/2;
-	if (stringOver > 0) {
-		if ((selEX-stringOver) < selOffsetX) selEX +=stringOver;
-		if ((selEX+getStringWidth(label)) > (imageWidth-selOffsetX)) selEX -= stringOver;
+	else {
+		finalLabel = label;
+		finalLabelX = selEX;
+		finalLabelY = selEY;
 	}
-	fontHeight = getValue("font.height");
-	/* Adjust label location */
-	if (selEY<=1.5*fontHeight)
-			textYcoord = selEY + sbHeight + fontHeight;
-	else textYcoord = selEY - sbHeight;
-	textXOffset = round((selLengthInPixels - getStringWidth(label))/2);
-	finalLabel = label;
-	finalLabelX = selEX + textXOffset;
-	finalLabelY = textYcoord;
+	/* Create new image that will be used to create bar/label */
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
 	setColor(255,255,255);
+	/* Although text should overlap any bar we write it first here so that we can also create a separate text mask to use later */
+	if (!noText){
+		writeLabel7(fontName, fontSize, "white", label,finalLabelX,finalLabelY,false);
+		tempID = getImageID;
+		run("Duplicate...", "title=text_mask");
+		selectImage(tempID);
+	}
 	if (sBStyle=="Solid Bar")	fillRect(selEX, selEY, selLengthInPixels, sbHeight);
 	else {
 		if (sBStyle=="I-Bar") arrowStyle = "Bar Double Small";
 		else if (sBStyle=="Notched Arrows")  arrowStyle = "Notched Double Small";
 		else arrowStyle = "Double Small";
-		makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
+		if (selEType!=5) makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
+		else makeArrow(selLX[0],selLY[0],selLX[1],selLY[1],arrowStyle);
         Roi.setStrokeColor("white");
         Roi.setStrokeWidth(sbHeight/2);
         run("Add Selection...");
@@ -349,11 +409,34 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 		closeImageByTitle("label_mask");
 		rename("label_mask");
 	}
-	if (!noText) writeLabel7(fontName, fontSize, "white", label,finalLabelX,finalLabelY,false);
 	setThreshold(0, 128);
 	setOption("BlackBackground", false);
 	run("Convert to Mask");
-
+	newImage("outline_template", "8-bit black", imageWidth, imageHeight, 1);
+	getSelectionFromMask("label_mask");
+	run("Enlarge...", "enlarge=&outlineStroke pixel");
+	setBackgroundFromColorName("white");
+	run("Clear", "slice");
+	run("Select None");
+	run("Invert");
+	getSelectionFromMask("label_mask");
+	run("Clear", "slice");	
+	/* Now create outline around text in case of overlap */
+	if (!noText){
+		newImage("outline_text", "8-bit black", imageWidth, imageHeight, 1);
+		setBackgroundFromColorName("white");
+		getSelectionFromMask("text_mask");
+		run("Clear", "slice");
+		run("Enlarge...", "enlarge=&outlineStroke pixel");
+		run("Clear Outside");
+		run("Select None");
+		imageCalculator("Min", "outline_template","outline_text");
+		run("Select None");
+		run("Invert");
+		imageCalculator("Max", "label_mask","outline_template");
+		selectWindow("outline_template");
+		run("Invert");
+	}
 	/* If Overlay chosen add fancy scale bar as overlay */
 	if (endsWith(overWrite,"verlays")) {
 		/* Create shadow and outline selection masks to be used for overlay components */
@@ -361,19 +444,17 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 		outlineColorHex = getHexColorFromRGBArray(outlineColor);
 		if(!noShadow) {
 			selectWindow("label_mask");
+			run("Select None");
 			run("Duplicate...", "title=ovShadowMask");
+			getSelectionFromMask("label_mask");
+			getSelectionBounds(xShad, yShad, wShad, hShad);
+			setSelectionLocation(xShad+shadowDisp, yShad+shadowDrop);
 			dilation = outlineStroke + maxOf(1,round(shadowBlur/2));
-			run("BinaryDilate ", "coefficient=0 iterations=&dilation");
-			run("Copy");
-			makeRectangle(shadowDisp, shadowDrop, imageWidth, imageHeight);
-			run("Paste");
+			run("Enlarge...", "enlarge=&dilation pixel");
+			setBackgroundFromColorName("white");
+			run("Clear", "slice");
 			run("Select None");			
 		}
-		selectWindow("label_mask");
-		run("Duplicate...", "title=ovOutlineMask");
-		run("BinaryDilate ", "coefficient=0 iterations=&outlineStroke");
-		run("Select None");
-		selectWindow(activeImage);
 		/* shadow and outline selection masks have now been created */
 		selectWindow(activeImage);
 		for (sl=startSliceNumber; sl<endSlice+1; sl++) {
@@ -390,35 +471,36 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 				setSelectionName("Scale Bar Shadow");
 				run("Add Selection...", "fill="+shadowHex);
 			}
-			getSelectionFromMask("ovOutlineMask");
-			setSelectionName("Scale Bar Outline");
-			run("Add Selection...", "fill=&outlineColorHex");
-			if(!noText) {
-				Overlay.setPosition(sl);
-				setColor(scaleBarColorHex);
-				Overlay.drawString(finalLabel, finalLabelX, finalLabelY);
-				Overlay.activateSelection(Overlay.size-1);
-				setSelectionName("Scale Text " + scaleBarColor);
-			}
-			Overlay.setPosition(sl);
 			if (sBStyle=="Solid Bar"){
 				makeRectangle(selEX, selEY, selLengthInPixels, sbHeight);
 				setSelectionName("Scale Bar " + scaleBarColor);
 				run("Add Selection...", "fill=&scaleBarColorHex");
 				Overlay.setPosition(sl);
 			}else {
-				makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
+				if (selEType!=5) makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
+				else makeArrow(selLX[0],selLY[0],selLX[1],selLY[1],arrowStyle);
 				Roi.setStrokeColor(scaleBarColorHex);
 				Roi.setStrokeWidth(sbHeight/2);
 				setSelectionName("Scale Bar " + scaleBarColor);
 				run("Add Selection...");
 				Overlay.setPosition(sl);
 			}
+			getSelectionFromMask("outline_template");
+			run("Make Inverse");
+			setSelectionName("Scale Bar Outline");
+			run("Add Selection...", "fill=&outlineColorHex");
+			if(!noText) {
+				Overlay.setPosition(sl);
+				setColor(scaleBarColorHex);
+				Overlay.drawString(finalLabel, finalLabelX, finalLabelY-0.28*fontSize);
+				Overlay.activateSelection(Overlay.size-1);
+				setSelectionName("Scale Text " + scaleBarColor);
+			}
+			Overlay.setPosition(sl);
 			run("Select None");
 			if (allSlices) sl = endSlice+1;
 		}
 		run("Select None");
-		closeImageByTitle("ovOutlineMask");
 		closeImageByTitle("ovShadowMask");
 	}
 	/* End overlay fancy scale bar section */
@@ -432,9 +514,7 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 			if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0)
 				createInnerShadowFromMask6("label_mask",innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
 		}
-		if (startsWith(overWrite,"Destructive overwrite")) {
-			tS = activeImage;
-		}
+		if (startsWith(overWrite,"Destructive overwrite")) tS = activeImage;
 		selectWindow(tS);
 		/* Tries to remove any old scale related overlays from copied image but usually leaves 2  ¯\_(?)_/¯ */
 		if(Overlay.size>0) {
@@ -462,12 +542,6 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 				}
 			}
 		}
-		newImage("outline_template", "8-bit black", imageWidth, imageHeight, 1);
-		getSelectionFromMask("label_mask");
-		run("Enlarge...", "enlarge=&outlineStroke pixel");
-		setBackgroundFromColorName("white");
-		run("Clear", "slice");
-		run("Select None");
 		selectWindow(tS);
 		if (slices==1 && channels>1){  /* process channels instead of slices */
 			labelChannels = true;
@@ -484,6 +558,7 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 			run("Select None");
 			/* apply outline around label */
 			getSelectionFromMask("outline_template");
+			run("Make Inverse");
 			setBackgroundFromColorName(outlineColor);
 			run("Clear", "slice");
 			run("Select None");
@@ -519,7 +594,9 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 	closeImageByTitle("shadow");
 	closeImageByTitle("inner_shadow");
 	closeImageByTitle("label_mask");
+	closeImageByTitle("text_mask");
 	closeImageByTitle("outline_template");
+	closeImageByTitle("outline_text");
 	restoreSettings();
 	setSlice(startSliceNumber);
 	setBatchMode("exit & display"); /* exit batch mode */
@@ -542,7 +619,8 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 		return dP;
 	}
 	function checkForPlugin(pluginName) {
-		/* v161102 changed to true-false */
+		/* v161102 changed to true-false
+			v180831 some cleanup */
 		var pluginCheck = false, subFolderCount = 0;
 		if (getDirectory("plugins") == "") restoreExit("Failure to find any plugins!");
 		else pluginDir = getDirectory("plugins");
@@ -557,10 +635,10 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 			for (i=0; i<lengthOf(pluginList); i++) {
 				if (endsWith(pluginList[i], "/")) {
 					subFolderList[subFolderCount] = pluginList[i];
-					subFolderCount = subFolderCount +1;
+					subFolderCount += 1;
 				}
 			}
-			subFolderList = Array.slice(subFolderList, 0, subFolderCount);
+			subFolderList = Array.trim(subFolderList, subFolderCount);
 			for (i=0; i<lengthOf(subFolderList); i++) {
 				if (File.exists(pluginDir + subFolderList[i] +  "\\" + pluginName)) {
 					pluginCheck = true;
@@ -575,50 +653,47 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 		/* v161108 (adds inches to possible reasons for checking calibration)
 			This version requires these functions:
 			checkForPlugin, setScaleFromCZSemHeader.
-			v180820 Checks for CZ header before offering to use it. Tweaked dialog messages.
-			v180921 Fixed error in 2nd dialog.
+			v180820 Checks for CZ header before offering to use it.
+			v200508 Simplified (and works?)
+			v200925 Checks also for unit = pixels
 		*/
 		getPixelSize(unit, pixelWidth, pixelHeight);
-		if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches"){
-			Dialog.create("Scale issues");
-			Dialog.addMessage("Unit asymmetry, pixel units or dpi remnants.\nPixel width = " + pixelWidth + " \nPixel height = " + pixelHeight + "\nUnit = " + unit);
+		if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches" || unit=="pixels"){
+			Dialog.create("Suspicious Units");
+			rescaleChoices = newArray("Define new units for this image", "Use current scale", "Exit this macro");
+			tiff = matches(getInfo("image.filename"),".*[tT][iI][fF].*");
 			if (matches(getInfo("image.filename"),".*[tT][iI][fF].*") && (checkForPlugin("tiff_tags.jar"))) {
 				tag = call("TIFF_Tags.getTag", getDirectory("image")+getTitle, 34118);
-				if (indexOf(tag, "Image Pixel Size = ")>0) {
-					Dialog.addCheckbox("Do you want to try and import scale from the CZ SEM tag?", true);
-					Dialog.show();
-					setCZScale = Dialog.getCheckbox;
-					if (setCZScale) { /* Based on the macro here: https://rsb.info.nih.gov/ij/macros/SetScaleFromTiffTag.txt */
-						setScaleFromCZSemHeader();
-						getPixelSize(unit, pixelWidth, pixelHeight);
-						if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches") setCZScale=false;
-					}
-					if(!setCZScale) {
-						Dialog.create("Manually set scale");
-						Dialog.addCheckbox("pixelWidth = " + pixelWidth + ": Do you want to define units for this image?", true);
-						Dialog.show();
-						setScale = Dialog.getCheckbox;
-						if (setScale)
-						run("Set Scale...");
-					}
-				}
+				if (indexOf(tag, "Image Pixel Size = ")>0) rescaleChoices = Array.concat(rescaleChoices,"Set Scale from CZSEM header");
 			}
-			else if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches"){
-				setScale = false;
-				Dialog.create("Still no standard units");
-				Dialog.addMessage("Pixel width = "+pixelWidth+"\nPixel height = "+pixelHeight+"\nUnit = "+unit);
-				Dialog.addCheckbox("Unit asymmetry, pixel units or dpi remnants; do you want to define units for this image?", true);
-				Dialog.show();
-				setScale = Dialog.getCheckbox;
-				if (setScale)
+			else tag = "";
+			rescaleDialogLabel = "pixelHeight = "+pixelHeight+", pixelWidth = "+pixelWidth+", unit = "+unit+": what would you like to do?";
+			Dialog.addRadioButtonGroup(rescaleDialogLabel, rescaleChoices, 3, 1, rescaleChoices[0]) ;
+			Dialog.show();
+			rescaleChoice = Dialog.getRadioButton;
+			if (rescaleChoice=="Define new units for this image") run("Set Scale...");
+			else if (rescaleChoice=="Exit this macro") restoreExit("Goodbye");
+			else if (rescaleChoice=="Set Scale from CZSEM header"){
+				setScaleFromCZSemHeader();
+				getPixelSize(unit, pixelWidth, pixelHeight);
+				if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches") setCZScale=false;
+				if(!setCZScale) {
+					Dialog.create("Still no standard units");
+					Dialog.addCheckbox("pixelWidth = " + pixelWidth + ": Do you want to define units for this image?", true);
+					Dialog.show();
+					setScale = Dialog.getCheckbox;
+					if (setScale)
 					run("Set Scale...");
+				}
 			}
 		}
 	}
 	function closeImageByTitle(windowTitle) {  /* Cannot be used with tables */
-		/* v181002 reselects original image at end if open */
+		/* v181002 reselects original image at end if open
+		   v200925 uses "while" instead of if so it can also remove duplicates
+		*/
 		oIID = getImageID();
-        if (isOpen(windowTitle)) {
+        while (isOpen(windowTitle)) {
 			selectWindow(windowTitle);
 			close();
 		}
@@ -656,7 +731,7 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 		if (expansion>0) run("Enlarge...", "enlarge=&expansion pixel");
 		if (iShadowBlur>0) run("Gaussian Blur...", "sigma=&iShadowBlur");
 		run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen the effect for small font sizes */
-		imageCalculator("Max", "inner_shadow",mask);
+		imageCalculator("Max","inner_shadow",mask);
 		run("Select None");
 		/* The following are needed for different bit depths */
 		if (imageDepth==16 || imageDepth==32) run(imageDepth + "-bit");
@@ -779,11 +854,12 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
   	function getFontChoiceList() {
 		/*	v180723 first version
 			v180828 Changed order of favorites
+			v190108 Longer list of favorites
 		*/
 		systemFonts = getFontList();
 		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
 		fontNameChoice = Array.concat(IJFonts,systemFonts);
-		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Fira Sans Ultra", "Fira Sans Condensed Ultra", "Arial Black", "Myriad Pro Black", "Montserrat Black", "Olympia-Extra Bold", "SansSerif", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Times New Roman", "Times", "Helvetica");
+		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Noto Sans Black", "Arial Black", "Montserrat Black", "Lato Black", "Roboto Black", "Merriweather Black", "Alegreya Black", "Tahoma Bold", "Calibri Bold", "Helvetica", "SansSerif", "Calibri", "Roboto", "Tahoma", "Times New Roman Bold", "Times Bold", "Serif");
 		faveFontListCheck = newArray(faveFontList.length);
 		counter = 0;
 		for (i=0; i<faveFontList.length; i++) {
@@ -840,6 +916,18 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 			}
 		}
 	  return index;
+	}
+	function indexOfArrayThatContains(array, value) {
+		/* Like indexOfArray but partial matches possible
+			v190423 Only first match returned */
+		indexFound = -1;
+		for (i=0; i<lengthOf(array); i++){
+			if (indexOf(array[i], value)>=0){
+				indexFound = i;
+				i = lengthOf(array);
+			}
+		}
+		return indexFound;
 	}
 	function removeTrailingZerosAndPeriod(string) { /* Removes any trailing zeros after a period */
 		while (endsWith(string,".0")) string=substring(string,0, lastIndexOf(string, ".0"));
@@ -901,8 +989,8 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 	+ 041117 to remove spaces as well */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
-		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
-		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
 		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces deg */

@@ -36,9 +36,10 @@ v190913 Min font size changed to 20. Minimum +offset increased to default outlin
 v200302 Added change image type pop-up as 16 and 32 but versions still do not look good.
 v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 v200925 Note "inner-shadow" closing issue fixed by close-image workaround but still not understood.
-v210616 Add ability to label lines with their calibrated lengths v210617 Added text outline for overlaps, fixed alignment of overlay labels
+v210616 Add ability to label lines with their calibrated lengths v210617 Added text outline for overlaps, fixed alignment of overlay labels v210618 fixed label alignment
+v210621 Finally solved font-sensitive overlay text alignment issue be reusing label mask. Menu made more compact.
 */
-	macroL = "Fancy_Scale_Bar_v210617c";
+	macroL = "Fancy_Scale_Bar_v210621";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -106,10 +107,17 @@ v210616 Add ability to label lines with their calibrated lengths v210617 Added t
 			sbWidth = d2s(sbWidth, sbDP);
 		}
 		else {
-			lineLength = sqrt(pow((selLX[1]-selLX[0]),2) + pow((selLY[1]-selLY[0]),2));
+			lineXPx = abs(selLX[1]-selLX[0]); /* used for label offsets later */
+			lineYPx = abs(selLY[1]-selLY[0]); /* used for label offsets later */
+			lineLength = sqrt(pow(lineXPx,2) + pow(lineYPx,2));
 			sbWidth = lcf*lineLength;
 			sbDP = autoCalculateDecPlacesFromValueOnly(sbWidth)+2; /* Add more dp for line labeling */
 			sbWidth = d2s(sbWidth, sbDP);
+			lineAngle = (180/PI) * Math.atan2(lineYPx, lineXPx);
+			lineXPx = abs(selLX[1]-selLX[0]);
+			lineYPx = abs(selLY[1]-selLY[0]);
+			lineMidX = (selLX[0] + selLX[1])/2;
+			lineMidY = (selLY[0] + selLY[1])/2;
 		}
 	}
 	else sbWidth = lcf*imageWidth/5;
@@ -125,8 +133,11 @@ v210616 Add ability to label lines with their calibrated lengths v210617 Added t
 	if (selEType!=5) sbWidth = pow(10,indexSBWidth-1)*sbWidth2SFC;
 	Dialog.create("Scale Bar Parameters: " + macroL);
 		if (selEType==5){
-			Dialog.addMessage("Length labeling mode: Select none or a non-straight-line selection to draw a scale bar",12,"#782F40");
-			Dialog.addNumber("Selected line length \(" + lineLength + " pixels\):", sbWidth, dpSB+2, 10, selectedUnit);
+			Dialog.addNumber("Selected line length \(" + d2s(lineLength,1) + " pixels\):", sbWidth, dpSB+2, 10, selectedUnit);
+			Dialog.addNumber("Selected line angle \(" + fromCharCode(0x00B0) + " from horizontal\):", lineAngle, 2, 5, fromCharCode(0x00B0));
+			Dialog.addString("Length/angle separator:", "No angle label",10);
+			Dialog.setInsets(-90, 370, 0);
+			Dialog.addMessage("Length labeling mode:\nSelect none or a non-\nstraight-line selection\nto draw a scale bar",13,"#782F40");
 			modeStr = "length line";
 		} else {
 			Dialog.addMessage("Scale bar mode: Use the straight line selection tool for length labeling",12,"#099FFF");
@@ -137,14 +148,29 @@ v210616 Add ability to label lines with their calibrated lengths v210617 Added t
 			newUnit = newArray(""+selectedUnit+" Length x1", "cm \(Length x"+nSF[1]+"\)","mm \(Length x"+nSF[2]+"\)","µm \(Length x"+nSF[3]+"\)","microns \(Length x"+nSF[4]+"\)", "nm \(Length x"+nSF[5]+"\)", "Å \(Length x"+nSF[6]+"\)", "pm \(Length x"+nSF[7]+"\)", "inches \(Length x"+nSF[8]+"\)", "human hair \(Length x"+nSF[9]+"\)");
 			Dialog.addChoice("Override unit with new choice?", newUnit, newUnit[0]);
 		}
-		Dialog.addNumber("Thickness of " + modeStr + ":",19,0,3,"% of font size");
-		if (imageDepth==24)
-			colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
-		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
+		Dialog.addNumber("Font size \(\"FS\"\):", sbFontSize, 0, 4,"");
+		Dialog.setInsets(-29, 60, 0);
+		Dialog.addNumber("",19,0,3,"Thickness of " + modeStr + " in % of FS");										 
+		colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "cyan", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
+		grayChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		iTC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.scale.font.color",colorChoice[0]),0);
-		Dialog.addChoice("Color of " + modeStr + " and text:", colorChoice, colorChoice[iTC]);
 		iBC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.scale.outline.color",colorChoice[1]),1);
-		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[iBC]);
+		iTCg = indexOfArray(grayChoice, call("ij.Prefs.get", "fancy.scale.font.gray",colorChoice[0]),0);
+		iBCg = indexOfArray(grayChoice, call("ij.Prefs.get", "fancy.scale.outline.gray",colorChoice[1]),1);
+		if (imageDepth==24){
+			Dialog.addChoice("Color of " + modeStr + " and text:", colorChoice, colorChoice[iTC]);
+			Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[iBC]);
+		}
+		else {
+			Dialog.addChoice("Gray tone of " + modeStr + " and text:", colorChoice, colorChoice[iTCg]);
+			Dialog.addChoice("Gray tone (background) color:", colorChoice, colorChoice[iBCg]);
+			Dialog.setInsets(-65, 380, 0);
+			Dialog.addMessage("Image depth is " + imageDepth + " bits:\nOnly graytones used\nexcept for overlays",13,"black");
+			Dialog.addChoice("Overlay color of " + modeStr + " and text:", colorChoice, colorChoice[iTC]);
+			Dialog.addChoice("Overlay outline (background) color:", colorChoice, colorChoice[iBC]);
+			Dialog.setInsets(-65, 380, 0);
+			Dialog.addMessage("Overlay colors will be\nused if overlays are\nselected for output",13,"#099FFF");
+		}
 		if (selEType>=0) {
 			if (selEType!=5){
 				locChoice = newArray("Top Left", "Top Right", "Bottom Center", "Bottom Left", "Bottom Right", "At Center of New Selection", "At Selection");
@@ -160,67 +186,89 @@ v210616 Add ability to label lines with their calibrated lengths v210617 Added t
 			iLoc = indexOfArray(locChoice, call("ij.Prefs.get", "fancy.scale.location",locChoice[4]),4);			
 		}
 		Dialog.addChoice("Location of " + modeStr + ":", locChoice, locChoice[iLoc]); 
-		Dialog.setInsets(-2, 245, -20);
-		Dialog.addCheckbox("No text", false);
-		if (selEType!=5) sBStyleChoices = newArray("Solid Bar", "I-Bar", "Simple Arrows", "Notched Arrows");
-		else sBStyleChoices = newArray("I-Bar", "Simple Arrows", "Notched Arrows");
+		if (selEType==5) {
+			Dialog.addString("For L/R of Center only: L\R offset","Auto",3);
+			Dialog.setInsets(-31, 268, -5);
+			Dialog.addMessage("pixels from center. \"Auto\" recommended",12,"#782F40");
+		}
+		textStyleEffectsChoices = newArray("Default", "No text", "No shadows", "Emboss");
+		// Dialog.setInsets(-10, 20, 10); /* It seems that my efforts to raise the height of radio button group have been futile */
+		Dialog.addRadioButtonGroup("Text style modifiers \(\"Default\" recommended, emboss does not apply to overlays\):___",textStyleEffectsChoices,1,4,"Default");
+		if (selEType==5) sBStyleChoices = newArray("Solid Bar", "I-Bar", "Arrow", "Arrows", "S-Arrow", "S-Arrows");
+		else sBStyleChoices = newArray("Solid Bar", "I-Bar", "Arrows", "S-Arrows");
 		iSBS = indexOfArray(sBStyleChoices, call("ij.Prefs.get", "fancy.scale.bar.style",sBStyleChoices[0]),0);
-		Dialog.addRadioButtonGroup("Bar Styles:", sBStyleChoices, 1, 3, sBStyleChoices[iSBS]);
-		Dialog.addNumber("Font size:", sbFontSize);
+		Dialog.addRadioButtonGroup("Bar styles \(arrowheads are solid triangles or \"S-Arrows\" which are \"stealth\"/notched\):__", sBStyleChoices, 1, 3, sBStyleChoices[iSBS]);
+		if (selEType==5){
+			Dialog.setInsets(-5,160, 3);
+			Dialog.addMessage("Single arrow points in the direction drawn",12,"#782F40");
+		}
+		barHThicknessChoices = newArray("small", "medium", "large");
+		iHT = indexOfArray(barHThicknessChoices, call("ij.Prefs.get", "fancy.scale.barHeader.thickness",barHThicknessChoices[0]),0);
+		Dialog.addChoice("Arrowhead/bar header thickness",barHThicknessChoices, barHThicknessChoices[iHT]);	
 		Dialog.addNumber("X offset from edge \(for corners only\)", selOffsetX,0,1,"pixels");
-		Dialog.addNumber("Y offset from edge \(for corners only\)", selOffsetY,0,1,"pixels");
+		Dialog.setInsets(-29, 80, 0);
+		Dialog.addNumber("", selOffsetY,0,1,"Y edge offset \(corners only\)");
 		fontStyleChoice = newArray("bold", "italic", "bold italic", "unstyled");
 		iFS = indexOfArray(fontStyleChoice, call("ij.Prefs.get", "fancy.scale.font.style",fontStyleChoice[0]),0);
 		Dialog.addChoice("Font style*:", fontStyleChoice, fontStyleChoice[iFS]);
 		fontNameChoice = getFontChoiceList();
 		iFN = indexOfArray(fontNameChoice, call("ij.Prefs.get", "fancy.scale.font",fontNameChoice[0]),0);
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[iFN]);
-		Dialog.addNumber("Outline stroke:", dOutS,0,3,"% of font size");
-		Dialog.setInsets(-2, 245, 0);
-		Dialog.addCheckbox("Emboss effect", false);
-		Dialog.setInsets(-2, 245, 0);
-		Dialog.addCheckbox("No shadow \(just outline and fill\)", false);
-		Dialog.addNumber("Shadow drop: ±", dShO,0,3,"% of font size");
-		Dialog.addNumber("Shadow displacement right: ±", dShO,0,3,"% of font size");
-		Dialog.addNumber("Shadow Gaussian blur:", floor(0.75*dShO),0,3,"% of font size");
+		Dialog.addNumber("Outline stroke:", dOutS,0,3,"% of font size \(\"%FS\"\)");
+		Dialog.addNumber("Shadow drop: ±", dShO,0,3,"%FS");
+		Dialog.setInsets(-29, 80, 0);
+		Dialog.addNumber("", dShO,0,3,": %FS shadow shift \(+ve right\)");
+		Dialog.addNumber("Shadow Gaussian blur:", floor(0.75*dShO),0,3,"%FS");
 		Dialog.addNumber("Shadow darkness \(darkest = 100%\):", 30,0,3,"% \(negative = glow\)");
-		Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay scale bar.");
-		Dialog.addNumber("Inner shadow drop: ±", dIShO,0,1,"% of font size");
-		Dialog.addNumber("Inner displacement right: ±", dIShO,0,1,"% of font size");
-		Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,2,"% of font size");
-		Dialog.addNumber("Inner shadow darkness \(darkest = 100%\):", 20,0,3,"% \(negative = glow\)");
-		if (Overlay.size==0) overwriteChoice = newArray("New image","Destructive overwrite","Add overlays");
-		else overwriteChoice = newArray("New image","Destructive overwrite","Add overlays","Replace ALL overlays");
+		Dialog.addMessage("Inner Shadow options \(overlays do not have inner shadows\):______");
+		Dialog.addNumber("Inner shadow drop ±", dIShO,0,1,"%FS");
+		Dialog.setInsets(-29, 80, 0);
+		Dialog.addNumber("", dIShO,0,1,"%FS inner shift \(+ve right\)");
+		Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,2,"%FS");
+		Dialog.setInsets(-29, 80, 0);
+		Dialog.addNumber("", 20,0,3,"Darkness % \(negative = glow\)");
+		overwriteChoice = newArray("New image","Add to image","Add as overlays");
 		if (imageDepth==16) overwriteChoice = Array.concat("New 8-bit image",overwriteChoice);
 		else if (imageDepth==32) overwriteChoice = Array.concat("New RGB image",overwriteChoice);
-		if(overwriteChoice.length==3) Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 1, 3,overwriteChoice[0]);
-		else Dialog.addRadioButtonGroup("Output:__________________________ ", overwriteChoice, 2, 2, overwriteChoice[0]);
+		iOver = indexOfArray(overwriteChoice, call("ij.Prefs.get", "fancy.scale.output",overwriteChoice[0]),0);		
+		Dialog.addRadioButtonGroup("Output \(\"Add to image\" modifies current image\):____________ ", overwriteChoice, 1, lengthOf(overwriteChoice),overwriteChoice[iOver]);
+		if(Overlay.size>0){
+			Dialog.setInsets(0, 235, 0);
+			Dialog.addCheckbox("Remove the " + Overlay.size + " existing overlays", false);
+		}
 		if (slices>1) {
 			Dialog.addMessage("Slice range for labeling \(1-"+slices+"\):");
 			Dialog.addNumber("First slice in label range:", startSliceNumber);
 			Dialog.addNumber("Last slice in label range:", slices);
 		}
-		else if (channels>0) {
+		else if (channels>1) {
 			Dialog.addMessage("All "+channels+" channels will be identically labeled.");
 		}
 	Dialog.show();
 		selLengthInUnits = Dialog.getNumber;
+		if (selEType==5){
+			angleLabel = Dialog.getNumber;
+			angleSeparator = Dialog.getString;
+		}		
 		if (sF!=0) overrideUnit = Dialog.getChoice;
+		fontSize =  Dialog.getNumber;
 		sbHeightPC = Dialog.getNumber; /*  set minimum default bar height as 2 pixels */
 		scaleBarColor = Dialog.getChoice;
 		outlineColor = Dialog.getChoice;
+		if (imageDepth!=24){
+			scaleBarColorOv = Dialog.getChoice;
+			outlineColorOv = Dialog.getChoice;
+		}
 		selPos = Dialog.getChoice;
-		noText = Dialog.getCheckbox;
+		if (selEType==5) offsetLR = Dialog.getString;
+		textStyleMod = Dialog.getRadioButton;
 		sBStyle = Dialog.getRadioButton;
-		fontSize =  Dialog.getNumber;
-		sbHeight = maxOf(2,round(fontSize*sbHeightPC/100)); /*  set minimum default bar height as 2 pixels */
+		barHThickness = Dialog.getChoice;
 		selOffsetX = Dialog.getNumber;
 		selOffsetY = Dialog.getNumber;
 		fontStyle = Dialog.getChoice;
 		fontName = Dialog.getChoice;
 		outlineStroke = Dialog.getNumber;
-		emboss = Dialog.getCheckbox;
-		noShadow = Dialog.getCheckbox;
 		shadowDrop = Dialog.getNumber;
 		shadowDisp = Dialog.getNumber;
 		shadowBlur = Dialog.getNumber;
@@ -230,22 +278,77 @@ v210616 Add ability to label lines with their calibrated lengths v210617 Added t
 		innerShadowBlur = Dialog.getNumber;
 		innerShadowDarkness = Dialog.getNumber;
 		overWrite = Dialog.getRadioButton;
+		if(Overlay.size>0)	remOverlays = Dialog.getCheckbox;
+		else remOverlays = false;
 		allSlices = false;
 		labelRest = true;
+		if (textStyleMod=="Emboss") emboss = true;
+		else emboss = false;
+		if (textStyleMod=="No shadows") noShadow = true;
+		else noShadow = false;
+		if (textStyleMod=="No text") noText = true;
+		else noText = false;
+		if (slices>1) {
+			startSliceNumber = Dialog.getNumber;
+			endSlice = Dialog.getNumber;
+			if ((startSliceNumber==0) && (endSlice==slices)) allSlices=true;
+			if (startSliceNumber==endSlice) labelRest=false;
+		}
+		else {startSliceNumber = 1;endSlice = 1;}
+		if (sF!=0) { 
+			oU = indexOfArray(newUnit, overrideUnit,0);
+			oSF = nSF[oU];
+			selectedUnit = overrideUnitChoice[oU];
+		}
 	setBatchMode(true);
-	if (slices>1) {
-		startSliceNumber = Dialog.getNumber;
-		endSlice = Dialog.getNumber;
-		if ((startSliceNumber==0) && (endSlice==slices)) allSlices=true;
-		if (startSliceNumber==endSlice) labelRest=false;
+	 /* save last used color settings in user in preferences */
+	sbHeight = maxOf(2,round(fontSize*sbHeightPC/100)); /*  set minimum default bar height as 2 pixels */
+	if (imageDepth==24){
+		call("ij.Prefs.set", "fancy.scale.font.color", scaleBarColor);
+		call("ij.Prefs.set", "fancy.scale.outline.color", outlineColor);
 	}
-	else {startSliceNumber = 1;endSlice = 1;}
-	if (sF!=0) { 
-		oU = indexOfArray(newUnit, overrideUnit,0);
-		oSF = nSF[oU];
-		selectedUnit = overrideUnitChoice[oU];
+	else {
+		call("ij.Prefs.set", "fancy.scale.font.gray", scaleBarColor);
+		call("ij.Prefs.set", "fancy.scale.outline.gray", outlineColor);
+		if (endsWith(overWrite,"overlays")){
+			scaleBarColor = scaleBarColorOv;
+			outlineColor = outlineColorOv;
+			call("ij.Prefs.set", "fancy.scale.font.color", scaleBarColor);
+			call("ij.Prefs.set", "fancy.scale.outline.color", outlineColor);
+		}
 	}
-	if (startsWith(overWrite,"Replace")) while (Overlay.size!=0) Overlay.remove;
+	if (remOverlays){
+		while (Overlay.size!=0) Overlay.remove;
+		/* Some overlays seem hard to remove . . . this tries really hard!  */
+		if(Overlay.size>0) {
+			run("Remove Overlay");
+			initialOverlaySize = Overlay.size;
+			for (i=0; i<slices; i++){
+				for (j=0; j<initialOverlaySize; j++){
+					setSlice(i+1);
+					if (j<Overlay.size){
+						Overlay.activateSelection(j);
+						overlaySelectionName = getInfo("selection.name");
+						if (indexOf(overlaySelectionName,"cale")>=0) Overlay.removeSelection(j);
+					}
+				}
+				run("Remove Overlay");
+			}
+			if (slices==1 && channels>1) {
+				for (i=0; i<channels; i++){
+					for (j=0; j<initialOverlaySize; j++){
+						setChannel(i+1);
+						if (j<Overlay.size){
+							Overlay.activateSelection(j);
+							overlaySelectionName = getInfo("selection.name");
+							if (indexOf(overlaySelectionName,"cale")>=0) Overlay.removeSelection(j);
+							run("Remove Overlay");
+						}
+					}
+				}
+			}
+		}
+	}
 	if (startsWith(overWrite,"New")){
 		tS = "" + stripKnownExtensionFromString(unCleanLabel(activeImage));
 		if (selEType!=5){
@@ -268,17 +371,24 @@ v210616 Add ability to label lines with their calibrated lengths v210617 Added t
 	}
 	setFont(fontName,fontSize, fontStyle);
 	 /* save last used settings in user in preferences */
-	call("ij.Prefs.set", "fancy.scale.font.color", scaleBarColor);
-	call("ij.Prefs.set", "fancy.scale.outline.color", outlineColor);
 	call("ij.Prefs.set", "fancy.scale.font.style", fontStyle);
 	call("ij.Prefs.set", "fancy.scale.font", fontName);
 	call("ij.Prefs.set", "fancy.scale.bar.style", sBStyle);
 	call("ij.Prefs.set", "fancy.scale.location", selPos);
+	call("ij.Prefs.set", "fancy.scale.output", overWrite);
+	call("ij.Prefs.set", "fancy.scale.barHeader.thickness", barHThickness);
 	if (imageDepth!=16 && imageDepth!=32 && fontStyle!="unstyled") fontStyle += "antialiased"; /* antialising will be applied if possible */ 
 	fontFactor = fontSize/100;
 	if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
 	selLengthInPixels = selLengthInUnits / lcf;
 	if (sF!=0) selLengthInUnits *= oSF; /* now safe to change units */
+	selLengthLabel = removeTrailingZerosAndPeriod(toString(selLengthInUnits));
+	label = selLengthLabel + " " + selectedUnit;
+	if (selEType==5){
+		if (angleSeparator!="No angle label") label += angleSeparator + " " + angleLabel + fromCharCode(0x00B0);
+	}
+	labelL = getStringWidth(label);
+	labelSemiL = labelL/2;
 	if (!noShadow) {
 		negAdj = 0.5;  /* negative offsets appear exaggerated at full displacement */
 		if (shadowDrop<0) shadowDrop *= negAdj;
@@ -297,6 +407,9 @@ v210616 Add ability to label lines with their calibrated lengths v210617 Added t
 		if (selOffsetX<(shadowDisp+shadowBlur+1)) selOffsetX += (shadowDisp+shadowBlur+1);  /* make sure shadow does not run off edge of image */
 		if (selOffsetY<(shadowDrop+shadowBlur+1)) selOffsetY += (shadowDrop+shadowBlur+1);
 	}
+	// if (barThickness=="small") sbHeight = fontSize/4;
+	// else if (barThickness=="medium") sbHeight = fontSize/4;
+	// else (barThickness=="large") sbHeight = fontSize;											  
 	if (fontStyle=="unstyled") fontStyle="";
 	if (selPos == "Top Left") {
 		selEX = selOffsetX;
@@ -333,30 +446,32 @@ v210616 Add ability to label lines with their calibrated lengths v210617 Added t
 		if (selEY>imageHeight/2) selEY += selEHeight;  /*  Annotation relative to the bottom of the selection if in lower half of image */
 		selEY = minOf(selEY, imageHeight-(sbHeight/2 + selOffsetY));
 	} else if (selPos=="Center of Line"){
-		selEX = (selLX[0]+selLX[1])/2 - selLengthInPixels/2;
-		selEY = (selLY[0]+selLY[1])/2 + fontSize/2;
+		selEX = lineMidX - labelSemiL;
+		selEY = lineMidY + fontSize/2;
 	} else if (selPos=="Left of Center"){
-		selEX = (selLX[0]+selLX[1])/2 - selLengthInPixels - fontSize;
-		selEY = (selLY[0]+selLY[1])/2 + fontSize;
+		if (offsetLR=="Auto") offsetLR = pow(lineXPx,1.88)/selLengthInPixels;
+		else offsetLR = parseInt(offsetLR);
+		selEX = maxOf(minOf(selLX[0],selLX[1])-labelL - fontSize/2, lineMidX - (labelL +  fontSize/2 + offsetLR));
+		selEY = lineMidY + 0.75 * fontSize;
 	} else if (selPos=="Right of Center"){
-		selEX = (selLX[0]+selLX[1])/2 + fontSize/2;
-		selEY = (selLY[0]+selLY[1])/2 + fontSize/2;
+		if (offsetLR=="Auto") offsetLR = pow(lineXPx,1.9)/selLengthInPixels;
+		else offsetLR = parseInt(offsetLR);
+		selEX = minOf(maxOf(selLX[0],selLX[1]) + fontSize, lineMidX + fontSize/2 +offsetLR);
+		selEY = lineMidY + 0.75 * fontSize;
 	}	else if (selPos=="Over Center"){
-		selEX = (selLX[0]+selLX[1])/2 - selLengthInPixels/2;
-		selEY = minOf(selLY[0],selLY[1]);
+		selEX = lineMidX - labelSemiL;
+		selEY = minOf(selLY[0],selLY[1]) - fontSize/4;
 	} else if (selPos=="Under Center"){
-		selEX = (selLX[0]+selLX[1])/2 - selLengthInPixels/2;
-		selEY = maxOf(selLY[0],selLY[1]) + 1.5*fontSize;
+		selEX = lineMidX - labelSemiL;
+		selEY = maxOf(selLY[0],selLY[1]) + 1.25 * fontSize;
 	}
-	 /*  edge limits - assume intent is not to annotate edge objects */
+	 /*  edge limits for bar - assume intent is not to annotate edge objects */
 	maxSelEY = imageHeight - round(sbHeight/2) + selOffsetY;
 	selEY = maxOf(minOf(selEY,maxSelEY),selOffsetY);
-	maxSelEX = imageWidth - selLengthInPixels + selOffsetX;
-	selEX = maxOf(minOf(selEX,maxSelEX),selOffsetX);
-	selLengthLabel = removeTrailingZerosAndPeriod(toString(selLengthInUnits));
-	label = selLengthLabel + " " + selectedUnit;
+	maxSelEX = imageWidth - (selLengthInPixels + selOffsetX);
 	/* stop overrun on scale bar by label of more than 20% */
 	if (selEType!=5){
+		selEX = maxOf(minOf(selEX,maxSelEX),selOffsetX);
 		stringOF = getStringWidth(label)/selLengthInPixels;
 		if (stringOF > 1.2) {
 			shrinkFont = getBoolean("Shrink font size by " + 1/stringOF + "x to fit within scale bar?");
@@ -381,8 +496,13 @@ v210616 Add ability to label lines with their calibrated lengths v210617 Added t
 	}
 	else {
 		finalLabel = label;
-		finalLabelX = selEX;
-		finalLabelY = selEY;
+		maxLabelEx = imageWidth-(selOffsetX + labelL);
+		finalLabelX = maxOf(minOf(selEX,maxLabelEx),selOffsetX);
+		// finalLabelX = maxOf(selOffsetX,selEX);
+		// overrunX = imageWidth-(finalLabelX + selOffsetX + getStringWidth(label));
+		// print(imageWidth, finalLabelX, selOffsetX, getStringWidth(label),imageWidth-(finalLabelX + selOffsetX + getStringWidth(label)));
+		// if(overrunX<0) finalLabelX+=overrunX;
+		finalLabelY = maxOf(selOffsetY+fontSize, minOf(imageHeight-selOffsetY,selEY));
 	}
 	/* Create new image that will be used to create bar/label */
 	newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
@@ -394,13 +514,17 @@ v210616 Add ability to label lines with their calibrated lengths v210617 Added t
 		run("Duplicate...", "title=text_mask");
 		selectImage(tempID);
 	}
-	if (sBStyle=="Solid Bar")	fillRect(selEX, selEY, selLengthInPixels, sbHeight);
+	if (sBStyle=="Solid Bar" && selEType!=5) fillRect(selEX, selEY, selLengthInPixels, sbHeight); /* Rectangle drawn to produce thicker bar */
 	else {
-		if (sBStyle=="I-Bar") arrowStyle = "Bar Double Small";
-		else if (sBStyle=="Notched Arrows")  arrowStyle = "Notched Double Small";
-		else arrowStyle = "Double Small";
+		if (sBStyle=="Solid Bar") arrowStyle = "Headless";
+		else if (sBStyle=="I-Bar") arrowStyle = "Bar Double";
+		else if (sBStyle=="Arrows")  arrowStyle = "Double";
+		else if (sBStyle=="S-Arrow")  arrowStyle = "Notched";
+		else if (sBStyle=="S-Arrows")  arrowStyle = "Notched Double";
+		else arrowStyle = "";
+		arrowStyle += " " + barHThickness;								   
 		if (selEType!=5) makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
-		else makeArrow(selLX[0],selLY[0],selLX[1],selLY[1],arrowStyle);
+		else makeArrow(selLX[0],selLY[0],selLX[1],selLY[1],arrowStyle); /* Line location is as drawn (no offsets) */
         Roi.setStrokeColor("white");
         Roi.setStrokeWidth(sbHeight/2);
         run("Add Selection...");
@@ -471,31 +595,14 @@ v210616 Add ability to label lines with their calibrated lengths v210617 Added t
 				setSelectionName("Scale Bar Shadow");
 				run("Add Selection...", "fill="+shadowHex);
 			}
-			if (sBStyle=="Solid Bar"){
-				makeRectangle(selEX, selEY, selLengthInPixels, sbHeight);
-				setSelectionName("Scale Bar " + scaleBarColor);
-				run("Add Selection...", "fill=&scaleBarColorHex");
-				Overlay.setPosition(sl);
-			}else {
-				if (selEType!=5) makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
-				else makeArrow(selLX[0],selLY[0],selLX[1],selLY[1],arrowStyle);
-				Roi.setStrokeColor(scaleBarColorHex);
-				Roi.setStrokeWidth(sbHeight/2);
-				setSelectionName("Scale Bar " + scaleBarColor);
-				run("Add Selection...");
-				Overlay.setPosition(sl);
-			}
 			getSelectionFromMask("outline_template");
 			run("Make Inverse");
 			setSelectionName("Scale Bar Outline");
 			run("Add Selection...", "fill=&outlineColorHex");
-			if(!noText) {
-				Overlay.setPosition(sl);
-				setColor(scaleBarColorHex);
-				Overlay.drawString(finalLabel, finalLabelX, finalLabelY-0.28*fontSize);
-				Overlay.activateSelection(Overlay.size-1);
-				setSelectionName("Scale Text " + scaleBarColor);
-			}
+			/* alignment of overlay drawn text varies with font so the label_mask is reused instead of redrawing the text directly */
+			getSelectionFromMask("label_mask");
+			setSelectionName("Scale Label" + scaleBarColor);
+			run("Add Selection...", "fill=" + scaleBarColorHex);
 			Overlay.setPosition(sl);
 			run("Select None");
 			if (allSlices) sl = endSlice+1;
@@ -514,34 +621,7 @@ v210616 Add ability to label lines with their calibrated lengths v210617 Added t
 			if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0)
 				createInnerShadowFromMask6("label_mask",innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
 		}
-		if (startsWith(overWrite,"Destructive overwrite")) tS = activeImage;
-		selectWindow(tS);
-		/* Tries to remove any old scale related overlays from copied image but usually leaves 2  ¯\_(?)_/¯ */
-		if(Overlay.size>0) {
-			initialOverlaySize = Overlay.size;
-			for (i=0; i<slices; i++){
-				for (j=0; j<initialOverlaySize; j++){
-					setSlice(i+1);
-					if (j<Overlay.size){
-						Overlay.activateSelection(j);
-						overlaySelectionName = getInfo("selection.name");
-						if (indexOf(overlaySelectionName,"cale")>=0) Overlay.removeSelection(j);
-					}
-				}
-			}
-			if (slices==1 && channels>1) {
-				for (i=0; i<channels; i++){
-					for (j=0; j<initialOverlaySize; j++){
-						setChannel(i+1);
-						if (j<Overlay.size){
-							Overlay.activateSelection(j);
-							overlaySelectionName = getInfo("selection.name");
-							if (indexOf(overlaySelectionName,"cale")>=0) Overlay.removeSelection(j);
-						}
-					}
-				}
-			}
-		}
+		if (startsWith(overWrite,"Add to image")) tS = activeImage;
 		selectWindow(tS);
 		if (slices==1 && channels>1){  /* process channels instead of slices */
 			labelChannels = true;
@@ -773,6 +853,7 @@ v210616 Add ability to label lines with their calibrated lengths v210617 Added t
 	function getColorArrayFromColorName(colorName) {
 		/* v180828 added Fluorescent Colors
 		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
+		   v191211 added Cyan
 		*/
 		if (colorName == "white") cA = newArray(255,255,255);
 		else if (colorName == "black") cA = newArray(0,0,0);
@@ -790,6 +871,7 @@ v210616 Add ability to label lines with their calibrated lengths v210617 Added t
 		else if (colorName == "green") cA = newArray(0,255,0); /* #00FF00 AKA Lime green */
 		else if (colorName == "blue") cA = newArray(0,0,255);
 		else if (colorName == "yellow") cA = newArray(255,255,0);
+		else if (colorName == "cyan") cA = newArray(0, 255, 255);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);
 		else if (colorName == "garnet") cA = newArray(120,47,64);
 		else if (colorName == "gold") cA = newArray(206,184,136);

@@ -38,8 +38,9 @@ v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
 v200925 Note "inner-shadow" closing issue fixed by close-image workaround but still not understood.
 v210616 Add ability to label lines with their calibrated lengths v210617 Added text outline for overlaps, fixed alignment of overlay labels v210618 fixed label alignment
 v210621 Finally solved font-sensitive overlay text alignment issue be reusing label mask. Menu made more compact.
+v210701 Moved format tweaks to secondary dialog to simplify use.
 */
-	macroL = "Fancy_Scale_Bar_v210621";
+	macroL = "Fancy_Scale_Bar_v210701";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -149,8 +150,7 @@ v210621 Finally solved font-sensitive overlay text alignment issue be reusing la
 			Dialog.addChoice("Override unit with new choice?", newUnit, newUnit[0]);
 		}
 		Dialog.addNumber("Font size \(\"FS\"\):", sbFontSize, 0, 4,"");
-		Dialog.setInsets(-29, 60, 0);
-		Dialog.addNumber("",19,0,3,"Thickness of " + modeStr + " in % of FS");										 
+		Dialog.addNumber("Thickness of " + modeStr + " :",19,0,3,"% of font size");										 
 		colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "cyan", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
 		grayChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		iTC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.scale.font.color",colorChoice[0]),0);
@@ -164,12 +164,10 @@ v210621 Finally solved font-sensitive overlay text alignment issue be reusing la
 		else {
 			Dialog.addChoice("Gray tone of " + modeStr + " and text:", colorChoice, colorChoice[iTCg]);
 			Dialog.addChoice("Gray tone (background) color:", colorChoice, colorChoice[iBCg]);
-			Dialog.setInsets(-65, 380, 0);
-			Dialog.addMessage("Image depth is " + imageDepth + " bits:\nOnly graytones used\nexcept for overlays",13,"black");
+			Dialog.addMessage("Image depth is " + imageDepth + " bits: Only graytones used unless overlays are selected for output",13,"#099FFF");
 			Dialog.addChoice("Overlay color of " + modeStr + " and text:", colorChoice, colorChoice[iTC]);
 			Dialog.addChoice("Overlay outline (background) color:", colorChoice, colorChoice[iBC]);
-			Dialog.setInsets(-65, 380, 0);
-			Dialog.addMessage("Overlay colors will be\nused if overlays are\nselected for output",13,"#099FFF");
+
 		}
 		if (selEType>=0) {
 			if (selEType!=5){
@@ -188,8 +186,7 @@ v210621 Finally solved font-sensitive overlay text alignment issue be reusing la
 		Dialog.addChoice("Location of " + modeStr + ":", locChoice, locChoice[iLoc]); 
 		if (selEType==5) {
 			Dialog.addString("For L/R of Center only: L\R offset","Auto",3);
-			Dialog.setInsets(-31, 268, -5);
-			Dialog.addMessage("pixels from center. \"Auto\" recommended",12,"#782F40");
+			Dialog.addMessage("Adjustment in pixels from center. \"Auto\" recommended",12,"#782F40");
 		}
 		textStyleEffectsChoices = newArray("Default", "No text", "No shadows", "Emboss");
 		// Dialog.setInsets(-10, 20, 10); /* It seems that my efforts to raise the height of radio button group have been futile */
@@ -199,34 +196,20 @@ v210621 Finally solved font-sensitive overlay text alignment issue be reusing la
 		iSBS = indexOfArray(sBStyleChoices, call("ij.Prefs.get", "fancy.scale.bar.style",sBStyleChoices[0]),0);
 		Dialog.addRadioButtonGroup("Bar styles \(arrowheads are solid triangles or \"S-Arrows\" which are \"stealth\"/notched\):__", sBStyleChoices, 1, 3, sBStyleChoices[iSBS]);
 		if (selEType==5){
-			Dialog.setInsets(-5,160, 3);
 			Dialog.addMessage("Single arrow points in the direction drawn",12,"#782F40");
 		}
 		barHThicknessChoices = newArray("small", "medium", "large");
 		iHT = indexOfArray(barHThicknessChoices, call("ij.Prefs.get", "fancy.scale.barHeader.thickness",barHThicknessChoices[0]),0);
 		Dialog.addChoice("Arrowhead/bar header thickness",barHThicknessChoices, barHThicknessChoices[iHT]);	
 		Dialog.addNumber("X offset from edge \(for corners only\)", selOffsetX,0,1,"pixels");
-		Dialog.setInsets(-29, 80, 0);
-		Dialog.addNumber("", selOffsetY,0,1,"Y edge offset \(corners only\)");
+		Dialog.addNumber("Y offset from edge \(corners only\)", selOffsetY,0,1,"pixel");
 		fontStyleChoice = newArray("bold", "italic", "bold italic", "unstyled");
 		iFS = indexOfArray(fontStyleChoice, call("ij.Prefs.get", "fancy.scale.font.style",fontStyleChoice[0]),0);
 		Dialog.addChoice("Font style*:", fontStyleChoice, fontStyleChoice[iFS]);
 		fontNameChoice = getFontChoiceList();
 		iFN = indexOfArray(fontNameChoice, call("ij.Prefs.get", "fancy.scale.font",fontNameChoice[0]),0);
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[iFN]);
-		Dialog.addNumber("Outline stroke:", dOutS,0,3,"% of font size \(\"%FS\"\)");
-		Dialog.addNumber("Shadow drop: ±", dShO,0,3,"%FS");
-		Dialog.setInsets(-29, 80, 0);
-		Dialog.addNumber("", dShO,0,3,": %FS shadow shift \(+ve right\)");
-		Dialog.addNumber("Shadow Gaussian blur:", floor(0.75*dShO),0,3,"%FS");
-		Dialog.addNumber("Shadow darkness \(darkest = 100%\):", 30,0,3,"% \(negative = glow\)");
-		Dialog.addMessage("Inner Shadow options \(overlays do not have inner shadows\):______");
-		Dialog.addNumber("Inner shadow drop ±", dIShO,0,1,"%FS");
-		Dialog.setInsets(-29, 80, 0);
-		Dialog.addNumber("", dIShO,0,1,"%FS inner shift \(+ve right\)");
-		Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,2,"%FS");
-		Dialog.setInsets(-29, 80, 0);
-		Dialog.addNumber("", 20,0,3,"Darkness % \(negative = glow\)");
+
 		overwriteChoice = newArray("New image","Add to image","Add as overlays");
 		if (imageDepth==16) overwriteChoice = Array.concat("New 8-bit image",overwriteChoice);
 		else if (imageDepth==32) overwriteChoice = Array.concat("New RGB image",overwriteChoice);
@@ -244,6 +227,7 @@ v210621 Finally solved font-sensitive overlay text alignment issue be reusing la
 		else if (channels>1) {
 			Dialog.addMessage("All "+channels+" channels will be identically labeled.");
 		}
+		Dialog.addCheckbox("Tweak formatting?",false);
 	Dialog.show();
 		selLengthInUnits = Dialog.getNumber;
 		if (selEType==5){
@@ -268,15 +252,7 @@ v210621 Finally solved font-sensitive overlay text alignment issue be reusing la
 		selOffsetY = Dialog.getNumber;
 		fontStyle = Dialog.getChoice;
 		fontName = Dialog.getChoice;
-		outlineStroke = Dialog.getNumber;
-		shadowDrop = Dialog.getNumber;
-		shadowDisp = Dialog.getNumber;
-		shadowBlur = Dialog.getNumber;
-		shadowDarkness = Dialog.getNumber;
-		innerShadowDrop = Dialog.getNumber;
-		innerShadowDisp = Dialog.getNumber;
-		innerShadowBlur = Dialog.getNumber;
-		innerShadowDarkness = Dialog.getNumber;
+
 		overWrite = Dialog.getRadioButton;
 		if(Overlay.size>0)	remOverlays = Dialog.getCheckbox;
 		else remOverlays = false;
@@ -299,6 +275,45 @@ v210621 Finally solved font-sensitive overlay text alignment issue be reusing la
 			oU = indexOfArray(newUnit, overrideUnit,0);
 			oSF = nSF[oU];
 			selectedUnit = overrideUnitChoice[oU];
+		}
+		/* set default tweaks */
+		outlineStroke = dOutS;
+		shadowDrop = dShO;
+		shadowDisp = dShO;
+		shadowBlur = floor(0.75*dShO);
+		shadowDarkness = 30;
+		innerShadowDrop = dIShO;
+		innerShadowDisp = dIShO;
+		innerShadowBlur = floor(dIShO/2);
+		innerShadowDarkness = 20;
+		if (Dialog.getCheckbox){
+			Dialog.create("Scale Bar Format Tweaks: " + macroL);
+			Dialog.addMessage("Font size \(FS\): " + fontSize);
+			Dialog.addNumber("Outline stroke:",dOutS,0,3,"% of font size \(\"%FS\"\)");
+			Dialog.addNumber("Shadow drop: ±",dShO,0,3,"%FS");
+			Dialog.addNumber("Shadow shift \(+ve right\)",dShO,0,3,": %FS");
+			Dialog.addNumber("Shadow Gaussian blur:", floor(0.75*dShO),0,3,"%FS");
+			Dialog.addNumber("Shadow darkness \(darkest = 100%\):", 30,0,3,"% \(negative = glow\)");
+			if (!endsWith(overWrite,"verlays")) {
+				/* Overlays do not have inner shadows */
+				Dialog.addMessage("Inner Shadow options:______");
+				Dialog.addNumber("Inner shadow drop ±", dIShO,0,1,"%FS");
+				Dialog.addNumber("Inner shadow shift:", dIShO,0,1,"%FS \(+ve right\)");
+				Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,2,"%FS");
+				Dialog.addNumber("Inner shadow darkness \(darkest = 100%\):",20,0,3,"% \(negative = glow\)");		
+			}
+		Dialog.show();		
+			outlineStroke = Dialog.getNumber;
+			shadowDrop = Dialog.getNumber;
+			shadowDisp = Dialog.getNumber;
+			shadowBlur = Dialog.getNumber;
+			shadowDarkness = Dialog.getNumber;
+			if (!endsWith(overWrite,"verlays")) {
+				innerShadowDrop = Dialog.getNumber;
+				innerShadowDisp = Dialog.getNumber;
+				innerShadowBlur = Dialog.getNumber;
+				innerShadowDarkness = Dialog.getNumber;
+			}
 		}
 	setBatchMode(true);
 	 /* save last used color settings in user in preferences */

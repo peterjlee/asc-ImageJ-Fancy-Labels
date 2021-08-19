@@ -40,8 +40,9 @@ v210616 Add ability to label lines with their calibrated lengths v210617 Added t
 v210621 Finally solved font-sensitive overlay text alignment issue be reusing label mask. Menu made more compact.
 v210701 Moved format tweaks to secondary dialog to simplify use.
 v210730 Remove pre-scaling that caused errors
+v210817 Scale overlays are not removed from original image new scale is being created on copy. Fixed occasional outline expansion error when removing existing overlays
 */
-	macroL = "Fancy_Scale_Bar_v210730]";
+	macroL = "Fancy_Scale_Bar_v210817";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -66,40 +67,21 @@ v210730 Remove pre-scaling that caused errors
 	sF = getScaleFactor(selectedUnit);
 	scaleFactors = newArray(1E3,1,1E-2,1E-3,1E-6,1E-9,1E-12);
 	metricUnits = newArray("km","m","cm","mm","µm","nm","pm");
-	// unitI = indexOfArray(metricUnits,selectedUnit,0);
-	// for (i=0; i<lengthOf(scaleFactors); i++){
-		// newUnitI = -1;
-		// if (pixelWidth*imageWidth/5 > 1000) { /* test whether scale bar is likely to be more than 1000 units */
-			// for (j=0; j<unitI; j++){
-				// if (scaleFactors[j] > sF){
-					// newSF = scaleFactors[j];
-					// newUnitI = j;
-				// }
-				// else j = unitI;
-			// }
-		// }
-		// else if (pixelWidth*imageWidth/5 < 1) { /* test whether scale bar is likely to have tiny units */
-			// for (j=unitI; j<lengthOf(scaleFactors); j++){
-				// if (scaleFactors[j] < sF){
-					// newSF = scaleFactors[j];
-					// newUnitI = j;
-				// }
-				// else j = lengthOf(scaleFactors);
-			// }
-		// }
-		// if (newUnitI>=0){
-			// selectedUnit = metricUnits[newUnitI];
-			// nPW = pixelWidth*sF/newSF;
-			// nPH = pixelHeight*sF/newSF;
-			// setVoxelSize(nPW, nPH, pixelDepth, selectedUnit);
-			// getVoxelSize(pixelWidth, pixelHeight, pixelDepth, selectedUnit);
-		// }
-	// }
 	lcf=(pixelWidth+pixelHeight)/2;
 	lcfFactor=1/lcf;
 	dOutS = 6; /* default outline stroke: % of font size */
 	dShO = 8;  /* default outer shadow drop: % of font size */
 	dIShO = 4; /* default inner shadow drop: % of font size */
+	/* set default tweaks */
+	outlineStroke = dOutS;
+	shadowDrop = dShO;
+	shadowDisp = dShO;
+	shadowBlur = floor(0.75*dShO);
+	shadowDarkness = 30;
+	innerShadowDrop = dIShO;
+	innerShadowDisp = dIShO;
+	innerShadowBlur = floor(dIShO/2);
+	innerShadowDarkness = 20;
 	if (sF!=0) {
 		nSF = newArray(1,sF/(1E-2),sF/(1E-3),sF/(1E-6),sF/(1E-6),sF/(1E-9),sF/(1E-10),sF/(1E-12), sF/(2.54E-2), sF/(1E-4));
 		overrideUnitChoice = newArray(selectedUnit, "cm", "mm", "µm", "microns", "nm", "Å", "pm", "inches", "human hairs");
@@ -135,6 +117,7 @@ v210730 Remove pre-scaling that caused errors
 	preferredSBW = newArray(10,20,25,50,75); /* Edit this list to your preferred 2 digit numbers */
 	sbWidth2SFC = closestValueFromArray(preferredSBW,sbWidth2SF,100); /* alternatively could be sbWidth1SF*10 */
 	if (selEType!=5) sbWidth = pow(10,indexSBWidth-1)*sbWidth2SFC;
+	fScaleBarOverlays = countOverlaysByName("cale");
 	Dialog.create("Scale Bar Parameters: " + macroL);
 		if (selEType==5){
 			Dialog.addNumber("Selected line length \(" + d2s(lineLength,1) + " pixels\):", sbWidth, dpSB+2, 10, selectedUnit);
@@ -218,9 +201,9 @@ v210730 Remove pre-scaling that caused errors
 		else if (imageDepth==32) overwriteChoice = Array.concat("New RGB image",overwriteChoice);
 		iOver = indexOfArray(overwriteChoice, call("ij.Prefs.get", "fancy.scale.output",overwriteChoice[0]),0);		
 		Dialog.addRadioButtonGroup("Output \(\"Add to image\" modifies current image\):____________ ", overwriteChoice, 1, lengthOf(overwriteChoice),overwriteChoice[iOver]);
-		if(Overlay.size>0){
+		if(fScaleBarOverlays>0){
 			Dialog.setInsets(0, 235, 0);
-			Dialog.addCheckbox("Remove the " + Overlay.size + " existing overlays", false);
+			Dialog.addCheckbox("Remove the " + fScaleBarOverlays + " existing scale bar overlays", true);
 		}
 		if (slices>1) {
 			Dialog.addMessage("Slice range for labeling \(1-"+slices+"\):");
@@ -257,7 +240,7 @@ v210730 Remove pre-scaling that caused errors
 		fontName = Dialog.getChoice;
 
 		overWrite = Dialog.getRadioButton;
-		if(Overlay.size>0)	remOverlays = Dialog.getCheckbox;
+		if(fScaleBarOverlays>0)	remOverlays = Dialog.getCheckbox;
 		else remOverlays = false;
 		allSlices = false;
 		labelRest = true;
@@ -279,16 +262,6 @@ v210730 Remove pre-scaling that caused errors
 			oSF = nSF[oU];
 			selectedUnit = overrideUnitChoice[oU];
 		}
-		/* set default tweaks */
-		outlineStroke = dOutS;
-		shadowDrop = dShO;
-		shadowDisp = dShO;
-		shadowBlur = floor(0.75*dShO);
-		shadowDarkness = 30;
-		innerShadowDrop = dIShO;
-		innerShadowDisp = dIShO;
-		innerShadowBlur = floor(dIShO/2);
-		innerShadowDarkness = 20;
 		if (Dialog.getCheckbox){
 			Dialog.create("Scale Bar Format Tweaks: " + macroL);
 			Dialog.addMessage("Font size \(FS\): " + fontSize);
@@ -335,38 +308,6 @@ v210730 Remove pre-scaling that caused errors
 			call("ij.Prefs.set", "fancy.scale.outline.color", outlineColor);
 		}
 	}
-	if (remOverlays){
-		while (Overlay.size!=0) Overlay.remove;
-		/* Some overlays seem hard to remove . . . this tries really hard!  */
-		if(Overlay.size>0) {
-			run("Remove Overlay");
-			initialOverlaySize = Overlay.size;
-			for (i=0; i<slices; i++){
-				for (j=0; j<initialOverlaySize; j++){
-					setSlice(i+1);
-					if (j<Overlay.size){
-						Overlay.activateSelection(j);
-						overlaySelectionName = getInfo("selection.name");
-						if (indexOf(overlaySelectionName,"cale")>=0) Overlay.removeSelection(j);
-					}
-				}
-				run("Remove Overlay");
-			}
-			if (slices==1 && channels>1) {
-				for (i=0; i<channels; i++){
-					for (j=0; j<initialOverlaySize; j++){
-						setChannel(i+1);
-						if (j<Overlay.size){
-							Overlay.activateSelection(j);
-							overlaySelectionName = getInfo("selection.name");
-							if (indexOf(overlaySelectionName,"cale")>=0) Overlay.removeSelection(j);
-							run("Remove Overlay");
-						}
-					}
-				}
-			}
-		}
-	}
 	if (startsWith(overWrite,"New")){
 		tS = "" + stripKnownExtensionFromString(unCleanLabel(activeImage));
 		if (selEType!=5){
@@ -379,6 +320,7 @@ v210730 Remove pre-scaling that caused errors
 		run("Select None");
 		selectWindow(activeImage);
 		run("Duplicate...", "title=&tS duplicate");
+		if (remOverlays) removeOverlaysByName("cale");
 		if (startsWith(overWrite,"New 8") || startsWith(overWrite,"New R")){
 			if (startsWith(overWrite,"New 8")) run("8-bit");
 			else run("RGB Color");
@@ -387,6 +329,7 @@ v210730 Remove pre-scaling that caused errors
 		activeImage = getTitle();
 		imageDepth = bitDepth();
 	}
+	else if (remOverlays) removeOverlaysByName("cale");
 	setFont(fontName,fontSize, fontStyle);
 	 /* save last used settings in user in preferences */
 	call("ij.Prefs.set", "fancy.scale.font.style", fontStyle);
@@ -610,16 +553,16 @@ v210730 Remove pre-scaling that caused errors
 				if (imageDepth==16 || imageDepth==32) bgGray = round(bgGray/256);
 				grayHex = toHex(round(bgGray*(100-shadowDarkness)/100));
 				shadowHex = "#" + ""+pad(grayHex) + ""+pad(grayHex) + ""+pad(grayHex);
-				setSelectionName("Scale Bar Shadow");
+				setSelectionName("Scale bar shadow");
 				run("Add Selection...", "fill="+shadowHex);
 			}
 			getSelectionFromMask("outline_template");
 			run("Make Inverse");
-			setSelectionName("Scale Bar Outline");
+			setSelectionName("Scale bar outline " + outlineColor);
 			run("Add Selection...", "fill=&outlineColorHex");
 			/* alignment of overlay drawn text varies with font so the label_mask is reused instead of redrawing the text directly */
 			getSelectionFromMask("label_mask");
-			setSelectionName("Scale Label" + scaleBarColor);
+			setSelectionName("Scale label " + scaleBarColor);
 			run("Add Selection...", "fill=" + scaleBarColorHex);
 			Overlay.setPosition(sl);
 			run("Select None");
@@ -809,6 +752,37 @@ v210730 Remove pre-scaling that caused errors
 			}
 		}
 	  return closest;
+	}
+	function countOverlaysByName(overlayNameSubstring) {
+		/* v210817 1st version  */
+		overlayCount = 0;
+		if(Overlay.size>0) {
+			initialOverlaySize = Overlay.size;
+			for (i=0; i<slices; i++){
+				for (j=0; j<initialOverlaySize; j++){
+					setSlice(i+1);
+					if (j<Overlay.size){
+						Overlay.activateSelection(j);
+						overlaySelectionName = getInfo("selection.name");
+						if (indexOf(overlaySelectionName,overlayNameSubstring)>=0) overlayCount++;
+					}
+				}
+			}
+			if (slices==1 && channels>1) {
+				for (i=0; i<channels; i++){
+					for (j=0; j<initialOverlaySize; j++){
+						setChannel(i+1);
+						if (j<Overlay.size){
+							Overlay.activateSelection(j);
+							overlaySelectionName = getInfo("selection.name");
+							if (indexOf(overlaySelectionName,overlayNameSubstring)>=0) overlayCount++;
+						}
+					}
+				}
+			}
+		}
+		run("Select None");
+		return overlayCount;
 	}
 	function createInnerShadowFromMask6(mask,iShadowDrop, iShadowDisp, iShadowBlur, iShadowDarkness) {
 		/* Requires previous run of: imageDepth = bitDepth();
@@ -1028,6 +1002,57 @@ v210730 Remove pre-scaling that caused errors
 			}
 		}
 		return indexFound;
+	}
+	function removeOverlaysByName(overlayNameSubstring) { 		
+		/* Some overlays seem hard to remove . . . this tries really hard!
+			v210817 1st version as function */
+		if(Overlay.size>0) {
+			initialOverlaySize = Overlay.size;
+			for (i=0; i<slices; i++){
+				setSlice(i+1);
+				ovl = 0;
+				for (j=0; j<initialOverlaySize; j++){
+					if (j<Overlay.size+1){
+						Overlay.activateSelection(ovl);
+						overlaySelectionName = getInfo("selection.name");
+						if (indexOf(overlaySelectionName,overlayNameSubstring)>=0) {
+							Overlay.removeSelection(ovl);
+							run("Select None");
+							if (ovl<Overlay.size){
+								Overlay.activateSelection(ovl);
+								overlaySelectionName = getInfo("selection.name");
+								if (indexOf(overlaySelectionName,overlayNameSubstring)>=0) Overlay.removeSelection(ovl);
+								/* don't know why I need this 2nd deletion attempt after index reset  - it just works for my images */
+								run("Select None");
+							}
+						}
+						else ovl++; /* only advance ovl count if slice is not removed, removing slice resets index values */
+					}
+				}
+			}
+			if (slices==1 && channels>1) {  /* not actually tested on Channels yet !! */
+				for (i=0; i<channels; i++){
+					setChannel(i+1);
+					ovl = 0;
+					for (j=0; j<initialOverlaySize; j++){
+						if (j<Overlay.size){
+							Overlay.activateSelection(ovl);
+							overlaySelectionName = getInfo("selection.name");
+							if (indexOf(overlaySelectionName,overlayNameSubstring)>=0) {
+								Overlay.removeSelection(ovl);
+								if (ovl<Overlay.size){
+									Overlay.activateSelection(ovl);
+									overlaySelectionName = getInfo("selection.name");
+									if (indexOf(overlaySelectionName,overlayNameSubstring)>=0) Overlay.removeSelection(ovl);
+									/* don't know why I need this 2nd deletion attempt after index reset  - it just works for my images */
+								}
+							}
+							else ovl++; /* only advance ovl count if slice is not removed, removing slice resets index values */
+						}
+					}
+				}
+			}
+		}
 	}
 	function removeTrailingZerosAndPeriod(string) { /* Removes any trailing zeros after a period */
 		while (endsWith(string,".0")) string=substring(string,0, lastIndexOf(string, ".0"));

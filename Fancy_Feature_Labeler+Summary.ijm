@@ -6,8 +6,10 @@
 	3/16/2017 Add labeling by ID number and additional image label locations.
 	v180612 set to work on only one slice.
 	v180723 Allows use of system fonts.
+	+ v200706 Changed imageDepth variable name added macro label. + bugfix v210415
  */
 macro "Add scaled value labels to each ROI object and add summary"{
+	macroL = "Fancy_Feature_Labeler+Summary_v210415";
 	requires("1.47r");
 	saveSettings;
 	/* Some cleanup */
@@ -16,7 +18,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	run("Options...", "iterations=1 white count=1"); /* Set the background to white */
 	run("Colors...", "foreground=black background=white selection=yellow"); /* Set the preferred colors for these macros */
 	setOption("BlackBackground", false);
-	run("Appearance...", " "); /* Do not use Inverting LUT */
+	run("Appearance...", " "); if(is("Inverting LUT")) run("Invert LUT"); /* do not use Inverting LUT */
 	/*	The above should be the defaults but this makes sure (black particles on a white background)
 		http://imagejdocu.tudor.lu/doku.php?id=faq:technical:how_do_i_set_up_imagej_to_deal_with_white_particles_on_a_black_background_by_default */
 	t=getTitle();
@@ -48,7 +50,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	imageWidth = getWidth();
 	imageHeight = getHeight();
 	imageDims = imageWidth + imageHeight;
-	originalImageDepth = bitDepth();
+	imageDepth = bitDepth();
 	getPixelSize(unit, pixelWidth, pixelHeight);
 	/* Set default label settings */
 	fontSize = round(imageDims/160);
@@ -76,7 +78,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		headingsWithRange[0] = "Object#" + ":  1 - " + items; /* relabels ImageJ ID column */
 	/*
 	Feature Label Formatting Dialog */
-	Dialog.create("Feature Label Formatting Options: "+ getTitle);
+	Dialog.create("Feature Label Formatting Options: " + macroL);
 		Dialog.addChoice("Measurement", headingsWithRange, headingsWithRange[0]);
 		Dialog.addString("Label:", unit+"^2", 4);
 		Dialog.setInsets(-40, 320, 0);
@@ -88,25 +90,25 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		fontNameChoice = getFontChoiceList();
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addNumber("Font_size:", fontSize, 0, 3, "pt \(ROI manager\)");
-		if (originalImageDepth==24)
+		if (imageDepth==24)
 			colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
 		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		Dialog.addChoice("Object label color:", colorChoice, colorChoice[0]);
 		Dialog.addNumber("Font scaling % of Auto", 66);
 		Dialog.addNumber("Minimum Label Font Size", round(imageDims/90));
 		Dialog.addNumber("Maximum Label Font Size", round(imageDims/16));
-		Dialog.addNumber("Outline Stroke:", outlineStroke,0,3,"% of font size");
+		Dialog.addNumber("Outline stroke:", outlineStroke,0,3,"% of font size");
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
-		Dialog.addNumber("Shadow Drop: ±", shadowDrop,0,3,"% of font size");
-		Dialog.addNumber("Shadow Displacement Right: ±", shadowDrop,0,3,"% of font size");
-		Dialog.addNumber("Shadow Gaussian Blur:", floor(0.75 * shadowDrop),0,3,"% of font size");
-		Dialog.addNumber("Shadow Darkness \(darkest = 100%\):", 60,0,3,"%");
+		Dialog.addNumber("Shadow drop: Â±", shadowDrop,0,3,"% of font size");
+		Dialog.addNumber("Shadow displacement right: Â±", shadowDrop,0,3,"% of font size");
+		Dialog.addNumber("Shadow Gaussian blur:", floor(0.75 * shadowDrop),0,3,"% of font size");
+		Dialog.addNumber("Shadow darkness \(darkest = 100%\):", 60,0,3,"%");
 		Dialog.addChoice("Shadow color \(overrides darkness in overlay\):", colorChoice, colorChoice[4]);
 		Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay scale bar");
-		Dialog.addNumber("Inner Shadow Drop: ±", dIShO,0,3,"% of font size");
-		Dialog.addNumber("Inner Displacement Right: ±", dIShO,0,3,"% of font size");
-		Dialog.addNumber("Inner Shadow Mean Blur:",floor(dIShO/2),1,2,"pixels");
-		Dialog.addNumber("Inner Shadow Darkness \(darkest = 100%\):", 20,0,3,"%");
+		Dialog.addNumber("Inner shadow drop: Â±", dIShO,0,3,"% of font size");
+		Dialog.addNumber("Inner displacement right: Â±", dIShO,0,3,"% of font size");
+		Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,2,"pixels");
+		Dialog.addNumber("Inner shadow darkness \(darkest = 100%\):", 20,0,3,"%");
 		if (isNaN(getResult("mc_X\(px\)",0))) {
 			Dialog.addRadioButtonGroup("Object Labels At:_____________________ ", newArray("ROI Center", "Morphological Center"), 1, 2, "ROI Center");
 			Dialog.setInsets(-5, 50, 7);
@@ -126,7 +128,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		fontSize = Dialog.getNumber;
 		/* Then Dialog . . . */
 		fontColor = Dialog.getChoice();
-		fontSizeCorrection =  Dialog.getNumber()/100;
+		fontSizeCorrection = Dialog.getNumber/100;
 		minLFontS = Dialog.getNumber(); 
 		maxLFontS = Dialog.getNumber(); 
 		outlineStroke = Dialog.getNumber();
@@ -202,7 +204,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			for (i=0; i<statsChoiceLines; i++)
 					Dialog.addChoice("Statistics Label Line "+(i+1)+":", statsChoice, statsChoice[i+2]);
 			Dialog.addNumber("Statistics Label Font size:", statsLabFontSize);
-		if (originalImageDepth==24)
+		if (imageDepth==24)
 			colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_N_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "Radical Red", "Wild Watermelon", "Outrageous Orange", "Atomic Tangerine", "Neon Carrot", "Sunglow", "Laser Lemon", "Electric Lime", "Screamin' Green", "Magic Mint", "Blizzard Blue", "Shocking Pink", "Razzle Dazzle Rose", "Hot Magenta");
 		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 			Dialog.addChoice("Summary and Parameter Font Color:", colorChoice, fontColor);
@@ -570,7 +572,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			/* Now measure min and max radii from M-Centroid */
 			rMin = Rwidth + Rheight; rMax = 0;
 			for (j=0 ; j<(lengthOf(xPoints)); j++) {
-				dist = sqrt((centroidX-xPoints[j])*(centroidX-xPoints[j])+(centroidY-yPoints[j])*(centroidY-yPoints[j]));
+				dist = sqrt(pow(centroidX-xPoints[j],2)+pow(centroidY-yPoints[j],2));
 				if (dist < rMin) { rMin = dist; rMinX = xPoints[j]; rMinY = yPoints[j];}
 				if (dist > rMax) { rMax = dist; rMaxX = xPoints[j]; rMaxY = yPoints[j];}
 			}
@@ -593,7 +595,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	if (!batchMode) setBatchMode(false); /* Toggle batch mode off */
 	showStatus("MC Function Finished: " + roiManager("count") + " objects analyzed in " + (getTime()-start)/1000 + "s.");
 	beep(); wait(300); beep(); wait(300); beep();
-	run("Collect Garbage"); 
+	call("java.lang.System.gc"); 
 	}
 	
 	function autoCalculateDecPlacesFromValueOnly(value){
@@ -627,7 +629,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			i.e. the corner 4 pixels should now be all black, if not, we have a "border issue". */
 		if (((getPixel(0, 0))+(getPixel(0, 1))+(getPixel(1, 0))+(getPixel(1, 1))) != 4*(getPixel(0, 0)) ) 
 				restoreExit("Border Issue"); 	
-		if (is("Inverting LUT")==true) run("Invert LUT");
+		if(is("Inverting LUT")) run("Invert LUT");
 	}
 	function checkForPlugin(pluginName) {
 		/* v161102 changed to true-false */
@@ -695,12 +697,12 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
 		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
 		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micron units */
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ångström unit symbol */
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ã…ngstrÃ¶m unit symbol */
 		string= replace(string, "  ", " "); /* Replace double spaces with single spaces */
 		string= replace(string, "_", fromCharCode(0x2009)); /* Replace underlines with thin spaces */
 		string= replace(string, "px", "pixels"); /* Expand pixel abbreviation */
 		string = replace(string, " " + fromCharCode(0x00B0), fromCharCode(0x00B0)); /* Remove space before degree symbol */
-		string= replace(string, " °", fromCharCode(0x2009)+"°"); /* Remove space before degree symbol */
+		string= replace(string, " Â°", fromCharCode(0x2009)+"Â°"); /* Remove space before degree symbol */
 		return string;
 	}	
 	function closeImageByTitle(windowTitle) {  /* Cannot be used with tables */
@@ -827,7 +829,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		/* 9/9/2017 added Garbage clean up suggested by Luc LaLonde - LBNL */
 		restoreSettings(); /* Restore previous settings before exiting */
 		setBatchMode("exit & display"); /* Probably not necessary if exiting gracefully but otherwise harmless */
-		run("Collect Garbage"); 
+		call("java.lang.System.gc"); 
 		exit(message);
 	}
 	function unCleanLabel(string) { 
@@ -835,10 +837,10 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	/* mod 041117 to remove spaces as well */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(185), "\\^-1"); /* superscript -1 */
-		string= replace(string, fromCharCode(0x207B) + fromCharCode(178), "\\^-2"); /* superscript -2 */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* Ã…ngstrÃ¶m unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */

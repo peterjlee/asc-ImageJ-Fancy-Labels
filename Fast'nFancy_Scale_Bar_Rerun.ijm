@@ -4,8 +4,9 @@ Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects
 This no-option version based on Fancy Scale-Bar v190912
 Uses preferences from the previous run of the full version of Fancy Scale Bar
 Only the creation of new images with bitmap scale bars is supported but redundant code is left in place for ease of later modification
-v200706: changed variable names to match v200706 version of Fancy Scale Bar macro.
+v200706: changed variable names to match v200706 version of Fancy Scale Bar macro. v210521 whoops should not have changed imageDepth name :-$
 */
+	macroL = "Fast'nFancy_Scale_Bar_Rerun_v210521.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -17,7 +18,7 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 	}
 	run("Select None");
 	activeImage = getTitle();
-	activeImageDepth = bitDepth();
+	imageDepth = bitDepth(); /* keep this name the same for createInnerShadowFromMask6 function */
 	checkForUnits();
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
 	/* This version only creates new RGB and 8-bit gray images */
@@ -145,14 +146,15 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 		selEX = imageWidth - selLengthInPixels - selOffsetX;
 		selEY = imageHeight - sbHeight - selOffsetY;
 		if (sBStyle!="Solid Bar") selEY -= sbHeight/2;
-	} else if (selPos=="At Center of New Selection"){
-		if (is("Batch Mode")==true) setBatchMode("exit & display");	/* toggle batch mode off */
+	} else if (selPos=="At Center of New Selection" || (selPos=="At Selection" && selEType<0)){
+		setBatchMode("exit & display");	/* need batch mode off to see selection */
 		run("Select None");
 		setTool("rectangle");
 		title="position";
-		msg = "draw a box in the image where you want the scale bar to be centered";
+		msg = "Draw a box in the image where you want the scale bar to be centered";
 		waitForUser(title, msg);
 		getSelectionBounds(newSelEX, newSelEY, newSelEWidth, newSelEHeight);
+		run("Select None");
 		selEX = newSelEX + round((newSelEWidth/2) - selLengthInPixels/2);
 		selEY = newSelEY + round(newSelEHeight/2)- sbHeight - selOffsetY;
 		if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
@@ -291,7 +293,7 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 	setSlice(1);
 	setBatchMode("exit & display"); /* exit batch mode */
 	call("java.lang.System.gc");
-	showStatus("Fancy Scale Bar Added");
+	showStatus(macroL + " completed");
 }
 	/*
 		( 8(|)  ( 8(|)  Functions	@@@@@:-)	@@@@@:-)
@@ -666,8 +668,8 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 	+ 041117 to remove spaces as well */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
-		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
-		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
 		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces deg */

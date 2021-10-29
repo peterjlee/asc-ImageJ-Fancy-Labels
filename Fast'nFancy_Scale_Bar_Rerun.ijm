@@ -1,11 +1,15 @@
 macro "Fast'nFancy Scale Bar Rerun" {
-/* Original code by Wayne Rasband, improved by Frank Sprenger and deposited on the ImageJ mailing server: (http:imagej.588099.n2.nabble.com/Overlay-Scalebar-Plugins-td6380378.html#a6394996). KS added choice of font size, scale bar height, + any position for scale bar and some options that allow to set the image calibration (only for overlay, not in Meta data). Kees Straatman, CBS, University of Leicester, May 2011
-Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects.
-This no-option version based on Fancy Scale-Bar v190912
-Uses preferences from the previous run of the full version of Fancy Scale Bar
-Only the creation of new images with bitmap scale bars is supported but redundant code is left in place for ease of later modification
-v200706: changed variable names to match v200706 version of Fancy Scale Bar macro.
+/* Original code by Wayne Rasband, improved by Frank Sprenger and deposited on the ImageJ mailing server: (http:imagej.588099.n2.nabble.com/Overlay-Scalebar-Plugins-td6380378.html#a6394996).
+	KS added choice of font size, scale bar height, + any position for scale bar and some options that allow to set the image calibration (only for overlay, not in Meta data). Kees Straatman, CBS, University of Leicester, May 2011
+	Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects.
+	This no-option version based on Fancy Scale-Bar v190912
+	Uses preferences from the previous run of the full version of Fancy Scale Bar
+	Only the creation of new images with bitmap scale bars is supported but redundant code is left in place for ease of later modification
+	v200706: changed variable names to match v200706 version of Fancy Scale Bar macro. v210521 whoops should not have changed imageDepth name :-$
+	v211022: Updated color choices
+	v211025: Updated multiple functions
 */
+	macroL = "Fast'nFancy_Scale_Bar_Rerun_v211025.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -17,7 +21,7 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 	}
 	run("Select None");
 	activeImage = getTitle();
-	activeImageDepth = bitDepth();
+	imageDepth = bitDepth(); /* keep this name the same for createInnerShadowFromMask6 function */
 	checkForUnits();
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
 	/* This version only creates new RGB and 8-bit gray images */
@@ -145,14 +149,15 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 		selEX = imageWidth - selLengthInPixels - selOffsetX;
 		selEY = imageHeight - sbHeight - selOffsetY;
 		if (sBStyle!="Solid Bar") selEY -= sbHeight/2;
-	} else if (selPos=="At Center of New Selection"){
-		if (is("Batch Mode")==true) setBatchMode("exit & display");	/* toggle batch mode off */
+	} else if (selPos=="At Center of New Selection" || (selPos=="At Selection" && selEType<0)){
+		setBatchMode("exit & display");	/* need batch mode off to see selection */
 		run("Select None");
 		setTool("rectangle");
 		title="position";
-		msg = "draw a box in the image where you want the scale bar to be centered";
+		msg = "Draw a box in the image where you want the scale bar to be centered";
 		waitForUser(title, msg);
 		getSelectionBounds(newSelEX, newSelEY, newSelEWidth, newSelEHeight);
+		run("Select None");
 		selEX = newSelEX + round((newSelEWidth/2) - selLengthInPixels/2);
 		selEY = newSelEY + round(newSelEHeight/2)- sbHeight - selOffsetY;
 		if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
@@ -291,7 +296,7 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 	setSlice(1);
 	setBatchMode("exit & display"); /* exit batch mode */
 	call("java.lang.System.gc");
-	showStatus("Fancy Scale Bar Added");
+	showStatus("Fast'nFancy Scale Bar Rerun completed");
 }
 	/*
 		( 8(|)  ( 8(|)  Functions	@@@@@:-)	@@@@@:-)
@@ -307,8 +312,10 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 		return dP;
 	}
 	function checkForPlugin(pluginName) {
-		/* v161102 changed to true-false */
-		var pluginCheck = false, subFolderCount = 0;
+		/* v161102 changed to true-false
+			v180831 some cleanup
+			v210429 Expandable array version */
+		var pluginCheck = false;
 		if (getDirectory("plugins") == "") restoreExit("Failure to find any plugins!");
 		else pluginDir = getDirectory("plugins");
 		if (!endsWith(pluginName, ".jar")) pluginName = pluginName + ".jar";
@@ -318,14 +325,13 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 		}
 		else {
 			pluginList = getFileList(pluginDir);
-			subFolderList = newArray(lengthOf(pluginList));
-			for (i=0; i<lengthOf(pluginList); i++) {
+			subFolderList = newArray;
+			for (i=0,subFolderCount=0; i<lengthOf(pluginList); i++) {
 				if (endsWith(pluginList[i], "/")) {
 					subFolderList[subFolderCount] = pluginList[i];
-					subFolderCount = subFolderCount +1;
+					subFolderCount++;
 				}
 			}
-			subFolderList = Array.slice(subFolderList, 0, subFolderCount);
 			for (i=0; i<lengthOf(subFolderList); i++) {
 				if (File.exists(pluginDir + subFolderList[i] +  "\\" + pluginName)) {
 					pluginCheck = true;
@@ -342,9 +348,10 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 			checkForPlugin, setScaleFromCZSemHeader.
 			v180820 Checks for CZ header before offering to use it. Tweaked dialog messages.
 			v180921 Fixed error in 2nd dialog.
+			v200925 Checks also for unit = pixels
 		*/
 		getPixelSize(unit, pixelWidth, pixelHeight);
-		if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches"){
+		if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches" || unit=="pixels"){
 			Dialog.create("Scale issues");
 			Dialog.addMessage("Unit asymmetry, pixel units or dpi remnants.\nPixel width = " + pixelWidth + " \nPixel height = " + pixelHeight + "\nUnit = " + unit);
 			if (matches(getInfo("image.filename"),".*[tT][iI][fF].*") && (checkForPlugin("tiff_tags.jar"))) {
@@ -368,7 +375,7 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 					}
 				}
 			}
-			else if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches"){
+			else if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches" || unit=="pixels"){
 				setScale = false;
 				Dialog.create("Still no standard units");
 				Dialog.addMessage("Pixel width = "+pixelWidth+"\nPixel height = "+pixelHeight+"\nUnit = "+unit);
@@ -381,9 +388,11 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 		}
 	}
 	function closeImageByTitle(windowTitle) {  /* Cannot be used with tables */
-		/* v181002 reselects original image at end if open */
+		/* v181002 reselects original image at end if open
+		   v200925 uses "while" instead of if so it can also remove duplicates
+		*/
 		oIID = getImageID();
-        if (isOpen(windowTitle)) {
+        while (isOpen(windowTitle)) {
 			selectWindow(windowTitle);
 			close();
 		}
@@ -463,6 +472,8 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 	function getColorArrayFromColorName(colorName) {
 		/* v180828 added Fluorescent Colors
 		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
+		   v191211 added Cyan
+		   v211022 all names lower-case, all spaces to underscores
 		*/
 		if (colorName == "white") cA = newArray(255,255,255);
 		else if (colorName == "black") cA = newArray(0,0,0);
@@ -481,6 +492,7 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 		else if (colorName == "blue") cA = newArray(0,0,255);
 		else if (colorName == "yellow") cA = newArray(255,255,0);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);
+		else if (colorName == "cyan") cA = newArray(0, 255, 255);
 		else if (colorName == "garnet") cA = newArray(120,47,64);
 		else if (colorName == "gold") cA = newArray(206,184,136);
 		else if (colorName == "aqua_modern") cA = newArray(75,172,198); /* #4bacc6 AKA "Viking" aqua */
@@ -496,28 +508,28 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 		else if (colorName == "pink_modern") cA = newArray(255,105,180);
 		else if (colorName == "purple_modern") cA = newArray(128,100,162);
 		else if (colorName == "jazzberry_jam") cA = newArray(165,11,94);
-		else if (colorName == "red_N_modern") cA = newArray(227,24,55);
+		else if (colorName == "red_n_modern") cA = newArray(227,24,55);
 		else if (colorName == "red_modern") cA = newArray(192,80,77);
 		else if (colorName == "tan_modern") cA = newArray(238,236,225);
 		else if (colorName == "violet_modern") cA = newArray(76,65,132);
 		else if (colorName == "yellow_modern") cA = newArray(247,238,69);
 		/* Fluorescent Colors https://www.w3schools.com/colors/colors_crayola.asp */
-		else if (colorName == "Radical Red") cA = newArray(255,53,94);			/* #FF355E */
-		else if (colorName == "Wild Watermelon") cA = newArray(253,91,120);		/* #FD5B78 */
-		else if (colorName == "Outrageous Orange") cA = newArray(255,96,55);	/* #FF6037 */
-		else if (colorName == "Supernova Orange") cA = newArray(255,191,63);	/* FFBF3F Supernova Neon Orange*/
-		else if (colorName == "Atomic Tangerine") cA = newArray(255,153,102);	/* #FF9966 */
-		else if (colorName == "Neon Carrot") cA = newArray(255,153,51);			/* #FF9933 */
-		else if (colorName == "Sunglow") cA = newArray(255,204,51); 			/* #FFCC33 */
-		else if (colorName == "Laser Lemon") cA = newArray(255,255,102); 		/* #FFFF66 "Unmellow Yellow" */
-		else if (colorName == "Electric Lime") cA = newArray(204,255,0); 		/* #CCFF00 */
-		else if (colorName == "Screamin' Green") cA = newArray(102,255,102); 	/* #66FF66 */
-		else if (colorName == "Magic Mint") cA = newArray(170,240,209); 		/* #AAF0D1 */
-		else if (colorName == "Blizzard Blue") cA = newArray(80,191,230); 		/* #50BFE6 Malibu */
-		else if (colorName == "Dodger Blue") cA = newArray(9,159,255);			/* #099FFF Dodger Neon Blue */
-		else if (colorName == "Shocking Pink") cA = newArray(255,110,255);		/* #FF6EFF Ultra Pink */
-		else if (colorName == "Razzle Dazzle Rose") cA = newArray(238,52,210); 	/* #EE34D2 */
-		else if (colorName == "Hot Magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
+		else if (colorName == "radical_red") cA = newArray(255,53,94);			/* #FF355E */
+		else if (colorName == "wild_watermelon") cA = newArray(253,91,120);		/* #FD5B78 */
+		else if (colorName == "outrageous_orange") cA = newArray(255,96,55);	/* #FF6037 */
+		else if (colorName == "supernova_orange") cA = newArray(255,191,63);	/* FFBF3F Supernova Neon Orange*/
+		else if (colorName == "atomic_tangerine") cA = newArray(255,153,102);	/* #FF9966 */
+		else if (colorName == "neon_carrot") cA = newArray(255,153,51);			/* #FF9933 */
+		else if (colorName == "sunglow") cA = newArray(255,204,51); 			/* #FFCC33 */
+		else if (colorName == "laser_lemon") cA = newArray(255,255,102); 		/* #FFFF66 "Unmellow Yellow" */
+		else if (colorName == "electric_lime") cA = newArray(204,255,0); 		/* #CCFF00 */
+		else if (colorName == "screamin'_green") cA = newArray(102,255,102); 	/* #66FF66 */
+		else if (colorName == "magic_mint") cA = newArray(170,240,209); 		/* #AAF0D1 */
+		else if (colorName == "blizzard_blue") cA = newArray(80,191,230); 		/* #50BFE6 Malibu */
+		else if (colorName == "dodger_blue") cA = newArray(9,159,255);			/* #099FFF Dodger Neon Blue */
+		else if (colorName == "shocking_pink") cA = newArray(255,110,255);		/* #FF6EFF Ultra Pink */
+		else if (colorName == "razzle_dazzle_rose") cA = newArray(238,52,210); 	/* #EE34D2 */
+		else if (colorName == "hot_magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
 		else restoreExit("No color match to " + colorName);
 		return cA;
 	}
@@ -544,11 +556,12 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
   	function getFontChoiceList() {
 		/*	v180723 first version
 			v180828 Changed order of favorites
+			v190108 Longer list of favorites
 		*/
 		systemFonts = getFontList();
 		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
 		fontNameChoice = Array.concat(IJFonts,systemFonts);
-		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Fira Sans Ultra", "Fira Sans Condensed Ultra", "Arial Black", "Myriad Pro Black", "Montserrat Black", "Olympia-Extra Bold", "SansSerif", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Times New Roman", "Times", "Helvetica");
+		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Noto Sans Black", "Arial Black", "Montserrat Black", "Lato Black", "Roboto Black", "Merriweather Black", "Alegreya Black", "Tahoma Bold", "Calibri Bold", "Helvetica", "SansSerif", "Calibri", "Roboto", "Tahoma", "Times New Roman Bold", "Times Bold", "Serif");
 		faveFontListCheck = newArray(faveFontList.length);
 		counter = 0;
 		for (i=0; i<faveFontList.length; i++) {
@@ -606,9 +619,26 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 		}
 	  return index;
 	}
-	function removeTrailingZerosAndPeriod(string) { /* Removes any trailing zeros after a period */
-		while (endsWith(string,".0")) string=substring(string,0, lastIndexOf(string, ".0"));
-		while(endsWith(string,".")) string=substring(string,0, lastIndexOf(string, "."));
+	function removeTrailingZerosAndPeriod(string) {
+	/* Removes any trailing zeros after a period
+	v210430 totally new version: Note: Requires remTZeroP function
+	Nested string functions require "" prefix
+	*/
+		lIP = lastIndexOf(string, ".");
+		if (lIP>=0) {
+			lIP = lengthOf(string) - lIP;
+			string = "" + remTZeroP(string,lIP);
+		}
+		return string;
+	}
+	function remTZeroP(string,iterations){
+		for (i=0; i<iterations; i++){
+			if (endsWith(string,"0"))
+				string = substring(string,0,lengthOf(string)-1);
+			else if (endsWith(string,"."))
+				string = substring(string,0,lengthOf(string)-1);
+			/* Must be "else if" because we only want one removal per iteration */
+		}
 		return string;
 	}
 	function restoreExit(message){ /* Make a clean exit from a macro, restoring previous settings */
@@ -652,25 +682,34 @@ v200706: changed variable names to match v200706 version of Fancy Scale Bar macr
 	else if (getBoolean("No CZSem tag found; do you want to continue?")) run("Set Scale...");
 	}
 	function stripKnownExtensionFromString(string) {
+		/* v210924: Tries to make sure string stays as string
+		   v211014: Adds some additional cleanup
+		   v211025: fixes multiple knowns issue
+		*/
+		string = "" + string;
 		if (lastIndexOf(string, ".")!=-1) {
-			knownExt = newArray("tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV", "psd", "PSD", "xls", "XLS");
+			knownExt = newArray("dsx", "DSX", "tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV");
 			for (i=0; i<knownExt.length; i++) {
 				index = lastIndexOf(string, "." + knownExt[i]);
-				if (index>=(lengthOf(string)-(lengthOf(knownExt[i])+1))) string = substring(string, 0, index);
+				if (index>=(lengthOf(string)-(lengthOf(knownExt[i])+1)) && index>0) string = "" + substring(string, 0, index);
 			}
 		}
+		string = replace(string,"_lzw",""); /* cleanup previous suffix */
+		string = replace(string," ","_"); /* a personal preference */
+		string = replace(string,"__","_"); /* cleanup previous suffix */
+		string = replace(string,"--","-"); /* cleanup previous suffix */
 		return string;
 	}
 	function unCleanLabel(string) {
 	/* v161104 This function replaces special characters with standard characters for file system compatible filenames
-	+ 041117 to remove spaces as well */
+	+ 041117b to remove spaces as well */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
-		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
-		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hypen substituted for superscript minus as 0x207B does not display in table */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
+		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
 		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
-		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces deg */
+		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */
 		string= replace(string, "_\\+", "\\+"); /* Clean up autofilenames */

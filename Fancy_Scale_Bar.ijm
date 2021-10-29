@@ -3,7 +3,7 @@ macro "Fancy Scale Bar" {
 Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects.
 6/22/16-7/7/16  Add unit override option 7/13/2016 syntax updated 7/28/2016.
 Centered scale bar in new selection 8/9/2016 and tweaked manual location 8/10/2016.
-v161012 adds unified ASC function list and add 100 Âµm diameter human hair. v161031 adds "glow" option and sharpens shadow/glow edge.
+v161012 adds unified ASC function list and add 100 µm diameter human hair. v161031 adds "glow" option and sharpens shadow/glow edge.
 v161101 minor fixes v161104 now works with images other than 8-bit too.
 v161105 improved offset guesses.
 v180108 set outline to at least 1 pixel if desired, updated functions and fixed typos.
@@ -88,7 +88,7 @@ v211025 Uupdated stripKnownExtensionFromString
 	if (selectedUnit == "um") selectedUnit = micron;
 	sF = getScaleFactor(selectedUnit);
 	scaleFactors = newArray(1E3,1,1E-2,1E-3,1E-6,1E-9,1E-12);
-	metricUnits = newArray("km","m","cm","mm","Âµm","nm","pm");
+	metricUnits = newArray("km","m","cm","mm","µm","nm","pm");
 	lcf=(pixelWidth+pixelHeight)/2;
 	lcfFactor=1/lcf;
 	dOutS = 6; /* default outline stroke: % of font size */
@@ -106,7 +106,7 @@ v211025 Uupdated stripKnownExtensionFromString
 	innerShadowDarkness = 20;
 	if (sF!=0) {
 		nSF = newArray(1,sF/(1E-2),sF/(1E-3),sF/(1E-6),sF/(1E-6),sF/(1E-9),sF/(1E-10),sF/(1E-12), sF/(2.54E-2), sF/(1E-4));
-		overrideUnitChoice = newArray(selectedUnit, "cm", "mm", "Âµm", "microns", "nm", "Ã…", "pm", "inches", "human hairs");
+		overrideUnitChoice = newArray(selectedUnit, "cm", "mm", "µm", "microns", "nm", "Å", "pm", "inches", "human hairs");
 	}
 	if (selEType>=0) {
 		if (selEType!=5){
@@ -154,7 +154,7 @@ v211025 Uupdated stripKnownExtensionFromString
 			modeStr = "scale bar";
 		}
 		if (sF!=0) {
-			newUnit = newArray(""+selectedUnit+" Length x1", "cm \(Length x"+nSF[1]+"\)","mm \(Length x"+nSF[2]+"\)","Âµm \(Length x"+nSF[3]+"\)","microns \(Length x"+nSF[4]+"\)", "nm \(Length x"+nSF[5]+"\)", "Ã… \(Length x"+nSF[6]+"\)", "pm \(Length x"+nSF[7]+"\)", "inches \(Length x"+nSF[8]+"\)", "human hair \(Length x"+nSF[9]+"\)");
+			newUnit = newArray(""+selectedUnit+" Length x1", "cm \(Length x"+nSF[1]+"\)","mm \(Length x"+nSF[2]+"\)","µm \(Length x"+nSF[3]+"\)","microns \(Length x"+nSF[4]+"\)", "nm \(Length x"+nSF[5]+"\)", "Å \(Length x"+nSF[6]+"\)", "pm \(Length x"+nSF[7]+"\)", "inches \(Length x"+nSF[8]+"\)", "human hair \(Length x"+nSF[9]+"\)");
 			Dialog.addChoice("Override unit with new choice?", newUnit, newUnit[0]);
 		}
 		Dialog.addNumber("Font size \(\"FS\"\):", sbFontSize, 0, 4,"");
@@ -305,14 +305,14 @@ v211025 Uupdated stripKnownExtensionFromString
 				Dialog.create("Scale Bar Format Tweaks: " + macroL);
 				Dialog.addMessage("Font size \(FS\): " + fontSize);
 				Dialog.addNumber("Outline stroke:",dOutS,0,3,"% of font size \(\"%FS\"\)");
-				Dialog.addNumber("Shadow drop: Â±",dShO,0,3,"%FS");
+				Dialog.addNumber("Shadow drop: ±",dShO,0,3,"%FS");
 				Dialog.addNumber("Shadow shift \(+ve right\)",dShO,0,3,": %FS");
 				Dialog.addNumber("Shadow Gaussian blur:", floor(0.75*dShO),0,3,"%FS");
 				Dialog.addNumber("Shadow darkness \(darkest = 100%\):", 30,0,3,"% \(negative = glow\)");
 				if (!endsWith(overWrite,"verlays")) {
 					/* Overlays do not have inner shadows */
 					Dialog.addMessage("Inner Shadow options:______");
-					Dialog.addNumber("Inner shadow drop Â±", dIShO,0,1,"%FS");
+					Dialog.addNumber("Inner shadow drop ±", dIShO,0,1,"%FS");
 					Dialog.addNumber("Inner shadow shift:", dIShO,0,1,"%FS \(+ve right\)");
 					Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,2,"%FS");
 					Dialog.addNumber("Inner shadow darkness \(darkest = 100%\):",20,0,3,"% \(negative = glow\)");		
@@ -1057,8 +1057,8 @@ v211025 Uupdated stripKnownExtensionFromString
 		else if (inputUnit=="mm") scaleFactor = 1E-3;
 		else if (inputUnit=="um") scaleFactor = 1E-6;
 		else if (inputUnit==(fromCharCode(181)+"m")) scaleFactor = 1E-6;
-		else if (inputUnit=="Âµm") scaleFactor =  1E-6;
-		else if (inputUnit=="microns") scaleFactor =  1E-6; /* Preferred by Bio-Formats over Âµm but beware: Bio-Formats import of Ziess >1024 wide is incorrect */
+		else if (inputUnit=="µm") scaleFactor =  1E-6;
+		else if (inputUnit=="microns") scaleFactor =  1E-6; /* Preferred by Bio-Formats over µm but beware: Bio-Formats import of Ziess >1024 wide is incorrect */
 		else if (inputUnit=="nm") scaleFactor = 1E-9;
 		else if (inputUnit=="A") scaleFactor = 1E-10;
 		else if (inputUnit==fromCharCode(197)) scaleFactor = 1E-10;
@@ -1270,7 +1270,7 @@ v211025 Uupdated stripKnownExtensionFromString
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ã…ngstrÃ¶m unit symbol */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */

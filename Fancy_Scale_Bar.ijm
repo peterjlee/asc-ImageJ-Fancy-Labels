@@ -1,51 +1,9 @@
 macro "Fancy Scale Bar" {
 /* Original code by Wayne Rasband, improved by Frank Sprenger and deposited on the ImageJ mailing server: (http:imagej.588099.n2.nabble.com/Overlay-Scalebar-Plugins-td6380378.html#a6394996). KS added choice of font size, scale bar height, + any position for scale bar and some options that allow to set the image calibration (only for overlay, not in Meta data). Kees Straatman, CBS, University of Leicester, May 2011
 Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects.
-6/22/16-7/7/16  Add unit override option 7/13/2016 syntax updated 7/28/2016.
-Centered scale bar in new selection 8/9/2016 and tweaked manual location 8/10/2016.
-v161012 adds unified ASC function list and add 100 µm diameter human hair. v161031 adds "glow" option and sharpens shadow/glow edge.
-v161101 minor fixes v161104 now works with images other than 8-bit too.
-v161105 improved offset guesses.
-v180108 set outline to at least 1 pixel if desired, updated functions and fixed typos.
-v180611 replaced run("Clear" with run("Clear", "slice").
-v180613 works for multiple slices.
-v180711 minor corner positioning tweaks for large images.
-v180722 allows any system font to be used. v180723 Adds some favorite fonts to top of list (if available).
-v180730 rounds the scale bar width guess to two figures.
-v180921 add no-shadow option - useful for optimizing GIF color palettes for animations.
-v180927 Overlay quality greatly improved and 16-bit stacks now finally work as expected.
-v181003 Automatically adjusts scale units to ranges applicable to scale bars.
-v181018 Fixed color issue with scale text and added off-white and off-black for transparent GIFs.
-v181019 Fixed issue with filenames with spaces.
-v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the overlay to display on all stack slices. "Replace overlay" now replaces All overlays (so be careful).
-v181217 Removed shadow color option.
-v181219 For overlay version uses text overlays for top layers instead of masks to reduce jaggies.
-v190108 Overlay shadow now always darker than background (or brighter if "glow"). Implemented variable passing by preceding with "&" introduced in ImageJ 1.43.
-v190125 Add "Bottom Center" location.
-v190222 Fixed overlay shadows to work correctly for 16 bit gray and 32-bit image depths. Fixed "no text" option for overlays.
-v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
-v190417 Changed bar thickness from pixels to % of chosen font height so it scales with chosen font. Saves Preferences.
-v190423 Updated indexOfArray function. v190506 removed redundant function code.
-v190524 Added alternatives to simple bar using makeArrow macro function.
-v190528 Restored missing overlay font color line.
-v190618-9 Because 16 and 32-bit images do no anti-alias the fonts an alternative was added, also an emboss effect option was added.
-v190625 Fixed missing bottom and top offset for prior selection. Minor fixes to previous update.
-v190627 Fixed issue with font sizes not being reproducible and text overrunning image edge.
-v190912 Added list of preferred scale bar widths; Now attempts to label all channels for multi-channel stack.
-v190913 Min font size changed to 20. Minimum +offset increased to default outline stroke (6).
-v200302 Added change image type pop-up as 16 and 32 but versions still do not look good.
-v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
-v200925 Note "inner-shadow" closing issue fixed by close-image workaround but still not understood.
-v210616 Add ability to label lines with their calibrated lengths v210617 Added text outline for overlaps, fixed alignment of overlay labels v210618 fixed label alignment
-v210621 Finally solved font-sensitive overlay text alignment issue be reusing label mask. Menu made more compact.
-v210701 Moved format tweaks to secondary dialog to simplify use.
-v210730 Remove pre-scaling that caused errors
-v210817 Scale overlays are not removed from original image new scale is being created on copy. Fixed occasional outline expansion error when removing existing overlays
-v210826-8 Added simple text option for black or white backgrounds v210902 bug fix
-v211022 Updated color function choices
-v211025 Uupdated stripKnownExtensionFromString
+v211203: Simple format is now an option in all cases.
 */
-	macroL = "Fancy_Scale_Bar_v211025";
+	macroL = "Fancy_Scale_Bar_v211203.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -62,24 +20,19 @@ v211025 Uupdated stripKnownExtensionFromString
 	checkForUnits();
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
 	overlayN = Overlay.size;
-	sTextC = "no";
+	/* Simple text looks better for images with very dark or very light backgrounds (outlines and shadows do not add useful contrast) */
+	sTextC = "white";
 	sTextCInv = "black";
-	bgI = guessBGMedianIntensity();
-	if (bgI>=0){
-		if (imageDepth==8 || imageDepth==24){
-			if (bgI<5) sTextC = "white";
-			else if (bgI>250){
-				sTextC = "black";
-				sTextCInv = "white";
-			}
-		}if (imageDepth==16){
-			if (bgI<1285) sTextC = "white";
-			else if (bgI>64250){
-				sTextC = "black";
-				sTextCInv = "white";
-			}
-		}
+	bgI = maxOf(0,guessBGMedianIntensity());
+	if (imageDepth==8 || imageDepth==24) bgIpc = round(bgI*100/255);
+	else if (imageDepth==16) bgIpc = round(bgI*100/65536);
+	if (bgIpc<3 || bgIpc>97) sText = true;
+	else sText = false;
+	if (bgIpc>50){
+		sTextC = "black";
+		sTextCInv = "white";
 	}
+	/* End simple text default options */
 	startSliceNumber = getSliceNumber();
 	remSlices = slices-startSliceNumber;
 	if (selEType==5) sbFontSize = maxOf(10, round((imageHeight+imageWidth)/90)); /* set minimum default font size as 12 */
@@ -172,15 +125,16 @@ v211025 Uupdated stripKnownExtensionFromString
 		else {
 			Dialog.addChoice("Gray tone of " + modeStr + " and text:", colorChoice, colorChoice[iTCg]);
 			Dialog.addChoice("Gray tone (background) color:", colorChoice, colorChoice[iBCg]);
-			Dialog.addMessage("Image depth is " + imageDepth + " bits: Only graytones used unless overlays are selected for output",13,"#099FFF");
+			Dialog.addMessage("Image depth is " + imageDepth + " bits: Only gray tones used unless overlays are selected for output",13,"#099FFF");
 			Dialog.addChoice("Overlay color of " + modeStr + " and text:", colorChoice, colorChoice[iTC]);
 			Dialog.addChoice("Overlay outline (background) color:", colorChoice, colorChoice[iBC]);
 		}
-		if (sTextC!="no"){
-			Dialog.setInsets(0, 15, -15);
-			Dialog.addMessage("Guessed background is " + bgI + ", suggesting simple " + sTextC + " scale bar:",13,"#782F40");
-			Dialog.setInsets(10, 15, 10);
-			Dialog.addCheckbox("Override \"fancy\" formatting with simple " + sTextC + " text, no outline or shadow", false);
+		{
+		Dialog.setInsets(0, 15, -15);
+		if (sText) Dialog.addMessage("Guessed background % of white is " + bgIpc + "%; simple text selected as " + sTextC + " scale bar:",13,"#782F40");
+		else Dialog.addMessage("Guessed background % of white is " + bgIpc + "%; simple text selected as " + sTextC + " scale bar:");
+		Dialog.setInsets(10, 15, 12);
+		Dialog.addCheckbox("Override \"fancy\" formatting with simple " + sTextC + " text, no outline or shadow?", sText);
 		}
 		if (selEType>=0) {
 			if (selEType!=5){
@@ -263,9 +217,8 @@ v211025 Uupdated stripKnownExtensionFromString
 			scaleBarColorOv = Dialog.getChoice;
 			outlineColorOv = Dialog.getChoice;
 		}
-		if (sTextC!="no"){
-			if(!Dialog.getCheckbox()) sTextC = "no";
-		}
+		/* Simple text option */
+		sText = Dialog.getCheckbox();
 		selPos = Dialog.getChoice;
 		if (selEType==5) offsetLR = Dialog.getString;
 		textStyleMod = Dialog.getRadioButton;
@@ -300,7 +253,7 @@ v211025 Uupdated stripKnownExtensionFromString
 			oSF = nSF[oU];
 			selectedUnit = overrideUnitChoice[oU];
 		}
-		if (sTextC=="no"){
+		if (!sText){
 			if (Dialog.getCheckbox()){
 				Dialog.create("Scale Bar Format Tweaks: " + macroL);
 				Dialog.addMessage("Font size \(FS\): " + fontSize);
@@ -334,7 +287,7 @@ v211025 Uupdated stripKnownExtensionFromString
 	setBatchMode(true);
 	 /* save last used color settings in user in preferences */
 	sbHeight = maxOf(2,round(fontSize*sbHeightPC/100)); /*  set minimum default bar height as 2 pixels */
-	if (sTextC=="no"){  /* simplified formatting is not saved */
+	if (!sText){  /* simplified formatting is not saved */
 		if (imageDepth==24){
 			call("ij.Prefs.set", "fancy.scale.font.color", scaleBarColor);
 			call("ij.Prefs.set", "fancy.scale.outline.color", outlineColor);
@@ -394,7 +347,7 @@ v211025 Uupdated stripKnownExtensionFromString
 	}
 	labelL = getStringWidth(label);
 	labelSemiL = labelL/2;
-	if (!noShadow && sTextC=="no") {
+	if (!noShadow && !sText) {
 		negAdj = 0.5;  /* negative offsets appear exaggerated at full displacement */
 		if (shadowDrop<0) shadowDrop *= negAdj;
 		if (shadowDisp<0) shadowDisp *= negAdj;
@@ -412,7 +365,7 @@ v211025 Uupdated stripKnownExtensionFromString
 		if (selOffsetX<(shadowDisp+shadowBlur+1)) selOffsetX += (shadowDisp+shadowBlur+1);  /* make sure shadow does not run off edge of image */
 		if (selOffsetY<(shadowDrop+shadowBlur+1)) selOffsetY += (shadowDrop+shadowBlur+1);
 	}
-	if (sTextC!="no"){
+	if (sText){
 		scaleBarColor = sTextC;
 		if (sTextC=="black") outlineColor = "White";
 		else outlineColor = "Black";
@@ -527,7 +480,7 @@ v211025 Uupdated stripKnownExtensionFromString
 	else if (sBStyle=="S-Arrows")  arrowStyle = "Notched Double";
 	else arrowStyle = "";
 	arrowStyle += " " + barHThickness;		
-	if (sTextC=="no"){
+	if (!sText){
 		/* Create new image that will be used to create bar/label */
 		newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
 		setColor(255,255,255);
@@ -601,7 +554,7 @@ v211025 Uupdated stripKnownExtensionFromString
 			for (sl=startSliceNumber; sl<endSlice+1; sl++) {
 				setSlice(sl);
 				if (allSlices) sl=0;
-				if(!noShadow && sTextC=="no") {
+				if(!noShadow && !sText) {
 					getSelectionFromMask("ovShadowMask");
 					List.setMeasurements;
 					bgGray = List.getValue("Mean");
@@ -612,7 +565,7 @@ v211025 Uupdated stripKnownExtensionFromString
 					setSelectionName("Scale bar shadow");
 					run("Add Selection...", "fill="+shadowHex);
 				}
-				if(sTextC=="no") {
+				if(!sText) {
 					getSelectionFromMask("outline_template");
 					run("Make Inverse");
 					setSelectionName("Scale bar outline " + outlineColor);
@@ -632,7 +585,7 @@ v211025 Uupdated stripKnownExtensionFromString
 		/* End overlay fancy scale bar section */
 		else {
 			/* Create shadow and outline selection masks to be used for bitmap components */
-			if(!noShadow && sTextC=="no") {
+			if(!noShadow && !sText) {
 				/* Create drop shadow if desired */
 				if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0)
 					createShadowDropFromMask7("label_mask", shadowDrop, shadowDisp, shadowBlur, shadowDarkness, outlineStroke);
@@ -652,10 +605,10 @@ v211025 Uupdated stripKnownExtensionFromString
 				if (labelChannels) Stack.setChannel(sl);
 				else setSlice(sl);
 				run("Select None");
-				if (isOpen("shadow") && (shadowDarkness>0) && !noShadow && sTextC=="no") imageCalculator("Subtract", tS,"shadow");
-				else if (isOpen("shadow") && (shadowDarkness<0) && !noShadow && sTextC=="no") imageCalculator("Add", tS,"shadow");
+				if (isOpen("shadow") && (shadowDarkness>0) && !noShadow && !sText) imageCalculator("Subtract", tS,"shadow");
+				else if (isOpen("shadow") && (shadowDarkness<0) && !noShadow && !sText) imageCalculator("Add", tS,"shadow");
 				run("Select None");
-				if (sTextC=="no"){
+				if (!sText){
 					/* apply outline around label */
 					getSelectionFromMask("outline_template");
 					run("Make Inverse");
@@ -669,7 +622,7 @@ v211025 Uupdated stripKnownExtensionFromString
 				run("Clear", "slice");
 				run("Select None");
 				if (!noText && (imageDepth==16 || imageDepth==32)) writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true); /* force anti-aliasing */
-				if (!noShadow && sTextC=="no") {
+				if (!noShadow && !sText) {
 					if (isOpen("inner_shadow")) imageCalculator("Subtract", tS,"inner_shadow");
 				}
 				/* Fonts do not anti-alias in 16 and 32-bit images so this is an alternative approach */
@@ -1244,22 +1197,43 @@ v211025 Uupdated stripKnownExtensionFromString
 	else if (getBoolean("No CZSem tag found; do you want to continue?")) run("Set Scale...");
 	}
 	function stripKnownExtensionFromString(string) {
-		/* v210924: Tries to make sure string stays as string
-		   v211014: Adds some additional cleanup
-		   v211025: fixes multiple knowns issue
+		/*	Note: Do not use on path as it may change the directory names
+		v210924: Tries to make sure string stays as string
+		v211014: Adds some additional cleanup
+		v211025: fixes multiple knowns issue
+		v211101: Added ".Ext_" removal
+		v211104: Restricts cleanup to end of string to reduce risk of corrupting path
+		v211112: Tries to fix trapped extension before channel listing. Adds xlsx extension.
 		*/
 		string = "" + string;
-		if (lastIndexOf(string, ".")!=-1) {
-			knownExt = newArray("dsx", "DSX", "tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV");
-			for (i=0; i<knownExt.length; i++) {
+		if (lastIndexOf(string, ".")>0 || lastIndexOf(string, "_lzw")>0) {
+			knownExt = newArray("dsx", "DSX", "tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV","xlsx","XLSX","_"," ");
+			kEL = lengthOf(knownExt);
+			chanLabels = newArray("\(red\)","\(green\)","\(blue\)");
+			unwantedSuffixes = newArray("_lzw"," ","  ", "__","--","_","-");
+			uSL = lengthOf(unwantedSuffixes);
+			for (i=0; i<kEL; i++) {
+				for (j=0; j<3; j++){ /* Looking for channel-label-trapped extensions */
+					ichanLabels = lastIndexOf(string, chanLabels[j]);
+					if(ichanLabels>0){
+						index = lastIndexOf(string, "." + knownExt[i]);
+						if (ichanLabels>index && index>0) string = "" + substring(string, 0, index) + "_" + chanLabels[j];
+						ichanLabels = lastIndexOf(string, chanLabels[j]);
+						for (k=0; k<uSL; k++){
+							index = lastIndexOf(string, unwantedSuffixes[k]);  /* common ASC suffix */
+							if (ichanLabels>index && index>0) string = "" + substring(string, 0, index) + "_" + chanLabels[j];	
+						}				
+					}
+				}
 				index = lastIndexOf(string, "." + knownExt[i]);
 				if (index>=(lengthOf(string)-(lengthOf(knownExt[i])+1)) && index>0) string = "" + substring(string, 0, index);
 			}
 		}
-		string = replace(string,"_lzw",""); /* cleanup previous suffix */
-		string = replace(string," ","_"); /* a personal preference */
-		string = replace(string,"__","_"); /* cleanup previous suffix */
-		string = replace(string,"--","-"); /* cleanup previous suffix */
+		unwantedSuffixes = newArray("_lzw"," ","  ", "__","--","_","-");
+		for (i=0; i<lengthOf(unwantedSuffixes); i++){
+			sL = lengthOf(string);
+			if (endsWith(string,unwantedSuffixes[i])) string = substring(string,0,sL-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
+		}
 		return string;
 	}
 	function unCleanLabel(string) {
@@ -1287,3 +1261,51 @@ v211025 Uupdated stripKnownExtensionFromString
 		setColorFromColorName(color);
 		drawString(text, x, y); 
 	}
+	6/22/16-7/7/16  Add unit override option 7/13/2016 syntax updated 7/28/2016.
+
+/* Changelog
+v161008 Centered scale bar in new selection 8/9/2016 and tweaked manual location 8/10/2016.
+v161012 adds unified ASC function list and add 100 µm diameter human hair. v161031 adds "glow" option and sharpens shadow/glow edge.
+v161101 minor fixes v161104 now works with images other than 8-bit too.
+v161105 improved offset guesses.
+v180108 set outline to at least 1 pixel if desired, updated functions and fixed typos.
+v180611 replaced run("Clear" with run("Clear", "slice").
+v180613 works for multiple slices.
+v180711 minor corner positioning tweaks for large images.
+v180722 allows any system font to be used. v180723 Adds some favorite fonts to top of list (if available).
+v180730 rounds the scale bar width guess to two figures.
+v180921 add no-shadow option - useful for optimizing GIF color palettes for animations.
+v180927 Overlay quality greatly improved and 16-bit stacks now finally work as expected.
+v181003 Automatically adjusts scale units to ranges applicable to scale bars.
+v181018 Fixed color issue with scale text and added off-white and off-black for transparent GIFs.
+v181019 Fixed issue with filenames with spaces.
+v181207 Rearrange dialog to use Overlay.setPosition(0) from IJ >1.52i to set the overlay to display on all stack slices. "Replace overlay" now replaces All overlays (so be careful).
+v181217 Removed shadow color option.
+v181219 For overlay version uses text overlays for top layers instead of masks to reduce jaggies.
+v190108 Overlay shadow now always darker than background (or brighter if "glow"). Implemented variable passing by preceding with "&" introduced in ImageJ 1.43.
+v190125 Add "Bottom Center" location.
+v190222 Fixed overlay shadows to work correctly for 16 bit gray and 32-bit image depths. Fixed "no text" option for overlays.
+v190223 Fixed infinite overlay removal loop introduce in V190222  :-$
+v190417 Changed bar thickness from pixels to % of chosen font height so it scales with chosen font. Saves Preferences.
+v190423 Updated indexOfArray function. v190506 removed redundant function code.
+v190524 Added alternatives to simple bar using makeArrow macro function.
+v190528 Restored missing overlay font color line.
+v190618-9 Because 16 and 32-bit images do no anti-alias the fonts an alternative was added, also an emboss effect option was added.
+v190625 Fixed missing bottom and top offset for prior selection. Minor fixes to previous update.
+v190627 Fixed issue with font sizes not being reproducible and text overrunning image edge.
+v190912 Added list of preferred scale bar widths; Now attempts to label all channels for multi-channel stack.
+v190913 Min font size changed to 20. Minimum +offset increased to default outline stroke (6).
+v200302 Added change image type pop-up as 16 and 32 but versions still do not look good.
+v200706-9 Changed to Added RGB to 8 bit conversion options in 1st Dialog.
+v200925 Note "inner-shadow" closing issue fixed by close-image workaround but still not understood.
+v210616 Add ability to label lines with their calibrated lengths v210617 Added text outline for overlaps, fixed alignment of overlay labels v210618 fixed label alignment
+v210621 Finally solved font-sensitive overlay text alignment issue be reusing label mask. Menu made more compact.
+v210701 Moved format tweaks to secondary dialog to simplify use.
+v210730 Remove pre-scaling that caused errors
+v210817 Scale overlays are not removed from original image new scale is being created on copy. Fixed occasional outline expansion error when removing existing overlays
+v210826-8 Added simple text option for black or white backgrounds v210902 bug fix
+v211022 Updated color function choices
+v211025 Updated stripKnownExtensionFromString
+v211104: Updated stripKnownExtensionsFromString function    v211112: Again
+
+/*

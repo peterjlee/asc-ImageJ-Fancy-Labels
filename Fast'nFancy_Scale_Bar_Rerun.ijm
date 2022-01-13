@@ -8,8 +8,9 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	v200706: changed variable names to match v200706 version of Fancy Scale Bar macro. v210521 whoops should not have changed imageDepth name :-$
 	v211022: Updated color choices
 	v211025: Updated multiple functions
+	v211104: Updated stripKnownExtensionsFromString function    v211112: Again
 */
-	macroL = "Fast'nFancy_Scale_Bar_Rerun_v211025.ijm";
+	macroL = "Fast'nFancy_Scale_Bar_Rerun_v211112.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -42,7 +43,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	if (selectedUnit == "um" || selectedUnit == "microns" || selectedUnit == "micron") selectedUnit = micron;
 	sF = getScaleFactor(selectedUnit);
 	scaleFactors = newArray(1.0000E3,1.0000,1.0000E-2,1.0000E-3,1.0000E-6,1.0000E-9,1.0000E-12);
-	metricUnits = newArray("km","m","cm","mm","Âµm","nm","pm");
+	metricUnits = newArray("km","m","cm","mm","µm","nm","pm");
 	for (i=0; i<5; i++){
 		newUnitI = -1;
 		if (pixelWidth*imageWidth/5 > 1000) { /* test whether scale bar is likely to be more than 1000 units */
@@ -77,7 +78,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	dIShO = 4; /* default inner shadow drop: % of font size */
 	if (sF!=0) {
 		nSF = newArray(1,sF/(1E-2),sF/(1E-3),sF/(1E-6),sF/(1E-6),sF/(1E-9),sF/(1E-10),sF/(1E-12), sF/(2.54E-2), sF/(1E-4));
-		overrideUnitChoice = newArray(selectedUnit, "cm", "mm", "Âµm", "microns", "nm", "Ã…", "pm", "inches", "human hairs");
+		overrideUnitChoice = newArray(selectedUnit, "cm", "mm", "µm", "microns", "nm", "Å", "pm", "inches", "human hairs");
 	}
 	if (selEType>=0) {	
 		sbWidth = lcf*selEWidth;
@@ -228,7 +229,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	selectWindow(activeImage);
 	run("Duplicate...", "title=&tS duplicate");
 	selectWindow(tS);
-	/* Tries to remove any old scale related overlays from copied image but usually leaves 2  Â¯\_(?)_/Â¯ */
+	/* Tries to remove any old scale related overlays from copied image but usually leaves 2  ¯\_(?)_/¯ */
 	if(Overlay.size>0) {
 		initialOverlaySize = Overlay.size;
 		for (i=0; i<slices; i++){
@@ -585,8 +586,8 @@ macro "Fast'nFancy Scale Bar Rerun" {
 		else if (inputUnit=="mm") scaleFactor = 1E-3;
 		else if (inputUnit=="um") scaleFactor = 1E-6;
 		else if (inputUnit==(fromCharCode(181)+"m")) scaleFactor = 1E-6;
-		else if (inputUnit=="Âµm") scaleFactor =  1E-6;
-		else if (inputUnit=="microns") scaleFactor =  1E-6; /* Preferred by Bio-Formats over Âµm but beware: Bio-Formats import of Ziess >1024 wide is incorrect */
+		else if (inputUnit=="µm") scaleFactor =  1E-6;
+		else if (inputUnit=="microns") scaleFactor =  1E-6; /* Preferred by Bio-Formats over µm but beware: Bio-Formats import of Ziess >1024 wide is incorrect */
 		else if (inputUnit=="nm") scaleFactor = 1E-9;
 		else if (inputUnit=="A") scaleFactor = 1E-10;
 		else if (inputUnit==fromCharCode(197)) scaleFactor = 1E-10;
@@ -682,22 +683,43 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	else if (getBoolean("No CZSem tag found; do you want to continue?")) run("Set Scale...");
 	}
 	function stripKnownExtensionFromString(string) {
-		/* v210924: Tries to make sure string stays as string
-		   v211014: Adds some additional cleanup
-		   v211025: fixes multiple knowns issue
+		/*	Note: Do not use on path as it may change the directory names
+		v210924: Tries to make sure string stays as string
+		v211014: Adds some additional cleanup
+		v211025: fixes multiple knowns issue
+		v211101: Added ".Ext_" removal
+		v211104: Restricts cleanup to end of string to reduce risk of corrupting path
+		v211112: Tries to fix trapped extension before channel listing. Adds xlsx extension.
 		*/
 		string = "" + string;
-		if (lastIndexOf(string, ".")!=-1) {
-			knownExt = newArray("dsx", "DSX", "tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV");
-			for (i=0; i<knownExt.length; i++) {
+		if (lastIndexOf(string, ".")>0 || lastIndexOf(string, "_lzw")>0) {
+			knownExt = newArray("dsx", "DSX", "tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV","xlsx","XLSX","_"," ");
+			kEL = lengthOf(knownExt);
+			chanLabels = newArray("\(red\)","\(green\)","\(blue\)");
+			unwantedSuffixes = newArray("_lzw"," ","  ", "__","--","_","-");
+			uSL = lengthOf(unwantedSuffixes);
+			for (i=0; i<kEL; i++) {
+				for (j=0; j<3; j++){ /* Looking for channel-label-trapped extensions */
+					ichanLabels = lastIndexOf(string, chanLabels[j]);
+					if(ichanLabels>0){
+						index = lastIndexOf(string, "." + knownExt[i]);
+						if (ichanLabels>index && index>0) string = "" + substring(string, 0, index) + "_" + chanLabels[j];
+						ichanLabels = lastIndexOf(string, chanLabels[j]);
+						for (k=0; k<uSL; k++){
+							index = lastIndexOf(string, unwantedSuffixes[k]);  /* common ASC suffix */
+							if (ichanLabels>index && index>0) string = "" + substring(string, 0, index) + "_" + chanLabels[j];	
+						}				
+					}
+				}
 				index = lastIndexOf(string, "." + knownExt[i]);
 				if (index>=(lengthOf(string)-(lengthOf(knownExt[i])+1)) && index>0) string = "" + substring(string, 0, index);
 			}
 		}
-		string = replace(string,"_lzw",""); /* cleanup previous suffix */
-		string = replace(string," ","_"); /* a personal preference */
-		string = replace(string,"__","_"); /* cleanup previous suffix */
-		string = replace(string,"--","-"); /* cleanup previous suffix */
+		unwantedSuffixes = newArray("_lzw"," ","  ", "__","--","_","-");
+		for (i=0; i<lengthOf(unwantedSuffixes); i++){
+			sL = lengthOf(string);
+			if (endsWith(string,unwantedSuffixes[i])) string = substring(string,0,sL-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
+		}
 		return string;
 	}
 	function unCleanLabel(string) {
@@ -708,7 +730,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ã…ngstrÃ¶m unit symbol */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */

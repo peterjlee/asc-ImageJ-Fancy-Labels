@@ -8,9 +8,11 @@
 	v200706 Just changed imageDepth variable name to match other macros.
 	v210630 Replaced unnecessary getAngle function
 	v211022 Updated color function choices
+	v211102 Added option to edit the label
+	v211103 Expanded expansion function
  */
 macro "Add Summary Table to Copy of Image"{
-	macroL = "Fancy_Summary_Table_v211022";
+	macroL = "Fancy_Summary_Table_v211103";
 	requires("1.47r");
 	saveSettings;
 	/* Set options for black objects on white background as this works better for publications */
@@ -82,13 +84,13 @@ macro "Add Summary Table to Copy of Image"{
 		Dialog.addChoice("Unit Label \(if needed\):", unitChoice, unitChoice[0]);
 		Dialog.addNumber("Outline stroke:", outlineStroke,0,3,"% of font size");
 		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
-		Dialog.addNumber("Shadow drop: Â±", shadowDrop,0,3,"% of font size");
-		Dialog.addNumber("Shadow displacement right: Â±", shadowDrop,0,3,"% of font size");
+		Dialog.addNumber("Shadow drop: ±", shadowDrop,0,3,"% of font size");
+		Dialog.addNumber("Shadow displacement right: ±", shadowDrop,0,3,"% of font size");
 		Dialog.addNumber("Shadow Gaussian blur:", floor(0.75 * shadowDrop),0,3,"% of font size");
 		Dialog.addNumber("Shadow Darkness:", 75,0,3,"%\(darkest = 100%\)");
 		Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay scale bar");
-		Dialog.addNumber("Inner shadow drop: Â±", dIShO,0,3,"% of font size");
-		Dialog.addNumber("Inner displacement right: Â±", dIShO,0,3,"% of font size");
+		Dialog.addNumber("Inner shadow drop: ±", dIShO,0,3,"% of font size");
+		Dialog.addNumber("Inner displacement right: ±", dIShO,0,3,"% of font size");
 		Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,3,"% of font size");
 		Dialog.addNumber("Inner Shadow Darkness:", 20,0,3,"% \(darkest = 100%\)");
 						
@@ -179,18 +181,20 @@ macro "Add Summary Table to Copy of Image"{
 		if (selEType>=0) paraLocChoice = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection", "At Selection"); 
 		else paraLocChoice = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection"); 
 		Dialog.addChoice("Location of Summary:", paraLocChoice, paraLocChoice[loc]);
+		Dialog.addString("Parameter label:",cleanLabel(paraLabel),lengthOf(paraLabel) + 10);
 		Dialog.addChoice("Parameter Label: " + paraLabel, newArray("Yes", "No"), "Yes");
 		Dialog.addNumber("Image Label Font size:", paraLabFontSize);			
-		statsChoice = newArray("None", "Dashed line:  ---", "Number of objects:  "+items,  "Mean:  "+arrayMeanLab, "Median:  "+arrayMedianLab, "StdDev:  "+arraySDLab, "CoeffVar:  "+coeffVarLab, "Min-Max:  "+arrayMinLab+"-"+arrayMaxLab, "Minimum:  "+arrayMinLab, "Maximum:  "+arrayMaxLab, "6 Underlines:  ___", "12 Underlines:  ___", "18 Underlines:  ___", "24 Underlines:  ___");
+		statsChoice = newArray("None", "No more labels", "Dashed line:  ---", "Number of objects:  "+items,  "Mean:  "+arrayMeanLab, "Median:  "+arrayMedianLab, "StdDev:  "+arraySDLab, "CoeffVar:  "+coeffVarLab, "Min-Max:  "+arrayMinLab+"-"+arrayMaxLab, "Minimum:  "+arrayMinLab, "Maximum:  "+arrayMaxLab, "6 Underlines:  ___", "12 Underlines:  ___", "18 Underlines:  ___", "24 Underlines:  ___");
 		statsChoiceLines = 8;
 		for (i=0; i<statsChoiceLines; i++)
-			Dialog.addChoice("Statistics Label Line "+(i+1)+":", statsChoice, statsChoice[i+1]);
+			Dialog.addChoice("Statistics Label Line "+(i+2)+":", statsChoice, statsChoice[i+2]);
 		dpChoice = newArray(dpLab, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8);
 		Dialog.addChoice("Change Decimal Places from "+dpLab, dpChoice, dpLab);
 		Dialog.addNumber("Statistics Label Font size:", statsLabFontSize);
 		Dialog.show();
 		
 		paraLabPos = Dialog.getChoice();
+		paraLabel = Dialog.getString();
 		paraLabChoice = Dialog.getChoice();
 		paraLabFontSize =  Dialog.getNumber();
 		statsLabLine = newArray(statsChoiceLines);
@@ -207,7 +211,8 @@ macro "Add Summary Table to Copy of Image"{
 	longestStringWidth = 0;
 	for (i=0; i<statsChoiceLines; i++) {
 		// if (statsLabLine[i]!="None") statsLines = statsLines + 1;
-		if (statsLabLine[i]!="None") {
+		if (statsLabLine[i]=="No more labels") i = statsChoiceLines;
+		else if (statsLabLine[i]!="None") {
 			statsLines = i + 1;
 			statsLabLine[i] = substring(statsLabLine[i], 0, indexOf(statsLabLine[i], ":  "));
 			if (statsLabLine[i]=="Dashed line") statsLabLineText[i] = "----------";
@@ -450,24 +455,35 @@ macro "Add Summary Table to Copy of Image"{
 		return dP;
 	}
 	function binaryCheck(windowTitle) { /* For black objects on a white background */
+		/* v180601 added choice to invert or not 
+		v180907 added choice to revert to the true LUT, changed border pixel check to array stats
+		v190725 Changed to make binary
+		Requires function: restoreExit
+		*/
 		selectWindow(windowTitle);
-		if (is("binary")==0) run("8-bit");
+		if (!is("binary")) run("8-bit");
 		/* Quick-n-dirty threshold if not previously thresholded */
 		getThreshold(t1,t2); 
 		if (t1==-1)  {
 			run("8-bit");
-			setThreshold(0, 128);
-			setOption("BlackBackground", true);
-			run("Convert to Mask");
-			run("Invert");
-			}
+			run("Auto Threshold", "method=Default");
+			setOption("BlackBackground", false);
+			run("Make Binary");
+		}
+		if (is("Inverting LUT"))  {
+			trueLUT = getBoolean("The LUT appears to be inverted, do you want the true LUT?", "Yes Please", "No Thanks");
+			if (trueLUT) run("Invert LUT");
+		}
 		/* Make sure black objects on white background for consistency */
-		if (((getPixel(0, 0))==0 || (getPixel(0, 1))==0 || (getPixel(1, 0))==0 || (getPixel(1, 1))==0))
-			run("Invert"); 
+		cornerPixels = newArray(getPixel(0, 0), getPixel(0, 1), getPixel(1, 0), getPixel(1, 1));
+		Array.getStatistics(cornerPixels, cornerMin, cornerMax, cornerMean, cornerStdDev);
+		if (cornerMax!=cornerMin) restoreExit("Problem with image border: Different pixel intensities at corners");
 		/*	Sometimes the outline procedure will leave a pixel border around the outside - this next step checks for this.
 			i.e. the corner 4 pixels should now be all black, if not, we have a "border issue". */
-		if (((getPixel(0, 0))+(getPixel(0, 1))+(getPixel(1, 0))+(getPixel(1, 1))) != 4*(getPixel(0, 0)) ) 
-				restoreExit("Border Issue"); 	
+		if (cornerMean==0) {
+			inversion = getBoolean("The background appears to have intensity zero, do you want the intensities inverted?", "Yes Please", "No Thanks");
+			if (inversion) run("Invert"); 
+		}
 	}
 	function checkForResults() {
 		nROIs = roiManager("count");
@@ -490,20 +506,29 @@ macro "Add Summary Table to Copy of Image"{
 		}
 	}
 	function cleanLabel(string) {
-		/* v161104 */
+		/*  ImageJ macro default file encoding (ANSI or UTF-8) varies with platform so non-ASCII characters may vary: hence the need to always use fromCharCode instead of special characters.
+		v180611 added "degreeC"
+		v200604	fromCharCode(0x207B) removed as superscript hyphen not working reliably	*/
 		string= replace(string, "\\^2", fromCharCode(178)); /* superscript 2 */
 		string= replace(string, "\\^3", fromCharCode(179)); /* superscript 3 UTF-16 (decimal) */
-		string= replace(string, "\\^-1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
-		string= replace(string, "\\^-2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
-		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
-		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
+		string= replace(string, "\\^-"+fromCharCode(185), "-" + fromCharCode(185)); /* superscript -1 */
+		string= replace(string, "\\^-"+fromCharCode(178), "-" + fromCharCode(178)); /* superscript -2 */
+		string= replace(string, "\\^-^1", "-" + fromCharCode(185)); /* superscript -1 */
+		string= replace(string, "\\^-^2", "-" + fromCharCode(178)); /* superscript -2 */
+		string= replace(string, "\\^-1", "-" + fromCharCode(185)); /* superscript -1 */
+		string= replace(string, "\\^-2", "-" + fromCharCode(178)); /* superscript -2 */
+		string= replace(string, "\\^-^1", "-" + fromCharCode(185)); /* superscript -1 */
+		string= replace(string, "\\^-^2", "-" + fromCharCode(178)); /* superscript -2 */
 		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micron units */
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ã…ngstrÃ¶m unit symbol */
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ångström unit symbol */
 		string= replace(string, "  ", " "); /* Replace double spaces with single spaces */
-		string= replace(string, "_", fromCharCode(0x2009)); /* Replace underlines with thin spaces */
+		string= replace(string, "_", " "); /* Replace underlines with space as thin spaces (fromCharCode(0x2009)) not working reliably  */
 		string= replace(string, "px", "pixels"); /* Expand pixel abbreviation */
-		string = replace(string, " " + fromCharCode(0x00B0), fromCharCode(0x00B0)); /* Remove space before degree symbol */
-		string= replace(string, " Â°", fromCharCode(0x2009)+"Â°"); /* Remove space before degree symbol */
+		string= replace(string, "degreeC", fromCharCode(0x00B0) + "C"); /* Degree symbol for dialog boxes */
+		string = replace(string, " " + fromCharCode(0x00B0), fromCharCode(0x2009) + fromCharCode(0x00B0)); /* Replace normal space before degree symbol with thin space */
+		string= replace(string, " °", fromCharCode(0x2009) + fromCharCode(0x00B0)); /* Replace normal space before degree symbol with thin space */
+		string= replace(string, "sigma", fromCharCode(0x03C3)); /* sigma for tight spaces */
+		string= replace(string, "±", fromCharCode(0x00B1)); /* plus or minus */
 		return string;
 	}
 	function closeImageByTitle(windowTitle) {  /* Cannot be used with tables */
@@ -517,21 +542,48 @@ macro "Add Summary Table to Copy of Image"{
 		}
 		if (isOpen(oIID)) selectImage(oIID);
 	}
-	function expandLabel(string) {  /* Expands abbreviations typically used for compact column titles */
+	function expandLabel(string) {  /* Expands abbreviations typically used for compact column titles
+		v200604	fromCharCode(0x207B) removed as superscript hyphen not working reliably
+		v211102-v211103  Some more fixes and updated to match latest extended geometries  */
 		string = replace(string, "Raw Int Den", "Raw Int. Density");
 		string = replace(string, "FeretAngle", "Feret Angle");
 		string = replace(string, "FiberThAnn", "Fiber Thckn. from Annulus");
 		string = replace(string, "FiberLAnn", "Fiber Length from Annulus");
 		string = replace(string, "FiberLR", "Fiber Length R");
+		string = replace(string, " Th ", " Thickness ");
+		string = replace(string, " Crl ", " Curl ");
+		string = replace(string, "Snk", "\(Snake\)");
+		string = replace(string, "Fbr", "Fiber");
+		string = replace(string, "Cir_to_El_Tilt", "Circle Tilt based on Ellipse");
+		string = replace(string, "AR_", "Aspect Ratio: ");
+		string = replace(string, "Rnd_", "Roundness: ");
+		string = replace(string, "Sqr_", "Square: ");
+		string = replace(string, "Squarity_AP","Squarity: from Area and Perimeter");
+		string = replace(string, "Squarity_AF","Squarity: from Area and Feret");
+		string = replace(string, "Squarity_Ff","Squarity: from Feret");
+		string = replace(string, "Rss1", "/(Russ Formula 1/)");
+		string = replace(string, "Rss1", "/(Russ Formula 2/)");
+		string = replace(string, "Rndnss", "Roundness");
+		string = replace(string, "_cAR", "\(Corrected by Aspect Ratio\)");
+		string = replace(string, "Da_Equiv","Diameter from Area \(Circular\)");
+		string = replace(string, "Dp_Equiv","Diameter from Perimeter \(Circular\)");	
+		string = replace(string, "Dsph_Equiv","Diameter from Feret \(Spherical\)");
+		string = replace(string, "Hxgn_", "Hexagon: ");
+		string = replace(string, "Perim", "Perimeter");
+		string = replace(string, "Perimetereter", "Perimeter"); /* just in case we already have a perimeter */
+		string = replace(string, "HSFR", "Hexagon Shape Factor Ratio");
+		string = replace(string, "HSF", "Hexagon Shape Factor");
+		string = replace(string, "Vol_", "Volume: ");
 		string = replace(string, "Da", "Diam:area");
 		string = replace(string, "Dp", "Diam:perim.");
 		string = replace(string, "equiv", "equiv.");
 		string = replace(string, "_", " ");
-		string = replace(string, "Â°", "degrees");
-		string = replace(string, "0-90", "0-90Â°"); /* An exception to the above */
-		string = replace(string, "Â°, degrees", "Â°"); /* That would be otherwise be too many degrees */
-		string = replace(string, fromCharCode(0x00C2), ""); /* Remove mystery Ã‚ */
-		string = replace(string, " ", fromCharCode(0x2009)); /* Use this last so all spaces converted */
+		string = replace(string, "°", "degrees");
+		string = replace(string, "0-90", "0-90°"); /* An exception to the above */
+		string = replace(string, "°, degrees", "°"); /* That would be otherwise be too many degrees */
+		string = replace(string, fromCharCode(0x00C2), ""); /* Remove mystery Â */
+		// string = replace(string, "^-", fromCharCode(0x207B)); /* Replace ^- with superscript - Not reliable though */
+		// string = replace(string, " ", fromCharCode(0x2009)); /* Use this last so all spaces converted */
 		return string;
 	}
   	function getFontChoiceList() {
@@ -558,20 +610,48 @@ macro "Add Summary Table to Copy of Image"{
 		fontNameChoice = Array.concat(faveFontListCheck,fontNameChoice);
 		return fontNameChoice;
 	}
-	function getSelectionFromMask(sel_M){
+	function getSelectionFromMask(selection_Mask){
 		batchMode = is("Batch Mode"); /* Store batch status mode before toggling */
-		if (!batchMode) setBatchMode(true); /* Toggle batch mode on if previously off */
+		if (!batchMode) setBatchMode(true); /* Toggle batch mode off */
 		tempTitle = getTitle();
-		selectWindow(sel_M);
+		selectWindow(selection_Mask);
 		run("Create Selection"); /* Selection inverted perhaps because the mask has an inverted LUT? */
 		run("Make Inverse");
 		selectWindow(tempTitle);
 		run("Restore Selection");
 		if (!batchMode) setBatchMode(false); /* Return to original batch mode setting */
 	}
-	function removeTrailingZerosAndPeriod(string) { /* Removes any trailing zeros after a period */
-		while (endsWith(string,".0")) string=substring(string,0, lastIndexOf(string, ".0"));
-		while(endsWith(string,".")) string=substring(string,0, lastIndexOf(string, "."));
+	function indexOfArray(array,string, default) {
+		/* v190423 Adds "default" parameter (use -1 for backwards compatibility). Returns only first instance of string */
+		index = default;
+		for (i=0; i<lengthOf(array); i++){
+			if (array[i]==string) {
+				index = i;
+				i = lengthOf(array);
+			}
+		}
+		return index;
+	}
+	function removeTrailingZerosAndPeriod(string) {
+	/* Removes any trailing zeros after a period
+	v210430 totally new version: Note: Requires remTZeroP function
+	Nested string functions require "" prefix
+	*/
+		lIP = lastIndexOf(string, ".");
+		if (lIP>=0) {
+			lIP = lengthOf(string) - lIP;
+			string = "" + remTZeroP(string,lIP);
+		}
+		return string;
+	}
+	function remTZeroP(string,iterations){
+		for (i=0; i<iterations; i++){
+			if (endsWith(string,"0"))
+				string = substring(string,0,lengthOf(string)-1);
+			else if (endsWith(string,"."))
+				string = substring(string,0,lengthOf(string)-1);
+			/* Must be "else if" because we only want one removal per iteration */
+		}
 		return string;
 	}
 	function restoreExit(message){ /* Make a clean exit from a macro, restoring previous settings */
@@ -595,15 +675,15 @@ macro "Add Summary Table to Copy of Image"{
 		else stringLabel = string;
 		return stringLabel;
 	}
-	function unCleanLabel(string) { 
-	/* v161104 This function replaces special characters with standard characters for file system compatible filenames */
-	/* mod 041117 to remove spaces as well */
+	function unCleanLabel(string) {
+	/* v161104 This function replaces special characters with standard characters for file system compatible filenames
+	+ 041117b to remove spaces as well */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ã…ngstrÃ¶m unit symbol */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */
@@ -613,25 +693,31 @@ macro "Add Summary Table to Copy of Image"{
 		return string;
 	}
 	function unitLabelFromString(string, imageUnit) {
-	if (endsWith(string,"\)")) { /* Label with units from string if enclosed by parentheses */
-		unitIndexStart = lastIndexOf(string, "\(");
-		unitIndexEnd = lastIndexOf(string, "\)");
-		stringUnit = substring(string, unitIndexStart+1, unitIndexEnd);
-		unitCheck = matches(stringUnit, ".*[0-9].*");
-		if (unitCheck==0) {  /* If the "unit" contains a number it probably isn't a unit */
-			unitLabel = stringUnit;
+	/* v180404 added Feret_MinDAngle_Offset
+		v210823 REQUIRES ASC function indexOfArray(array,string,default) for expanded "unitless" array
+		*/
+		if (endsWith(string,"\)")) { /* Label with units from string if enclosed by parentheses */
+			unitIndexStart = lastIndexOf(string, "\(");
+			unitIndexEnd = lastIndexOf(string, "\)");
+			stringUnit = substring(string, unitIndexStart+1, unitIndexEnd);
+			unitCheck = matches(stringUnit, ".*[0-9].*");
+			if (unitCheck==0) {  /* If the "unit" contains a number it probably isn't a unit */
+				unitLabel = stringUnit;
+			}
+			else {
+				unitLabel = "";
+			}
 		}
 		else {
-			unitLabel = "";
+			unitLess = newArray("Circ.","Slice","AR","Round","Solidity","Image_Name","PixelAR","ROI_name","ObjectN","AR_Box","AR_Feret","Rnd_Feret","Compact_Feret","Elongation","Thinnes_Ratio","Squarity_AP","Squarity_AF","Squarity_Ff","Convexity","Rndnss_cAR","Fbr_Snk_Crl","Fbr_Rss2_Crl","AR_Fbr_Snk","Extent","HSF","HSFR","Hexagonality");
+			angleUnits = newArray("Angle","FeretAngle","Cir_to_El_Tilt","Angle_0-90°","Angle_0-90","FeretAngle0to90","Feret_MinDAngle_Offset","MinDistAngle");
+			chooseUnits = newArray("Mean" ,"StdDev" ,"Mode" ,"Min" ,"Max" ,"IntDen" ,"Median" ,"RawIntDen" ,"Slice");
+			if (string=="Area") unitLabel = imageUnit + fromCharCode(178);
+			else if (indexOfArray(unitLess,string,-1)>=0) unitLabel = "None";
+			else if (indexOfArray(chooseUnits,string,-1)>=0) unitLabel = "";
+			else if (indexOfArray(angleUnits,string,-1)>=0) unitLabel = fromCharCode(0x00B0);
+			else if (string=="%Area") unitLabel = "%";
+			else unitLabel = imageUnit;
 		}
-	}
-	else {
-		if (string=="Area") unitLabel = imageUnit + fromCharCode(178);
-		else if (string=="AR" || string=="Circ" || string=="Round" || string=="Solidity") unitLabel = "";
-		else if (string=="Mean" || string=="StdDev" || string=="Mode" || string=="Min" || string=="Max" || string=="IntDen" || string=="Median" || string=="RawIntDen" || string=="Slice") unitLabel = "";
-		else if (string=="Angle" || string=="FeretAngle" || string=="Angle_0-90" || string=="FeretAngle_0-90") unitLabel = fromCharCode(0x00B0);
-		else if (string=="%Area") unitLabel = "%";
-		else unitLabel = imageUnit;
-	}
-	return unitLabel;
+		return unitLabel;
 	}

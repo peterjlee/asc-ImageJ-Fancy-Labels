@@ -12,7 +12,7 @@
 	v211103 Expanded expansion function
  */
 macro "Add Summary Table to Copy of Image"{
-	macroL = "Fancy_Summary_Table_v211103";
+	macroL = "Fancy_Summary_Table_v211103f1";
 	requires("1.47r");
 	saveSettings;
 	/* Set options for black objects on white background as this works better for publications */
@@ -676,20 +676,67 @@ macro "Add Summary Table to Copy of Image"{
 		return stringLabel;
 	}
 	function unCleanLabel(string) {
-	/* v161104 This function replaces special characters with standard characters for file system compatible filenames
-	+ 041117b to remove spaces as well */
+	/* v161104 This function replaces special characters with standard characters for file system compatible filenames.
+	+ 041117b to remove spaces as well.
+	+ v220126 added getInfo("micrometer.abbreviation").
+	+ v220128 add loops that allow removal of multiple duplication.
+	+ v220131 fixed so that suffix cleanup works even if extensions are included.
+	*/
+		/* Remove bad characters */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
+		string= replace(string, getInfo("micrometer.abbreviation"), "um"); /* micron units */
 		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
+		string= replace(string, "%", "pc"); /* % causes issues with html listing */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */
+		/* Remove duplicate strings */
+		unwantedDupes = newArray("8bit","lzw");
+		for (i=0; i<lengthOf(unwantedDupes); i++){
+			iLast = lastIndexOf(string,unwantedDupes[i]);
+			iFirst = indexOf(string,unwantedDupes[i]);
+			if (iFirst!=iLast) {
+				string = substring(string,0,iFirst) + substring(string,iFirst + lengthOf(unwantedDupes[i]));
+				i=-1; /* check again */
+			}
+		}
+		unwantedDbls = newArray("_-","-_","__","--","\\+\\+");
+		for (i=0; i<lengthOf(unwantedDbls); i++){
+			iFirst = indexOf(string,unwantedDbls[i]);
+			if (iFirst>=0) {
+				string = substring(string,0,iFirst) + substring(string,iFirst + lengthOf(unwantedDbls[i])/2);
+				i=-1; /* check again */
+			}
+		}
 		string= replace(string, "_\\+", "\\+"); /* Clean up autofilenames */
-		string= replace(string, "\\+\\+", "\\+"); /* Clean up autofilenames */
-		string= replace(string, "__", "_"); /* Clean up autofilenames */
+		/* cleanup suffixes */
+		unwantedSuffixes = newArray(" ","_","-","\\+"); /* things you don't wasn't to end a filename with */
+		extStart = lastIndexOf(string,".");
+		sL = lengthOf(string);
+		if (sL-extStart<=4) extIncl = true;
+		else extIncl = false;
+		if (extIncl){
+			preString = substring(string,0,extStart);
+			extString = substring(string,extStart);
+		}
+		else {
+			preString = string;
+			extString = "";
+		}
+		for (i=0; i<lengthOf(unwantedSuffixes); i++){
+			sL = lengthOf(preString);
+			if (endsWith(preString,unwantedSuffixes[i])) { 
+				preString = substring(preString,0,sL-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
+				i=-1; /* check one more time */
+			}
+		}
+		if (!endsWith(preString,"_lzw") && !endsWith(preString,"_lzw.")) preString = replace(preString, "_lzw", ""); /* Only want to keep this if it is at the end */
+		string = preString + extString;
+		/* End of suffix cleanup */
 		return string;
 	}
 	function unitLabelFromString(string, imageUnit) {

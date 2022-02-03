@@ -20,7 +20,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		v210628 Improved shadow and fixed text rotation issues. Split dialog into two dialogs to allow to remove menu tweaks that might not work in scalable GUIs
 		v211022 Updated color function choices
 	 */
-	macroL = "Fancy_Text_Labels_v211022";
+	macroL = "Fancy_Text_Labels_v211022f1";
 	requires("1.47r");
 	originalImage = getTitle();
 	if (matches(originalImage, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + originalImage + " ?"); 

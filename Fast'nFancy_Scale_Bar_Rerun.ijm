@@ -10,7 +10,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	v211025: Updated multiple functions
 	v211104: Updated stripKnownExtensionsFromString function    v211112: Again
 */
-	macroL = "Fast'nFancy_Scale_Bar_Rerun_v211112.ijm";
+	macroL = "Fast'nFancy_Scale_Bar_Rerun_v211112f1.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -579,7 +579,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 		return fontNameChoice;
 	}
 	function getScaleFactor(inputUnit){
-		/* v171024 */
+		/* v220126 added micrometer symbol */
 		if (inputUnit=="km") scaleFactor = 1E3;
 		else if (inputUnit=="m") scaleFactor = 1;
 		else if (inputUnit=="cm") scaleFactor = 1E-2;
@@ -587,6 +587,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 		else if (inputUnit=="um") scaleFactor = 1E-6;
 		else if (inputUnit==(fromCharCode(181)+"m")) scaleFactor = 1E-6;
 		else if (inputUnit=="µm") scaleFactor =  1E-6;
+		else if (inputUnit==getInfo("micrometer.abbreviation")) scaleFactor =  1E-6;
 		else if (inputUnit=="microns") scaleFactor =  1E-6; /* Preferred by Bio-Formats over µm but beware: Bio-Formats import of Ziess >1024 wide is incorrect */
 		else if (inputUnit=="nm") scaleFactor = 1E-9;
 		else if (inputUnit=="A") scaleFactor = 1E-10;
@@ -723,20 +724,67 @@ macro "Fast'nFancy Scale Bar Rerun" {
 		return string;
 	}
 	function unCleanLabel(string) {
-	/* v161104 This function replaces special characters with standard characters for file system compatible filenames
-	+ 041117b to remove spaces as well */
+	/* v161104 This function replaces special characters with standard characters for file system compatible filenames.
+	+ 041117b to remove spaces as well.
+	+ v220126 added getInfo("micrometer.abbreviation").
+	+ v220128 add loops that allow removal of multiple duplication.
+	+ v220131 fixed so that suffix cleanup works even if extensions are included.
+	*/
+		/* Remove bad characters */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
+		string= replace(string, getInfo("micrometer.abbreviation"), "um"); /* micron units */
 		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
+		string= replace(string, "%", "pc"); /* % causes issues with html listing */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */
+		/* Remove duplicate strings */
+		unwantedDupes = newArray("8bit","lzw");
+		for (i=0; i<lengthOf(unwantedDupes); i++){
+			iLast = lastIndexOf(string,unwantedDupes[i]);
+			iFirst = indexOf(string,unwantedDupes[i]);
+			if (iFirst!=iLast) {
+				string = substring(string,0,iFirst) + substring(string,iFirst + lengthOf(unwantedDupes[i]));
+				i=-1; /* check again */
+			}
+		}
+		unwantedDbls = newArray("_-","-_","__","--","\\+\\+");
+		for (i=0; i<lengthOf(unwantedDbls); i++){
+			iFirst = indexOf(string,unwantedDbls[i]);
+			if (iFirst>=0) {
+				string = substring(string,0,iFirst) + substring(string,iFirst + lengthOf(unwantedDbls[i])/2);
+				i=-1; /* check again */
+			}
+		}
 		string= replace(string, "_\\+", "\\+"); /* Clean up autofilenames */
-		string= replace(string, "\\+\\+", "\\+"); /* Clean up autofilenames */
-		string= replace(string, "__", "_"); /* Clean up autofilenames */
+		/* cleanup suffixes */
+		unwantedSuffixes = newArray(" ","_","-","\\+"); /* things you don't wasn't to end a filename with */
+		extStart = lastIndexOf(string,".");
+		sL = lengthOf(string);
+		if (sL-extStart<=4) extIncl = true;
+		else extIncl = false;
+		if (extIncl){
+			preString = substring(string,0,extStart);
+			extString = substring(string,extStart);
+		}
+		else {
+			preString = string;
+			extString = "";
+		}
+		for (i=0; i<lengthOf(unwantedSuffixes); i++){
+			sL = lengthOf(preString);
+			if (endsWith(preString,unwantedSuffixes[i])) { 
+				preString = substring(preString,0,sL-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
+				i=-1; /* check one more time */
+			}
+		}
+		if (!endsWith(preString,"_lzw") && !endsWith(preString,"_lzw.")) preString = replace(preString, "_lzw", ""); /* Only want to keep this if it is at the end */
+		string = preString + extString;
+		/* End of suffix cleanup */
 		return string;
 	}
 	function writeLabel7(font, size, color, text,x,y,aA){

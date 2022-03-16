@@ -12,9 +12,9 @@ macro "Add Slice Label to Each Slice" {
 		+ v200707 Changed imageDepth variable name added macro label.
 		+ v210316-v210325 Changed toChar function so shortcuts (i.e. "pi") only converted to symbols if followed by a space.
 		+ v210503 Split menu options so that auto-generation menu is simpler
-		+ v211022 Updated color choices
+		+ v211022 Updated color choices  v220310-11 Added warning if some slices had no label (TIF-lzw does not store labels).
 	 */
-	macroL = "Fancy_Slice_Labels_v211022f1";
+	macroL = "Fancy_Slice_Labels_v220311";
 	requires("1.47r");
 	saveSettings;
 	if (selectionType>=0) {
@@ -44,11 +44,12 @@ macro "Add Slice Label to Each Slice" {
 	maxLabelString = imageHeight/10; /* Assumes a minimum font size of 10 */
 	startSliceNumber = getSliceNumber();
 	remSlices = slices-startSliceNumber;
-	allSliceLabels = newArray(slices);
-	for (i=0; i<slices; i++) {
+	allSliceLabels = newArray();
+	for (i=0,emptyLabelN=0; i<slices; i++) {
 		setSlice(i+1);
 		allSliceLabels[i] = getInfo("slice.label");
-		if (lengthOf(allSliceLabels[i]) > maxLabelString) maxLabelString = lengthOf(allSliceLabels[i]);
+		if(allSliceLabels[i]=="") emptyLabelN++;
+		else if (lengthOf(allSliceLabels[i]) > maxLabelString) maxLabelString = lengthOf(allSliceLabels[i]);
 	}
 	setSlice(startSliceNumber);
 	imageDims = imageHeight + imageWidth;
@@ -84,8 +85,8 @@ macro "Add Slice Label to Each Slice" {
 	offsetX = round(1 + imageWidth/150); /* default offset of label from edge */
 	offsetY = round(1 + imageHeight/150); /* default offset of label from edge */
 	/* Then Dialog . . . */
-	Dialog.create("Label Format and Edit Options: ");
-		Dialog.addMessage("Macro: " +  macroL);
+	Dialog.create("Label Format and Edit Options: " +  macroL);
+		if(emptyLabelN>0) Dialog.addMessage("Warning: " + emptyLabelN + " slices had no label",12,"red");
 		if (selectionExists==1) {
 			textLocChoices = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection", "Center of Selection"); 
 			loc = 6;
@@ -112,7 +113,7 @@ macro "Add Slice Label to Each Slice" {
 		}
 		Dialog.addNumber("Font size:", fontSize);
 		if (imageDepth==24)
-			colorChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "cyan", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "radical_red", "wild_watermelon", "outrageous_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
+			colorChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "cyan", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "radical_red", "wild_watermelon", "outrageous_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
 		else colorChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		Dialog.addChoice("Text color:", colorChoices, colorChoices[0]);
 		fontStyleChoices = newArray("bold", "bold antialiased", "italic", "italic antialiased", "bold italic", "bold italic antialiased", "unstyled");
@@ -122,7 +123,9 @@ macro "Add Slice Label to Each Slice" {
 		Dialog.addChoice("Outline (background) color:", colorChoices, "black");
 		Dialog.addCheckbox("Tweak the Formatting? ", false);
 		Dialog.addCheckbox("Destructive overwrite \(ignored if only renaming slices\)? ", false);
-		Dialog.addCheckbox("Auto-generate all labels as a sequence only?", true);
+		if(emptyLabelN==0) Dialog.addCheckbox("Auto-generate all labels as a sequence only? Existing labels will not be used", false);
+		else if(emptyLabelN==slices) Dialog.addCheckbox("Auto-generate all labels as a sequence only?", true);
+		else Dialog.addCheckbox("Auto-generate all labels as a sequence only \(no editing options given\)?", false);
 	Dialog.show();	
 	textLocChoice = Dialog.getChoice();
 	if (selectionExists==1) {
@@ -492,36 +495,225 @@ macro "Add Slice Label to Each Slice" {
 	showStatus("Fancy Text Labels Finished");
 	call("java.lang.System.gc"); 
 }
-	/* 
-	( 8(|)   ( 8(|)  Functions  ( 8(|)  ( 8(|)
+	/*
+		( 8(|)	( 8(|)	All ASC Functions	@@@@@:-)	@@@@@:-)
 	*/
 	function cleanLabel(string) {
+		/*  ImageJ macro default file encoding (ANSI or UTF-8) varies with platform so non-ASCII characters may vary: hence the need to always use fromCharCode instead of special characters.
+		v180611 added "degreeC"
+		v200604	fromCharCode(0x207B) removed as superscript hyphen not working reliably	*/
 		string= replace(string, "\\^2", fromCharCode(178)); /* superscript 2 */
 		string= replace(string, "\\^3", fromCharCode(179)); /* superscript 3 UTF-16 (decimal) */
-		string= replace(string, "\\^-1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
-		string= replace(string, "\\^-2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
-		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
-		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
+		string= replace(string, "\\^-"+fromCharCode(185), "-" + fromCharCode(185)); /* superscript -1 */
+		string= replace(string, "\\^-"+fromCharCode(178), "-" + fromCharCode(178)); /* superscript -2 */
+		string= replace(string, "\\^-^1", "-" + fromCharCode(185)); /* superscript -1 */
+		string= replace(string, "\\^-^2", "-" + fromCharCode(178)); /* superscript -2 */
+		string= replace(string, "\\^-1", "-" + fromCharCode(185)); /* superscript -1 */
+		string= replace(string, "\\^-2", "-" + fromCharCode(178)); /* superscript -2 */
+		string= replace(string, "\\^-^1", "-" + fromCharCode(185)); /* superscript -1 */
+		string= replace(string, "\\^-^2", "-" + fromCharCode(178)); /* superscript -2 */
 		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micron units */
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ångström unit symbol */ 
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ångström unit symbol */
 		string= replace(string, "  ", " "); /* Replace double spaces with single spaces */
-		string= replace(string, "_", fromCharCode(0x2009)); /* Replace underlines with thin spaces */
+		string= replace(string, "_", " "); /* Replace underlines with space as thin spaces (fromCharCode(0x2009)) not working reliably  */
 		string= replace(string, "px", "pixels"); /* Expand pixel abbreviation */
+		string= replace(string, "degreeC", fromCharCode(0x00B0) + "C"); /* Degree symbol for dialog boxes */
+		string = replace(string, " " + fromCharCode(0x00B0), fromCharCode(0x2009) + fromCharCode(0x00B0)); /* Replace normal space before degree symbol with thin space */
+		string= replace(string, " °", fromCharCode(0x2009) + fromCharCode(0x00B0)); /* Replace normal space before degree symbol with thin space */
 		string= replace(string, "sigma", fromCharCode(0x03C3)); /* sigma for tight spaces */
+		string= replace(string, "±", fromCharCode(0x00B1)); /* plus or minus */
 		return string;
 	}
 	function closeImageByTitle(windowTitle) {  /* Cannot be used with tables */
-		/* v181002 reselects original image at end if open */
+		/* v181002 reselects original image at end if open
+		   v200925 uses "while" instead of if so it can also remove duplicates
+		*/
 		oIID = getImageID();
-        if (isOpen(windowTitle)) {
+        while (isOpen(windowTitle)) {
 			selectWindow(windowTitle);
 			close();
 		}
 		if (isOpen(oIID)) selectImage(oIID);
 	}
+
+	function createInnerShadowFromMask6(mask,iShadowDrop, iShadowDisp, iShadowBlur, iShadowDarkness) {
+		/* Requires previous run of: imageDepth = bitDepth();
+		because this version works with different bitDepths
+		v161115 calls four variables: drop, displacement blur and darkness
+		v180627 and calls mask label */
+		showStatus("Creating inner shadow for labels . . . ");
+		newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
+		getSelectionFromMask(mask);
+		setBackgroundColor(0,0,0);
+		run("Clear Outside");
+		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+		setSelectionLocation(selMaskX-iShadowDisp, selMaskY-iShadowDrop);
+		setBackgroundColor(0,0,0);
+		run("Clear Outside");
+		getSelectionFromMask(mask);
+		expansion = abs(iShadowDisp) + abs(iShadowDrop) + abs(iShadowBlur);
+		if (expansion>0) run("Enlarge...", "enlarge=&expansion pixel");
+		if (iShadowBlur>0) run("Gaussian Blur...", "sigma=&iShadowBlur");
+		run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen the effect for small font sizes */
+		imageCalculator("Max", "inner_shadow",mask);
+		run("Select None");
+		/* The following are needed for different bit depths */
+		if (imageDepth==16 || imageDepth==32) run(imageDepth + "-bit");
+		run("Enhance Contrast...", "saturated=0 normalize");
+		run("Invert");  /* Create an image that can be subtracted - this works better for color than Min */
+		divider = (100 / abs(iShadowDarkness));
+		run("Divide...", "value=&divider");
+	}
+	function createShadowDropFromMask7(mask, oShadowDrop, oShadowDisp, oShadowBlur, oShadowDarkness, oStroke) {
+		/* Requires previous run of: imageDepth = bitDepth();
+		because this version works with different bitDepths
+		v161115 calls five variables: drop, displacement blur and darkness
+		v180627 adds mask label to variables	*/
+		showStatus("Creating drop shadow for labels . . . ");
+		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
+		getSelectionFromMask(mask);
+		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
+		setSelectionLocation(selMaskX + oShadowDisp, selMaskY + oShadowDrop);
+		setBackgroundColor(255,255,255);
+		if (oStroke>0) run("Enlarge...", "enlarge=&oStroke pixel"); /* Adjust shadow size so that shadow extends beyond stroke thickness */
+		run("Clear");
+		run("Select None");
+		if (oShadowBlur>0) {
+			run("Gaussian Blur...", "sigma=&oShadowBlur");
+			run("Unsharp Mask...", "radius=&oShadowBlur mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
+		}
+		/* Now make sure shadow or glow does not impact outline */
+		getSelectionFromMask(mask);
+		if (oStroke>0) run("Enlarge...", "enlarge=&oStroke pixel");
+		setBackgroundColor(0,0,0);
+		run("Clear");
+		run("Select None");
+		/* The following are needed for different bit depths */
+		if (imageDepth==16 || imageDepth==32) run(imageDepth + "-bit");
+		run("Enhance Contrast...", "saturated=0 normalize");
+		divider = (100 / abs(oShadowDarkness));
+		run("Divide...", "value=&divider");
+	}
+	function getSelectionFromMask(selection_Mask){
+		batchMode = is("Batch Mode"); /* Store batch status mode before toggling */
+		if (!batchMode) setBatchMode(true); /* Toggle batch mode off */
+		tempTitle = getTitle();
+		selectWindow(selection_Mask);
+		run("Create Selection"); /* Selection inverted perhaps because the mask has an inverted LUT? */
+		run("Make Inverse");
+		selectWindow(tempTitle);
+		run("Restore Selection");
+		if (!batchMode) setBatchMode(false); /* Return to original batch mode setting */
+	}
+	function getColorArrayFromColorName(colorName) {
+		/* v180828 added Fluorescent Colors
+		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
+		   v191211 added Cyan
+		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference
+		*/
+		if (colorName == "white") cA = newArray(255,255,255);
+		else if (colorName == "black") cA = newArray(0,0,0);
+		else if (colorName == "off-white") cA = newArray(245,245,245);
+		else if (colorName == "off-black") cA = newArray(10,10,10);
+		else if (colorName == "light_gray") cA = newArray(200,200,200);
+		else if (colorName == "gray") cA = newArray(127,127,127);
+		else if (colorName == "dark_gray") cA = newArray(51,51,51);
+		else if (colorName == "off-black") cA = newArray(10,10,10);
+		else if (colorName == "light_gray") cA = newArray(200,200,200);
+		else if (colorName == "gray") cA = newArray(127,127,127);
+		else if (colorName == "dark_gray") cA = newArray(51,51,51);
+		else if (colorName == "red") cA = newArray(255,0,0);
+		else if (colorName == "pink") cA = newArray(255, 192, 203);
+		else if (colorName == "green") cA = newArray(0,255,0); /* #00FF00 AKA Lime green */
+		else if (colorName == "blue") cA = newArray(0,0,255);
+		else if (colorName == "yellow") cA = newArray(255,255,0);
+		else if (colorName == "orange") cA = newArray(255, 165, 0);
+		else if (colorName == "cyan") cA = newArray(0, 255, 255);
+		else if (colorName == "garnet") cA = newArray(120,47,64); /*782F40 */
+		else if (colorName == "gold") cA = newArray(206,184,136);
+		else if (colorName == "aqua_modern") cA = newArray(75,172,198); /* #4bacc6 AKA "Viking" aqua */
+		else if (colorName == "blue_accent_modern") cA = newArray(79,129,189); /* #4f81bd */
+		else if (colorName == "blue_dark_modern") cA = newArray(31,73,125); /* #1F497D */
+		else if (colorName == "blue_modern") cA = newArray(58,93,174); /* #3a5dae */
+		else if (colorName == "blue_honolulu") cA = newArray(0,118,182); /* Honolulu Blue #30076B6 */
+		else if (colorName == "gray_modern") cA = newArray(83,86,90); /* bright gray #53565A */
+		else if (colorName == "green_dark_modern") cA = newArray(121,133,65); /* Wasabi #798541 */
+		else if (colorName == "green_modern") cA = newArray(155,187,89); /* #9bbb59 AKA "Chelsea Cucumber" */
+		else if (colorName == "green_modern_accent") cA = newArray(214,228,187); /* #D6E4BB AKA "Gin" */
+		else if (colorName == "green_spring_accent") cA = newArray(0,255,102); /* #00FF66 AKA "Spring Green" */
+		else if (colorName == "orange_modern") cA = newArray(247,150,70); /* #f79646 tan hide, light orange */
+		else if (colorName == "pink_modern") cA = newArray(255,105,180); /* hot pink #ff69b4 */
+		else if (colorName == "purple_modern") cA = newArray(128,100,162); /* blue-magenta, purple paradise #8064A2 */
+		else if (colorName == "jazzberry_jam") cA = newArray(165,11,94);
+		else if (colorName == "red_n_modern") cA = newArray(227,24,55);
+		else if (colorName == "red_modern") cA = newArray(192,80,77);
+		else if (colorName == "tan_modern") cA = newArray(238,236,225);
+		else if (colorName == "violet_modern") cA = newArray(76,65,132);
+		else if (colorName == "yellow_modern") cA = newArray(247,238,69);
+		/* Fluorescent Colors https://www.w3schools.com/colors/colors_crayola.asp */
+		else if (colorName == "radical_red") cA = newArray(255,53,94);			/* #FF355E */
+		else if (colorName == "wild_watermelon") cA = newArray(253,91,120);		/* #FD5B78 */
+		else if (colorName == "outrageous_orange") cA = newArray(255,96,55);	/* #FF6037 */
+		else if (colorName == "supernova_orange") cA = newArray(255,191,63);	/* FFBF3F Supernova Neon Orange*/
+		else if (colorName == "atomic_tangerine") cA = newArray(255,153,102);	/* #FF9966 */
+		else if (colorName == "neon_carrot") cA = newArray(255,153,51);			/* #FF9933 */
+		else if (colorName == "sunglow") cA = newArray(255,204,51); 			/* #FFCC33 */
+		else if (colorName == "laser_lemon") cA = newArray(255,255,102); 		/* #FFFF66 "Unmellow Yellow" */
+		else if (colorName == "electric_lime") cA = newArray(204,255,0); 		/* #CCFF00 */
+		else if (colorName == "screamin'_green") cA = newArray(102,255,102); 	/* #66FF66 */
+		else if (colorName == "magic_mint") cA = newArray(170,240,209); 		/* #AAF0D1 */
+		else if (colorName == "blizzard_blue") cA = newArray(80,191,230); 		/* #50BFE6 Malibu */
+		else if (colorName == "dodger_blue") cA = newArray(9,159,255);			/* #099FFF Dodger Neon Blue */
+		else if (colorName == "shocking_pink") cA = newArray(255,110,255);		/* #FF6EFF Ultra Pink */
+		else if (colorName == "razzle_dazzle_rose") cA = newArray(238,52,210); 	/* #EE34D2 */
+		else if (colorName == "hot_magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
+		else restoreExit("No color match to " + colorName);
+		return cA;
+	}
+	function getHexColorFromRGBArray(colorNameString) {
+		colorArray = getColorArrayFromColorName(colorNameString);
+		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);
+		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);
+		 return hexName;
+	}
+	function setColorFromColorName(colorName) {
+		colorArray = getColorArrayFromColorName(colorName);
+		setColor(colorArray[0], colorArray[1], colorArray[2]);
+	}
+	function setBackgroundFromColorName(colorName) {
+		colorArray = getColorArrayFromColorName(colorName);
+		setBackgroundColor(colorArray[0], colorArray[1], colorArray[2]);
+	}
+	function pad(n) {
+		n= toString(n); if (lengthOf(n)==1) n= "0"+n; return n;
+	}
+  	function getFontChoiceList() {
+		/*	v180723 first version
+			v180828 Changed order of favorites
+			v190108 Longer list of favorites
+		*/
+		systemFonts = getFontList();
+		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
+		fontNameChoice = Array.concat(IJFonts,systemFonts);
+		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Noto Sans Black", "Arial Black", "Montserrat Black", "Lato Black", "Roboto Black", "Merriweather Black", "Alegreya Black", "Tahoma Bold", "Calibri Bold", "Helvetica", "SansSerif", "Calibri", "Roboto", "Tahoma", "Times New Roman Bold", "Times Bold", "Serif");
+		faveFontListCheck = newArray(faveFontList.length);
+		counter = 0;
+		for (i=0; i<faveFontList.length; i++) {
+			for (j=0; j<fontNameChoice.length; j++) {
+				if (faveFontList[i] == fontNameChoice[j]) {
+					faveFontListCheck[counter] = faveFontList[i];
+					counter +=1;
+					j = fontNameChoice.length;
+				}
+			}
+		}
+		faveFontListCheck = Array.trim(faveFontListCheck, counter);
+		fontNameChoice = Array.concat(faveFontListCheck,fontNameChoice);
+		return fontNameChoice;
+	}
 	function toChar(string) {
 		/* v180612 first version
-			v1v180627 Expanded
+			v1v180627 Expanded, v200428 removed "symbol" prefi
 			v210316 only replaces text if followed by a space, fixes "pi" in pixel etc.  */
 		string= replace(string,"Angstrom ", fromCharCode(0x212B)+" "); /* ANGSTROM SIGN */
 		string= replace(string,"alpha ", fromCharCode(0x03B1)+" ");
@@ -583,176 +775,6 @@ macro "Add Slice Label to Each Slice" {
 		string= replace(string, "arrow-left ", fromCharCode(0x21E6)+" "); /* 'LEFTWARDS WHITE ARROW */
 		string= replace(string, "arrow-right ", fromCharCode(0x21E8)+" "); /* 'RIGHTWARDS WHITE ARROW */
 		return string;
-	}
-	function createInnerShadowFromMask6(mask,iShadowDrop, iShadowDisp, iShadowBlur, iShadowDarkness) {
-		/* Requires previous run of: imageDepth = bitDepth();
-		because this version works with different bitDepths
-		v161115 calls four variables: drop, displacement blur and darkness
-		v180627 and calls mask label */
-		showStatus("Creating inner shadow for labels . . . ");
-		newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
-		getSelectionFromMask(mask);
-		setBackgroundColor(0,0,0);
-		run("Clear Outside");
-		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-		setSelectionLocation(selMaskX-iShadowDisp, selMaskY-iShadowDrop);
-		setBackgroundColor(0,0,0);
-		run("Clear Outside");
-		getSelectionFromMask(mask);
-		expansion = abs(iShadowDisp) + abs(iShadowDrop) + abs(iShadowBlur);
-		if (expansion>0) run("Enlarge...", "enlarge=&expansion pixel");
-		if (iShadowBlur>0) run("Gaussian Blur...", "sigma=&iShadowBlur");
-		run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen the effect for small font sizes */
-		imageCalculator("Max", "inner_shadow",mask);
-		run("Select None");
-		/* The following are needed for different bit depths */
-		if (imageDepth==16 || imageDepth==32) run(imageDepth + "-bit");
-		run("Enhance Contrast...", "saturated=0 normalize");
-		run("Invert");  /* Create an image that can be subtracted - this works better for color than Min */
-		divider = (100 / abs(iShadowDarkness));
-		run("Divide...", "value=&divider");
-	}
-	function createShadowDropFromMask7(mask, oShadowDrop, oShadowDisp, oShadowBlur, oShadowDarkness, oStroke) {
-		/* Requires previous run of: imageDepth = bitDepth();
-		because this version works with different bitDepths
-		v161115 calls five variables: drop, displacement blur and darkness
-		v180627 adds mask label to variables	*/
-		showStatus("Creating drop shadow for labels . . . ");
-		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
-		getSelectionFromMask(mask);
-		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-		setSelectionLocation(selMaskX + oShadowDisp, selMaskY + oShadowDrop);
-		setBackgroundColor(255,255,255);
-		if (oStroke>0) run("Enlarge...", "enlarge=&oStroke pixel"); /* Adjust shadow size so that shadow extends beyond stroke thickness */
-		run("Clear");
-		run("Select None");
-		if (oShadowBlur>0) {
-			run("Gaussian Blur...", "sigma=&oShadowBlur");
-			run("Unsharp Mask...", "radius=&oShadowBlur mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
-		}
-		/* Now make sure shadow or glow does not impact outline */
-		getSelectionFromMask(mask);
-		if (oStroke>0) run("Enlarge...", "enlarge=&oStroke pixel");
-		setBackgroundColor(0,0,0);
-		run("Clear");
-		run("Select None");
-		/* The following are needed for different bit depths */
-		if (imageDepth==16 || imageDepth==32) run(imageDepth + "-bit");
-		run("Enhance Contrast...", "saturated=0 normalize");
-		divider = (100 / abs(oShadowDarkness));
-		run("Divide...", "value=&divider");
-	}
-	function getSelectionFromMask(selection_Mask){
-		tempTitle = getTitle();
-		selectWindow(selection_Mask);
-		run("Create Selection"); /* Selection inverted perhaps because the mask has an inverted LUT? */
-		run("Make Inverse");
-		selectWindow(tempTitle);
-		run("Restore Selection");
-	}
-	function getColorArrayFromColorName(colorName) {
-		/* v180828 added Fluorescent Colors
-		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
-		   v191211 added Cyan
-		   v211022 all names lower-case, all spaces to underscores
-		*/
-		if (colorName == "white") cA = newArray(255,255,255);
-		else if (colorName == "black") cA = newArray(0,0,0);
-		else if (colorName == "off-white") cA = newArray(245,245,245);
-		else if (colorName == "off-black") cA = newArray(10,10,10);
-		else if (colorName == "light_gray") cA = newArray(200,200,200);
-		else if (colorName == "gray") cA = newArray(127,127,127);
-		else if (colorName == "dark_gray") cA = newArray(51,51,51);
-		else if (colorName == "off-black") cA = newArray(10,10,10);
-		else if (colorName == "light_gray") cA = newArray(200,200,200);
-		else if (colorName == "gray") cA = newArray(127,127,127);
-		else if (colorName == "dark_gray") cA = newArray(51,51,51);
-		else if (colorName == "red") cA = newArray(255,0,0);
-		else if (colorName == "pink") cA = newArray(255, 192, 203);
-		else if (colorName == "green") cA = newArray(0,255,0); /* #00FF00 AKA Lime green */
-		else if (colorName == "blue") cA = newArray(0,0,255);
-		else if (colorName == "yellow") cA = newArray(255,255,0);
-		else if (colorName == "orange") cA = newArray(255, 165, 0);
-		else if (colorName == "cyan") cA = newArray(0, 255, 255);
-		else if (colorName == "garnet") cA = newArray(120,47,64);
-		else if (colorName == "gold") cA = newArray(206,184,136);
-		else if (colorName == "aqua_modern") cA = newArray(75,172,198); /* #4bacc6 AKA "Viking" aqua */
-		else if (colorName == "blue_accent_modern") cA = newArray(79,129,189); /* #4f81bd */
-		else if (colorName == "blue_dark_modern") cA = newArray(31,73,125);
-		else if (colorName == "blue_modern") cA = newArray(58,93,174); /* #3a5dae */
-		else if (colorName == "gray_modern") cA = newArray(83,86,90);
-		else if (colorName == "green_dark_modern") cA = newArray(121,133,65);
-		else if (colorName == "green_modern") cA = newArray(155,187,89); /* #9bbb59 AKA "Chelsea Cucumber" */
-		else if (colorName == "green_modern_accent") cA = newArray(214,228,187); /* #D6E4BB AKA "Gin" */
-		else if (colorName == "green_spring_accent") cA = newArray(0,255,102); /* #00FF66 AKA "Spring Green" */
-		else if (colorName == "orange_modern") cA = newArray(247,150,70);
-		else if (colorName == "pink_modern") cA = newArray(255,105,180);
-		else if (colorName == "purple_modern") cA = newArray(128,100,162);
-		else if (colorName == "jazzberry_jam") cA = newArray(165,11,94);
-		else if (colorName == "red_n_modern") cA = newArray(227,24,55);
-		else if (colorName == "red_modern") cA = newArray(192,80,77);
-		else if (colorName == "tan_modern") cA = newArray(238,236,225);
-		else if (colorName == "violet_modern") cA = newArray(76,65,132);
-		else if (colorName == "yellow_modern") cA = newArray(247,238,69);
-		/* Fluorescent Colors https://www.w3schools.com/colors/colors_crayola.asp */
-		else if (colorName == "radical_red") cA = newArray(255,53,94);			/* #FF355E */
-		else if (colorName == "wild_watermelon") cA = newArray(253,91,120);		/* #FD5B78 */
-		else if (colorName == "outrageous_orange") cA = newArray(255,96,55);	/* #FF6037 */
-		else if (colorName == "supernova_orange") cA = newArray(255,191,63);	/* FFBF3F Supernova Neon Orange*/
-		else if (colorName == "atomic_tangerine") cA = newArray(255,153,102);	/* #FF9966 */
-		else if (colorName == "neon_carrot") cA = newArray(255,153,51);			/* #FF9933 */
-		else if (colorName == "sunglow") cA = newArray(255,204,51); 			/* #FFCC33 */
-		else if (colorName == "laser_lemon") cA = newArray(255,255,102); 		/* #FFFF66 "Unmellow Yellow" */
-		else if (colorName == "electric_lime") cA = newArray(204,255,0); 		/* #CCFF00 */
-		else if (colorName == "screamin'_green") cA = newArray(102,255,102); 	/* #66FF66 */
-		else if (colorName == "magic_mint") cA = newArray(170,240,209); 		/* #AAF0D1 */
-		else if (colorName == "blizzard_blue") cA = newArray(80,191,230); 		/* #50BFE6 Malibu */
-		else if (colorName == "dodger_blue") cA = newArray(9,159,255);			/* #099FFF Dodger Neon Blue */
-		else if (colorName == "shocking_pink") cA = newArray(255,110,255);		/* #FF6EFF Ultra Pink */
-		else if (colorName == "razzle_dazzle_rose") cA = newArray(238,52,210); 	/* #EE34D2 */
-		else if (colorName == "hot_magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
-		else restoreExit("No color match to " + colorName);
-		return cA;
-	}
-	function getHexColorFromRGBArray(colorNameString) {
-		colorArray = getColorArrayFromColorName(colorNameString);
-		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);
-		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);
-		 return hexName;
-	}
-	function setColorFromColorName(colorName) {
-		colorArray = getColorArrayFromColorName(colorName);
-		setColor(colorArray[0], colorArray[1], colorArray[2]);
-	}
-	function setBackgroundFromColorName(colorName) {
-		colorArray = getColorArrayFromColorName(colorName);
-		setBackgroundColor(colorArray[0], colorArray[1], colorArray[2]);
-	}
-	function pad(n) {
-		n= toString(n); if (lengthOf(n)==1) n= "0"+n; return n;
-	}
-  	function getFontChoiceList() {
-		/*	v180723 first version
-			v180828 Changed order of favorites
-		*/
-		systemFonts = getFontList();
-		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
-		fontNameChoice = Array.concat(IJFonts,systemFonts);
-		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Fira Sans Ultra", "Fira Sans Condensed Ultra", "Arial Black", "Myriad Pro Black", "Montserrat Black", "Olympia-Extra Bold", "SansSerif", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Times New Roman", "Times", "Helvetica");
-		faveFontListCheck = newArray(faveFontList.length);
-		counter = 0;
-		for (i=0; i<faveFontList.length; i++) {
-			for (j=0; j<fontNameChoice.length; j++) {
-				if (faveFontList[i] == fontNameChoice[j]) {
-					faveFontListCheck[counter] = faveFontList[i];
-					counter +=1;
-					j = fontNameChoice.length;
-				}
-			}
-		}
-		faveFontListCheck = Array.trim(faveFontListCheck, counter);
-		fontNameChoice = Array.concat(faveFontListCheck,fontNameChoice);
-		return fontNameChoice;
 	}
 	function unCleanLabel(string) {
 	/* v161104 This function replaces special characters with standard characters for file system compatible filenames.

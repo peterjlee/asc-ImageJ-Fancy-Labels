@@ -1,9 +1,11 @@
 macro "Fancy Scale Bar" {
 /* Original code by Wayne Rasband, improved by Frank Sprenger and deposited on the ImageJ mailing server: (http:imagej.588099.n2.nabble.com/Overlay-Scalebar-Plugins-td6380378.html#a6394996). KS added choice of font size, scale bar height, + any position for scale bar and some options that allow to set the image calibration (only for overlay, not in Meta data). Kees Straatman, CBS, University of Leicester, May 2011
-Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects.
-v211203: Simple format is now an option in all cases.
+	Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects.
+	v211203: Simple format is now an option in all cases.
+	v220304: Simple format now uses chosen colors for more flexibility.
+	v220510: Checks to make sure default text color is not the same as the background for simple format
 */
-	macroL = "Fancy_Scale_Bar_v211203f2.ijm";
+	macroL = "Fancy_Scale_Bar_v220510.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -20,18 +22,11 @@ v211203: Simple format is now an option in all cases.
 	checkForUnits();
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
 	overlayN = Overlay.size;
-	/* Simple text looks better for images with very dark or very light backgrounds (outlines and shadows do not add useful contrast) */
-	sTextC = "white";
-	sTextCInv = "black";
 	bgI = maxOf(0,guessBGMedianIntensity());
 	if (imageDepth==8 || imageDepth==24) bgIpc = round(bgI*100/255);
 	else if (imageDepth==16) bgIpc = round(bgI*100/65536);
 	if (bgIpc<3 || bgIpc>97) sText = true;
 	else sText = false;
-	if (bgIpc>50){
-		sTextC = "black";
-		sTextCInv = "white";
-	}
 	/* End simple text default options */
 	startSliceNumber = getSliceNumber();
 	remSlices = slices-startSliceNumber;
@@ -111,13 +106,31 @@ v211203: Simple format is now an option in all cases.
 			Dialog.addChoice("Override unit with new choice?", newUnit, newUnit[0]);
 		}
 		Dialog.addNumber("Font size \(\"FS\"\):", sbFontSize, 0, 4,"");
-		Dialog.addNumber("Thickness of " + modeStr + " :",19,0,3,"% of font size");										 
-		colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "cyan", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "radical_red", "wild_watermelon", "outrageous_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
+		Dialog.addNumber("Thickness of " + modeStr + " :",19,0,3,"% of font size");						 
+		colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "cyan", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "radical_red", "wild_watermelon", "outrageous_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
 		grayChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		iTC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.scale.font.color",colorChoice[0]),0);
 		iBC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.scale.outline.color",colorChoice[1]),1);
 		iTCg = indexOfArray(grayChoice, call("ij.Prefs.get", "fancy.scale.font.gray",colorChoice[0]),0);
 		iBCg = indexOfArray(grayChoice, call("ij.Prefs.get", "fancy.scale.outline.gray",colorChoice[1]),1);
+		/* Reverse Black/white if it looks like it will not work with background intensity
+		Note: keep white/black color order in colorChoice for intensity reversal after background intensity check */	
+		if (bgIpc>97){
+			if(indexOf(colorChoice[iTC],"white")>=0 && sText) iTC += 1;
+			if(indexOf(colorChoice[iTC],"white")>=0) iBC = iTC + 1; /* invert default b/w of text for outline */
+			else if(indexOf(colorChoice[iTC],"black")>=0) iBC = iTC - 1; /* invert default b/w of text for outline */
+			if(indexOf(grayChoice[iTCg],"white")>=0 && sText) iTCg += 1;
+			if(indexOf(grayChoice[iTCg],"white")>=0) iBCg = iTCG + 1;
+			else if(indexOf(colorChoice[iTCg],"black")>=0) iBCg = iTC - 1; /* invert default b/w of text for outline */
+		}
+		else if (bgIpc<3){
+			if(indexOf(colorChoice[iTC],"black")>=0 && sText) iTC -= 1;
+			if(indexOf(colorChoice[iTC],"black")>=0) iBC = iTC - 1; /* invert default b/w of text for outline */
+			else if(indexOf(colorChoice[iTC],"white")>=0) iBC = iTC + 1; /* invert default b/w of text for outline */
+			if(indexOf(grayChoice[iTCg],"black")>=0 && sText) iTCg 1= 1;
+			if(indexOf(grayChoice[iTCg],"black")>=0) iBCg = iTCG - 1;
+			else if(indexOf(colorChoice[iTCg],"white")>=0) iBCg = iTC + 1; /* invert default b/w of text for outline */
+		}
 		if (imageDepth==24){
 			Dialog.addChoice("Color of " + modeStr + " and text:", colorChoice, colorChoice[iTC]);
 			Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[iBC]);
@@ -129,13 +142,8 @@ v211203: Simple format is now an option in all cases.
 			Dialog.addChoice("Overlay color of " + modeStr + " and text:", colorChoice, colorChoice[iTC]);
 			Dialog.addChoice("Overlay outline (background) color:", colorChoice, colorChoice[iBC]);
 		}
-		{
-		Dialog.setInsets(0, 15, -15);
-		if (sText) Dialog.addMessage("Guessed background % of white is " + bgIpc + "%; simple text selected as " + sTextC + " scale bar:",13,"#782F40");
-		else Dialog.addMessage("Guessed background % of white is " + bgIpc + "%; simple text selected as " + sTextC + " scale bar:");
-		Dialog.setInsets(10, 15, 12);
-		Dialog.addCheckbox("Override \"fancy\" formatting with simple " + sTextC + " text, no outline or shadow?", sText);
-		}
+		Dialog.addMessage("Guessed background % of white is " + bgIpc + "%; choose text color appropriately ",13,"#782F40");
+		Dialog.addCheckbox("Override \"fancy\" formatting with simple text, no outline or shadow?", sText);
 		if (selEType>=0) {
 			if (selEType!=5){
 				locChoice = newArray("Top Left", "Top Right", "Bottom Center", "Bottom Left", "Bottom Right", "At Center of New Selection", "At Selection");
@@ -366,9 +374,6 @@ v211203: Simple format is now an option in all cases.
 		if (selOffsetY<(shadowDrop+shadowBlur+1)) selOffsetY += (shadowDrop+shadowBlur+1);
 	}
 	if (sText){
-		scaleBarColor = sTextC;
-		if (sTextC=="black") outlineColor = "White";
-		else outlineColor = "Black";
 		scaleBarColorOv = scaleBarColor;
 		outlineColorOv = outlineColor;
 		outlineStroke = 0;
@@ -379,18 +384,15 @@ v211203: Simple format is now an option in all cases.
 		innerShadowDrop = 0;
 		innerShadowDisp = 0;
 		innerShadowBlur = 0;
-	}
-	// if (barThickness=="small") sbHeight = fontSize/4;
-	// else if (barThickness=="medium") sbHeight = fontSize/4;
-	// else (barThickness=="large") sbHeight = fontSize;											  
+	}					  
 	if (fontStyle=="unstyled") fontStyle="";
 	if (selPos == "Top Left") {
 		selEX = selOffsetX;
-		selEY = selOffsetY; // + fontSize;
+		selEY = selOffsetY;
 		if (sBStyle!="Solid Bar") selEY += sbHeight;
 	} else if (selPos == "Top Right") {
 		selEX = imageWidth - selLengthInPixels - selOffsetX;
-		selEY = selOffsetY;// + fontSize;
+		selEY = selOffsetY;
 		if (sBStyle!="Solid Bar") selEY += sbHeight;
 	} else if (selPos == "Bottom Center") {
 		selEX = imageWidth/2 - selLengthInPixels/2;
@@ -654,8 +656,8 @@ v211203: Simple format is now an option in all cases.
 	}
 	else {
 		selectWindow(activeImage);
-		setColor(sTextC);
 		scaleBarColorHex = getHexColorFromRGBArray(scaleBarColor);
+		setColor(scaleBarColorHex);
 		setFont(fontName,fontSize);
 		if (endsWith(overWrite,"verlays")) finalLabelY -= fontSize/5;
 		for (sl=startSliceNumber; sl<endSlice+1; sl++) {
@@ -667,7 +669,7 @@ v211203: Simple format is now an option in all cases.
 				Overlay.show;
 				if (selEType!=5) makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
 				else makeArrow(selLX[0],selLY[0],selLX[1],selLY[1],arrowStyle); /* Line location is as drawn (no offsets) */
-				Roi.setStrokeColor(sTextC);
+				Roi.setStrokeColor(scaleBarColorHex);
 				if(sBStyle=="Solid Bar") Roi.setStrokeWidth(sbHeight);
 				else Roi.setStrokeWidth(sbHeight/2);
 				setSelectionName("Scale label " + scaleBarColor);
@@ -677,7 +679,7 @@ v211203: Simple format is now an option in all cases.
 				run("Select None");
 			}
 			else {
-				writeLabel7(fontName,fontSize,sTextC,label,finalLabelX,finalLabelY,true);
+				writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true);
 				if (sBStyle=="Solid Bar" && selEType!=5) fillRect(selEX, selEY, selLengthInPixels, sbHeight); /* Rectangle drawn to produce thicker bar */
 				else {						   
 					if (selEType!=5) makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
@@ -714,29 +716,35 @@ v211203: Simple format is now an option in all cases.
 	function checkForPlugin(pluginName) {
 		/* v161102 changed to true-false
 			v180831 some cleanup
-			v210429 Expandable array version */
+			v210429 Expandable array version
+			v220510 Looks for both class and jar if no extension is given */
 		var pluginCheck = false;
 		if (getDirectory("plugins") == "") restoreExit("Failure to find any plugins!");
 		else pluginDir = getDirectory("plugins");
-		if (!endsWith(pluginName, ".jar")) pluginName = pluginName + ".jar";
-		if (File.exists(pluginDir + pluginName)) {
+		pExts = newArray(".jar",".class");
+		pluginNameO = pluginName;
+		for (j=0; j<lengthOf(pExts); j++){
+			pluginName = pluginNameO;
+			if (!endsWith(pluginName,pExts[0]) && !endsWith(pluginName,pExts[1])) pluginName = pluginName + pExts[j];
+			if (File.exists(pluginDir + pluginName)) {
 				pluginCheck = true;
 				showStatus(pluginName + "found in: "  + pluginDir);
-		}
-		else {
-			pluginList = getFileList(pluginDir);
-			subFolderList = newArray;
-			for (i=0,subFolderCount=0; i<lengthOf(pluginList); i++) {
-				if (endsWith(pluginList[i], "/")) {
-					subFolderList[subFolderCount] = pluginList[i];
-					subFolderCount++;
-				}
 			}
-			for (i=0; i<lengthOf(subFolderList); i++) {
-				if (File.exists(pluginDir + subFolderList[i] +  "\\" + pluginName)) {
-					pluginCheck = true;
-					showStatus(pluginName + " found in: " + pluginDir + subFolderList[i]);
-					i = lengthOf(subFolderList);
+			else {
+				pluginList = getFileList(pluginDir);
+				subFolderList = newArray;
+				for (i=0,subFolderCount=0; i<lengthOf(pluginList); i++) {
+					if (endsWith(pluginList[i], "/")) {
+						subFolderList[subFolderCount] = pluginList[i];
+						subFolderCount++;
+					}
+				}
+				for (i=0; i<lengthOf(subFolderList); i++) {
+					if (File.exists(pluginDir + subFolderList[i] +  "\\" + pluginName)) {
+						pluginCheck = true;
+						showStatus(pluginName + " found in: " + pluginDir + subFolderList[i]);
+						i = lengthOf(subFolderList);
+					}
 				}
 			}
 		}
@@ -898,7 +906,7 @@ v211203: Simple format is now an option in all cases.
 		/* v180828 added Fluorescent Colors
 		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
 		   v191211 added Cyan
-		   v211022 all names lower-case, all spaces to underscores
+		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference
 		*/
 		if (colorName == "white") cA = newArray(255,255,255);
 		else if (colorName == "black") cA = newArray(0,0,0);
@@ -922,16 +930,17 @@ v211203: Simple format is now an option in all cases.
 		else if (colorName == "gold") cA = newArray(206,184,136);
 		else if (colorName == "aqua_modern") cA = newArray(75,172,198); /* #4bacc6 AKA "Viking" aqua */
 		else if (colorName == "blue_accent_modern") cA = newArray(79,129,189); /* #4f81bd */
-		else if (colorName == "blue_dark_modern") cA = newArray(31,73,125);
+		else if (colorName == "blue_dark_modern") cA = newArray(31,73,125); /* #1F497D */
 		else if (colorName == "blue_modern") cA = newArray(58,93,174); /* #3a5dae */
-		else if (colorName == "gray_modern") cA = newArray(83,86,90);
-		else if (colorName == "green_dark_modern") cA = newArray(121,133,65);
+		else if (colorName == "blue_honolulu") cA = newArray(0,118,182); /* Honolulu Blue #30076B6 */
+		else if (colorName == "gray_modern") cA = newArray(83,86,90); /* bright gray #53565A */
+		else if (colorName == "green_dark_modern") cA = newArray(121,133,65); /* Wasabi #798541 */
 		else if (colorName == "green_modern") cA = newArray(155,187,89); /* #9bbb59 AKA "Chelsea Cucumber" */
 		else if (colorName == "green_modern_accent") cA = newArray(214,228,187); /* #D6E4BB AKA "Gin" */
 		else if (colorName == "green_spring_accent") cA = newArray(0,255,102); /* #00FF66 AKA "Spring Green" */
-		else if (colorName == "orange_modern") cA = newArray(247,150,70);
-		else if (colorName == "pink_modern") cA = newArray(255,105,180);
-		else if (colorName == "purple_modern") cA = newArray(128,100,162);
+		else if (colorName == "orange_modern") cA = newArray(247,150,70); /* #f79646 tan hide, light orange */
+		else if (colorName == "pink_modern") cA = newArray(255,105,180); /* hot pink #ff69b4 */
+		else if (colorName == "purple_modern") cA = newArray(128,100,162); /* blue-magenta, purple paradise #8064A2 */
 		else if (colorName == "jazzberry_jam") cA = newArray(165,11,94);
 		else if (colorName == "red_n_modern") cA = newArray(227,24,55);
 		else if (colorName == "red_modern") cA = newArray(192,80,77);

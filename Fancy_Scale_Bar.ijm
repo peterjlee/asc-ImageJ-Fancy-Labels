@@ -3,9 +3,9 @@ macro "Fancy Scale Bar" {
 	Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects.
 	v211203: Simple format is now an option in all cases.
 	v220304: Simple format now uses chosen colors for more flexibility.
-	v220510: Checks to make sure default text color is not the same as the background for simple format
+	v220510: Checks to make sure default text color is not the same as the background for simple format  f1: updated pad function
 */
-	macroL = "Fancy_Scale_Bar_v220510.ijm";
+	macroL = "Fancy_Scale_Bar_v220510-f1.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -977,9 +977,17 @@ macro "Fancy Scale Bar" {
 	}
 	/* Hex conversion below adapted from T.Ferreira, 20010.01 http://imagejdocu.tudor.lu/doku.php?id=macro:rgbtohex */
 	function pad(n) {
-		n = toString(n);
-		if(lengthOf(n)==1) n = "0"+n;
-		return n;
+		/* v220603 required for versions >1.53s32 as "toString" outputs a string as NaN in those versions rather than passing through the string */
+		l = lengthOf(n);
+		s = "";
+		for (i = 0; i < l; i++){
+			v = substring(n,i,i+1);
+			w = toString(v);
+			if (w==NaN) w = v;
+			s += w;
+		}
+		if (lengthOf(s)==1) s = "0" + s;
+		return s;
 	}
 	function getHexColorFromRGBArray(colorNameString) {
 		colorArray = getColorArrayFromColorName(colorNameString);
@@ -1362,5 +1370,4 @@ v210826-8 Added simple text option for black or white backgrounds v210902 bug fi
 v211022 Updated color function choices
 v211025 Updated stripKnownExtensionFromString
 v211104: Updated stripKnownExtensionsFromString function    v211112: Again
-
 /*

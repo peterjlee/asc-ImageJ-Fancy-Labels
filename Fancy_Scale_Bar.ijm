@@ -3,9 +3,9 @@ macro "Fancy Scale Bar" {
 	Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects.
 	v211203: Simple format is now an option in all cases.
 	v220304: Simple format now uses chosen colors for more flexibility.
-	v220510: Checks to make sure default text color is not the same as the background for simple format  f1: updated pad function
+	v220510: Checks to make sure default text color is not the same as the background for simple format  f2: updated pad function
 */
-	macroL = "Fancy_Scale_Bar_v220510-f1.ijm";
+	macroL = "Fancy_Scale_Bar_v220510-f2.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -977,18 +977,11 @@ macro "Fancy Scale Bar" {
 	}
 	/* Hex conversion below adapted from T.Ferreira, 20010.01 http://imagejdocu.tudor.lu/doku.php?id=macro:rgbtohex */
 	function pad(n) {
-		/* v220603-6 required for versions >1.53s32 as "toString" outputs a string as NaN in those versions rather than passing through the string */
-		l = lengthOf(n);
-		s = "";
-		for (i = 0; i < l; i++){
-			v = substring(n,i,i+1);
-			w = toString(v);
-			if (isNaN(w)) w = v;
-			s += w;
-		}
-		if (lengthOf(s)==1) s = "0" + s;
-		return s;
+	  /* This version by Tiago Ferreira 6/6/2022 eliminates the toString macro function */
+	  if (lengthOf(n)==1) n= "0"+n; return n;
+	  if (lengthOf(""+n)==1) n= "0"+n; return n;
 	}
+	
 	function getHexColorFromRGBArray(colorNameString) {
 		colorArray = getColorArrayFromColorName(colorNameString);
 		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);

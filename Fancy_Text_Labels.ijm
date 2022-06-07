@@ -18,9 +18,9 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		v200706 Changed variables to match Fancy Scale Bar macro version v200706.
 		v210625 Added saving of user last-used settings (preferences). Fixed overlay alignment issues by using bitmap mask instead of rewriting text.
 		v210628 Improved shadow and fixed text rotation issues. Split dialog into two dialogs to allow to remove menu tweaks that might not work in scalable GUIs
-		v211022 Updated color function choices  f1-3 updated functions
+		v211022 Updated color function choices  f1-4 updated functions
 	 */
-	macroL = "Fancy_Text_Labels_v211022-f3";
+	macroL = "Fancy_Text_Labels_v211022-f4";
 	requires("1.47r");
 	originalImage = getTitle();
 	if (matches(originalImage, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + originalImage + " ?"); 
@@ -839,18 +839,11 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		setBackgroundColor(colorArray[0], colorArray[1], colorArray[2]);
 	}
 	function pad(n) {
-		/* v220603-6 required for versions >1.53s32 as "toString" outputs a string as NaN in those versions rather than passing through the string */
-		l = lengthOf(n);
-		s = "";
-		for (i = 0; i < l; i++){
-			v = substring(n,i,i+1);
-			w = toString(v);
-			if (isNaN(w)) w = v;
-			s += w;
-		}
-		if (lengthOf(s)==1) s = "0" + s;
-		return s;
+	  /* This version by Tiago Ferreira 6/6/2022 eliminates the toString macro function */
+	  if (lengthOf(n)==1) n= "0"+n; return n;
+	  if (lengthOf(""+n)==1) n= "0"+n; return n;
 	}
+	
 	function unCleanLabel(string) {
 	/* v161104 This function replaces special characters with standard characters for file system compatible filenames
 	+ 041117 to remove spaces as well */

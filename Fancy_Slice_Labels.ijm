@@ -12,9 +12,9 @@ macro "Add Slice Label to Each Slice" {
 		+ v200707 Changed imageDepth variable name added macro label.
 		+ v210316-v210325 Changed toChar function so shortcuts (i.e. "pi") only converted to symbols if followed by a space.
 		+ v210503 Split menu options so that auto-generation menu is simpler
-		+ v211022 Updated color choices  v220310-11 Added warning if some slices had no label (TIF-lzw does not store labels). f1: updated pad function
+		+ v211022 Updated color choices  v220310-11 Added warning if some slices had no label (TIF-lzw does not store labels). f2: updated pad function
 	 */
-	macroL = "Fancy_Slice_Labels_v220311-f1";
+	macroL = "Fancy_Slice_Labels_v220311-f2";
 	requires("1.47r");
 	saveSettings;
 	if (selectionType>=0) {
@@ -685,18 +685,11 @@ macro "Add Slice Label to Each Slice" {
 		setBackgroundColor(colorArray[0], colorArray[1], colorArray[2]);
 	}
 	function pad(n) {
-		/* v220603-6 required for versions >1.53s32 as "toString" outputs a string as NaN in those versions rather than passing through the string */
-		l = lengthOf(n);
-		s = "";
-		for (i = 0; i < l; i++){
-			v = substring(n,i,i+1);
-			w = toString(v);
-			if (isNaN(w)) w = v;
-			s += w;
-		}
-		if (lengthOf(s)==1) s = "0" + s;
-		return s;
+	  /* This version by Tiago Ferreira 6/6/2022 eliminates the toString macro function */
+	  if (lengthOf(n)==1) n= "0"+n; return n;
+	  if (lengthOf(""+n)==1) n= "0"+n; return n;
 	}
+	
   	function getFontChoiceList() {
 		/*	v180723 first version
 			v180828 Changed order of favorites

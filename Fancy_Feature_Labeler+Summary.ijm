@@ -7,10 +7,10 @@
 	v180612 set to work on only one slice.
 	v180723 Allows use of system fonts.
 	+ v200706 Changed imageDepth variable name added macro label.  + bugfix v210415
-	+ v211022 Updated color choices  f4: function updates 
+	+ v211022 Updated color choices  f5: function updates 
  */
 macro "Add scaled value labels to each ROI object and add summary"{
-	macroL = "Fancy_Feature_Labeler+Summary_v211022-f4";
+	macroL = "Fancy_Feature_Labeler+Summary_v211022-f5";
 	requires("1.47r");
 	saveSettings;
 	/* Some cleanup */
@@ -788,18 +788,11 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	}
 	/* Hex conversion below adapted from T.Ferreira, 20010.01 http://imagejdocu.tudor.lu/doku.php?id=macro:rgbtohex */
 	function pad(n) {
-		/* v220603-6 required for versions >1.53s32 as "toString" outputs a string as NaN in those versions rather than passing through the string */
-		l = lengthOf(n);
-		s = "";
-		for (i = 0; i < l; i++){
-			v = substring(n,i,i+1);
-			w = toString(v);
-			if (isNaN(w)) w = v;
-			s += w;
-		}
-		if (lengthOf(s)==1) s = "0" + s;
-		return s;
+	  /* This version by Tiago Ferreira 6/6/2022 eliminates the toString macro function */
+	  if (lengthOf(n)==1) n= "0"+n; return n;
+	  if (lengthOf(""+n)==1) n= "0"+n; return n;
 	}
+	
 	function getHexColorFromRGBArray(colorNameString) {
 		colorArray = getColorArrayFromColorName(colorNameString);
 		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);

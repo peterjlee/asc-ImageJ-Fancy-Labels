@@ -9,10 +9,10 @@
 	v210630 Replaced unnecessary getAngle function
 	v211022 Updated color function choices
 	v211102 Added option to edit the label
-	v211103 Expanded expansion function  f1-4: updated functions
+	v211103 Expanded expansion function  f1-5: updated functions
  */
 macro "Add Summary Table to Copy of Image"{
-	macroL = "Fancy_Summary_Table_v211103-f4";
+	macroL = "Fancy_Summary_Table_v211103-f5";
 	requires("1.47r");
 	saveSettings;
 	/* Set options for black objects on white background as this works better for publications */
@@ -437,18 +437,11 @@ macro "Add Summary Table to Copy of Image"{
 	}
 	/* Hex conversion below adapted from T.Ferreira, 20010.01 http://imagejdocu.tudor.lu/doku.php?id=macro:rgbtohex */
 	function pad(n) {
-		/* v220603-6 required for versions >1.53s32 as "toString" outputs a string as NaN in those versions rather than passing through the string */
-		l = lengthOf(n);
-		s = "";
-		for (i = 0; i < l; i++){
-			v = substring(n,i,i+1);
-			w = toString(v);
-			if (isNaN(w)) w = v;
-			s += w;
-		}
-		if (lengthOf(s)==1) s = "0" + s;
-		return s;
+	  /* This version by Tiago Ferreira 6/6/2022 eliminates the toString macro function */
+	  if (lengthOf(n)==1) n= "0"+n; return n;
+	  if (lengthOf(""+n)==1) n= "0"+n; return n;
 	}
+	
 	/* End ASC modified BAR Color Functions */
 	
 		/* ( 8(|)   ( 8(|)  ASC Functions  ( 8(|)  ( 8(|)   */

@@ -8,9 +8,9 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	v200706: changed variable names to match v200706 version of Fancy Scale Bar macro. v210521 whoops should not have changed imageDepth name :-$
 	v211022: Updated color choices
 	v211025: Updated multiple functions
-	v211104: Updated stripKnownExtensionsFromString function    v211112: Again  f1-4: updated functions
+	v211104: Updated stripKnownExtensionsFromString function    v211112: Again  f1-5: updated functions
 */
-	macroL = "Fast'nFancy_Scale_Bar_Rerun_v211112-f4.ijm";
+	macroL = "Fast'nFancy_Scale_Bar_Rerun_v211112-f5.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -545,18 +545,11 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	}
 	/* Hex conversion below adapted from T.Ferreira, 20010.01 http://imagejdocu.tudor.lu/doku.php?id=macro:rgbtohex */
 	function pad(n) {
-		/* v220603-6 required for versions >1.53s32 as "toString" outputs a string as NaN in those versions rather than passing through the string */
-		l = lengthOf(n);
-		s = "";
-		for (i = 0; i < l; i++){
-			v = substring(n,i,i+1);
-			w = toString(v);
-			if (isNaN(w)) w = v;
-			s += w;
-		}
-		if (lengthOf(s)==1) s = "0" + s;
-		return s;
+	  /* This version by Tiago Ferreira 6/6/2022 eliminates the toString macro function */
+	  if (lengthOf(n)==1) n= "0"+n; return n;
+	  if (lengthOf(""+n)==1) n= "0"+n; return n;
 	}
+	
 	function getHexColorFromRGBArray(colorNameString) {
 		colorArray = getColorArrayFromColorName(colorNameString);
 		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);

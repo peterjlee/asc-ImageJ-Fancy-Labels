@@ -18,12 +18,12 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		v200706 Changed variables to match Fancy Scale Bar macro version v200706.
 		v210625 Added saving of user last-used settings (preferences). Fixed overlay alignment issues by using bitmap mask instead of rewriting text.
 		v210628 Improved shadow and fixed text rotation issues. Split dialog into two dialogs to allow to remove menu tweaks that might not work in scalable GUIs
-		v211022 Updated color function choices  f1-4 updated functions
+		v211022 Updated color function choices  f1-4 updated functions f5 updated colors
 	 */
-	macroL = "Fancy_Text_Labels_v211022-f4";
+	macroL = "Fancy_Text_Labels_v211022-f5";
 	requires("1.47r");
 	originalImage = getTitle();
-	if (matches(originalImage, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + originalImage + " ?"); 
+	if (matches(originalImage, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + originalImage + " ?");
 	saveSettings;
 	/*	Set options for black objects on white background as this works better for publications */
 	run("Options...", "iterations=1 white count=1"); /* Set the background to white */
@@ -48,7 +48,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 				orSelEY2 = Fit.f(orSelEX2);
 			}
 			else getLine(orSelEX1, orSelEY1, orSelEX2, orSelEY2, selLineWidth);
-			x1=orSelEX1*pixelWidth; y1=orSelEY1*pixelHeight; x2=orSelEX2*pixelWidth; y2=orSelEY2*pixelHeight; 		
+			x1=orSelEX1*pixelWidth; y1=orSelEY1*pixelHeight; x2=orSelEX2*pixelWidth; y2=orSelEY2*pixelHeight;
 			lineXPx =(orSelEX1-orSelEX2); /* used for label offsets later */
 			lineYPx = (orSelEY1-orSelEY2); /* used for label offsets later */
 			scaledLineAngle = (180/PI) * Math.atan2(lineYPx, lineXPx);
@@ -69,7 +69,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	else {
 		selectionExists = false;
 		line = false;
-	}	
+	}
 	setBatchMode(true);
 	startSliceNumber = getSliceNumber();
 	remSlices = slices-startSliceNumber;
@@ -97,14 +97,14 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	Dialog.create("Basic Label Options: " + macroL);
 		if (Overlay.size==0) overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays");
 		else overwriteChoice = newArray("Destructive overwrite", "New image", "Add overlays", "Replace All overlays");
-		iOver = indexOfArray(overwriteChoice, call("ij.Prefs.get", "fancy.textLabels.output",overwriteChoice[1]),1);	
+		iOver = indexOfArray(overwriteChoice, call("ij.Prefs.get", "fancy.textLabels.output",overwriteChoice[1]),1);
 		Dialog.addRadioButtonGroup("Output choices:", overwriteChoice, 1, 3, overwriteChoice[iOver]);
 		if (selectionExists) {
-			textLocChoices = newArray("Center of Selection", "Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection"); 
+			textLocChoices = newArray("Center of Selection", "Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection");
 			iLoc = indexOfArray(textLocChoices, "Center of Selection",0);	/* Overrides preferences as an active selection is assumed to be a priority */
 		} else {
-			textLocChoices = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection"); 
-			iLoc = indexOfArray(textLocChoices, call("ij.Prefs.get", "fancy.textLabels.location",textLocChoices[0]),0);		
+			textLocChoices = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection");
+			iLoc = indexOfArray(textLocChoices, call("ij.Prefs.get", "fancy.textLabels.location",textLocChoices[0]),0);
 		}
 		Dialog.addChoice("Location of Summary:", textLocChoices, textLocChoices[iLoc]);
 		if (selectionExists) {
@@ -122,7 +122,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 				Dialog.addNumber("Text Rotation Angle = ", scaledLineAngle);
 				Dialog.addMessage("Note: Rotated text may not be pretty.");
 				Dialog.addCheckbox("1st line of text above line", true);
-			}	
+			}
 		}
 		else restoreSelection = false;
 		textJustChoices = newArray("auto", "left", "center", "right");
@@ -136,22 +136,25 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		fontNameChoice = getFontChoiceList();
 		iFN = indexOfArray(fontNameChoice, call("ij.Prefs.get", "fancy.textLabels.font",fontNameChoice[0]),0);
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[iFN]);
-		colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "cyan", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "radical_red", "wild_watermelon", "outrageous_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
-		grayChoice = newArray("white", "black", "light_gray", "gray", "dark_gray");
-		iTC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.textLabels.font.color",colorChoice[0]),0);
-		iBC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.textLabels.outline.color",colorChoice[1]),1);
-		iTCg = indexOfArray(grayChoice, call("ij.Prefs.get", "fancy.textLabels.font.gray",colorChoice[0]),0);
-		iBCg = indexOfArray(grayChoice, call("ij.Prefs.get", "fancy.textLabels.outline.gray",colorChoice[1]),1);
-		if (imageDepth==24) Dialog.addChoice("Text color:", colorChoice, colorChoice[iTC]);
+		grayChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
+		colorChoicesStd = newArray("red", "cyan", "pink", "green", "blue", "magenta", "yellow", "orange");
+		colorChoicesMod = newArray("garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
+		colorChoicesNeon = newArray("jazzberry_jam", "radical_red", "wild_watermelon", "outrageous_orange", "supernova_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "dodger_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
+		colorChoices = Array.concat(grayChoices,colorChoicesStd,colorChoicesMod,colorChoicesNeon);
+		iTC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.textLabels.font.color",colorChoices[0]),0);
+		iBC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.textLabels.outline.color",colorChoices[1]),1);
+		iTCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.textLabels.font.gray",colorChoices[0]),0);
+		iBCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.textLabels.outline.gray",colorChoices[1]),1);
+		if (imageDepth==24) Dialog.addChoice("Text color:", colorChoices, colorChoices[iTC]);
 		else {
-			Dialog.addChoice("Destructive text gray choices:", grayChoice, grayChoice[iTCg]);
-			Dialog.addChoice("Overlay Text color choices:", colorChoice, colorChoice[iTC]);
+			Dialog.addChoice("Destructive text gray choices:", grayChoices, grayChoices[iTCg]);
+			Dialog.addChoice("Overlay Text color choices:", colorChoices, colorChoices[iTC]);
 		}
-		if (imageDepth==24) Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[iBC]);
+		if (imageDepth==24) Dialog.addChoice("Outline (background) color:", colorChoices, colorChoices[iBC]);
 		else {
-			Dialog.addChoice("Destructive text outline gray choices:", grayChoice, grayChoice[iBCg]);
-			Dialog.addChoice("Overlay text outline color choices:", colorChoice, colorChoice[iBC]);
-		}		
+			Dialog.addChoice("Destructive text outline gray choices:", grayChoices, grayChoices[iBCg]);
+			Dialog.addChoice("Overlay text outline color choices:", colorChoices, colorChoices[iBC]);
+		}
 		Dialog.addRadioButtonGroup("Tweak the Formatting? ", newArray("Yes", "No"), 1, 2, "No");
 	  Dialog.show();
 		overWrite = Dialog.getRadioButton();
@@ -186,7 +189,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			else outlineColor = desOutlineGray;
 		}
 		tweakFormat = Dialog.getRadioButton();
-	if (tweakFormat=="Yes") {	
+	if (tweakFormat=="Yes") {
 		Dialog.create("Advanced Formatting Options");
 		Dialog.addNumber("Line Spacing", lineSpacing,1,3,"\(default 1\)");
 		Dialog.addNumber("Outline stroke:", outlineStroke,0,3,"% of font size");
@@ -213,7 +216,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			innerShadowBlur = Dialog.getNumber();
 			innerShadowDarkness = Dialog.getNumber();
 		}
-	}	
+	}
 	Dialog.create("Label Options: " + macroL);
 		Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. If the units are in the parameter label, within \(...\) i.e. \(unit\) they will override this selection.\n\"degreeC\" will be replaced with " + fromCharCode(0x00B0) + "C, \"degree C\" will be replaced with " + fromCharCode(0x00B0) + " C, \"degrees\" by " + fromCharCode(0x00B0)+",\n\"symbol-Greek letter\" by the Greek letter, i.e. \"symbol-omega\" translates to " + fromCharCode(0x03C9) + ",\"symbol-Omega\" to " + fromCharCode(0x03A9) + "\nand \"symbol->=\" to " + fromCharCode(0x2265) + " etc. Arrows: \"arrow-up\" " + fromCharCode(0x21E7) + " \"arrow-left\" " + fromCharCode(0x21E6) + " etc.");
 		textChoiceLines = 8;
@@ -238,8 +241,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			textLabel = call("ij.Prefs.get", tIPrefsName,"-blank-");
 			Dialog.addString("Label line "+(i+1)+":",textLabel, 35);
 			Dialog.addChoice("",metaDataChoices,metaDataChoices[0]);
-		}	
-	  Dialog.show();	
+		}
+	  Dialog.show();
 			textInputLines = newArray(textChoiceLines);
 		for (i=0; i<textChoiceLines; i++) {
 			textInputLines[i] = Dialog.getString();
@@ -250,7 +253,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			textInputLines[i] = "" + toChar(textInputLines[i]); /* Use degree symbol */
 		}
 	if (startsWith(overWrite,"Replace")) while (Overlay.size!=0) Overlay.remove;
-	if ((remSlices>0) && !endsWith(overWrite,"overlays")) labelRest = getBoolean("Add the same labels to this and next " + remSlices + " slices?");					
+	if ((remSlices>0) && !endsWith(overWrite,"overlays")) labelRest = getBoolean("Add the same labels to this and next " + remSlices + " slices?");
 	else labelRest = false;
 	if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
 /* save last used settings in user in preferences */
@@ -286,7 +289,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	if (textOutNumber==0) restoreExit("No text for labels");
 	/* Make sure all text fits image width */
 	shrinkX = imageWidth/longestStringWidth;
-	fontSize = fontSize * minOf(1, shrinkX);	
+	fontSize = fontSize * minOf(1, shrinkX);
 	longestStringWidth = longestStringWidth * minOf(1, shrinkX);
 	/* determine font color intensities settings for antialiased tweak */
 	fontColorArray = getColorArrayFromColorName(fontColor);
@@ -295,7 +298,6 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	outlineColorArray = getColorArrayFromColorName(outlineColor);
 	Array.getStatistics(outlineColorArray,outlineIntMean);
 	outlineInt = floor(outlineIntMean);
-	
 	negAdj = 0.5;  /* negative offsets appear exaggerated at full displacement */
 	if (shadowDrop<0) shadowDrop *= negAdj;
 	if (shadowDisp<0) shadowDisp *= negAdj;
@@ -314,7 +316,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	if (offsetX<(shadowDisp+shadowBlur+1)) offsetX = (shadowDisp+shadowBlur+1);  /* make sure shadow does not run off edge of image */
 	if (offsetY<(shadowDrop+shadowBlur+1)) offsetY = (shadowDrop+shadowBlur+1);
 	if (fontStyle=="unstyled") fontStyle="";
-/*  */			
+/*  */
 	linesSpace = lineSpacing * textOutNumber * fontSize;
 	if (textLocChoice == "Top Left") {
 		selEX = offsetX;
@@ -330,7 +332,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		if (just=="auto") just = "center";
 	} else if (textLocChoice == "Bottom Left") {
 		selEX = offsetX;
-		selEY = imageHeight - (offsetY + linesSpace) + fontSize; 
+		selEY = imageHeight - (offsetY + linesSpace) + fontSize;
 		if (just=="auto") just = "left";
 	} else if (textLocChoice == "Bottom Right") {
 		selEX = imageWidth - longestStringWidth - offsetX;
@@ -364,7 +366,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			reduceFontSize = Dialog.getCheckbox();
 			shrunkFont = Dialog.getNumber();
 			shrinkF = shrunkFont/fontSize;
-		}	
+		}
 		else reduceFontSize = false;
 		if (reduceFontSize) {
 			fontSize = shrunkFont;
@@ -403,7 +405,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	if ((selEType>=5) && (selEType<7) && textAboveLine) {
 		textLabelX += round(cos(textRot/(180/PI))*0.75*fontSize);
 		textLabelX += round(sin(textRot/(180/PI))*0.75*fontSize);
-	}	
+	}
 	setColorFromColorName("white");
 	roiManager("show none");
 	if (startsWith(overWrite,"New")) {
@@ -467,7 +469,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			setSelectionName("Fancy Rotated Text Labels");
 		}
 		else setSelectionName("Fancy Text Labels");
-		Overlay.addSelection(outlineColorHex,outlineStroke,fontColorHex);		
+		Overlay.addSelection(outlineColorHex,outlineStroke,fontColorHex);
 		Overlay.show;
 	}
 	else {
@@ -492,12 +494,12 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0) {
 			showStatus("Creating inner shadow for labels . . . ");
 			createInnerShadowFromMask6(active_Label_Mask,innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
-		}	
+		}
 		for (s=0; s<remSlices+1; s++) {
 			showProgress(-s/remSlices);
-			if (isOpen("shadow") && shadowDarkness>0)		
+			if (isOpen("shadow") && shadowDarkness>0)
 				imageCalculator("Subtract", workingImage,"shadow");
-			else if (isOpen("shadow") && (shadowDarkness<0))		
+			else if (isOpen("shadow") && (shadowDarkness<0))
 				imageCalculator("Add", workingImage,"shadow");
 			run("Select None");
 			/* Create outline around text */
@@ -554,9 +556,9 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	}
 	else run("Select None");
 	showStatus("Fancy Text Labels Finished");
-	call("java.lang.System.gc"); 
+	call("java.lang.System.gc");
 }
-	/* 
+	/*
 	( 8(|)   ( 8(|)  ASC and ASC-mod-BAR Functions  ( 8(|)  ( 8(|)
 	*/
 	function cleanLabel(string) {
@@ -567,7 +569,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
 		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
 		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micron units */
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ã…ngstrÃ¶m unit symbol */ 
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ångström unit symbol */
 		string= replace(string, "  ", " "); /* Replace double spaces with single spaces */
 		string= replace(string, "_", fromCharCode(0x2009)); /* Replace underlines with thin spaces */
 		string= replace(string, "px", "pixels"); /* Expand pixel abbreviation */
@@ -587,7 +589,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, "symbol-alpha", fromCharCode(0x03B1));
 		string= replace(string, "symbol-Alpha", fromCharCode(0x0391));
 		string= replace(string, "symbol-beta", fromCharCode(0x03B2)); /* Lower case beta */
-		string= replace(string, "symbol-Beta", fromCharCode(0x0392)); /* ÃŸ CAPITAL */
+		string= replace(string, "symbol-Beta", fromCharCode(0x0392)); /* ß CAPITAL */
 		string= replace(string, "symbol-gamma", fromCharCode(0x03B3)); /* MATHEMATICAL SMALL GAMMA */
 		string= replace(string, "symbol-Gamma", fromCharCode(0xD835)); /* MATHEMATICAL BOLD CAPITAL  GAMMA */
 		string= replace(string, "symbol-delta", fromCharCode(0x1E9F)); /*  SMALL LETTER DELTA */
@@ -604,7 +606,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, "symbol-Kappa", fromCharCode(0x0196)); /* GREEK CAPITAL LETTER KAPPA */
 		string= replace(string, "symbol-lambda", fromCharCode(0x03BB)); /* GREEK SMALL LETTER LAMDA */
 		string= replace(string, "symbol-Lambda", fromCharCode(0x039B)); /* GREEK CAPITAL LETTER LAMDA */
-		string= replace(string, "symbol-mu", fromCharCode(0x03BC)); /* Âµ GREEK SMALL LETTER MU */
+		string= replace(string, "symbol-mu", fromCharCode(0x03BC)); /* µ GREEK SMALL LETTER MU */
 		string= replace(string, "symbol-Mu", fromCharCode(0x039C)); /* GREEK CAPITAL LETTER MU */
 		string= replace(string, "symbol-nu", fromCharCode(0x03BD)); /*  GREEK SMALL LETTER NU */
 		string= replace(string, "symbol-Nu", fromCharCode( 0x039D)); /*  GREEK CAPITAL LETTER NU */
@@ -631,9 +633,9 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, "symbol->=", fromCharCode(0x2265)); /* GREATER-THAN OR EQUAL TO */
 		string= replace(string, "symbol-<=", fromCharCode(0x2264)); /* LESS-THAN OR EQUAL TO */
 		string= replace(string, "symbol-xx", fromCharCode(0x00D7)); /* MULTIPLICATION SIGN */
-		string= replace(string, "symbol-copyright=", fromCharCode(0x00A9)); /* Â© */
+		string= replace(string, "symbol-copyright=", fromCharCode(0x00A9)); /* © */
 		string= replace(string, "symbol-ro", fromCharCode(0x00AE)); /* registered sign */
-		string= replace(string, "symbol-tm", fromCharCode(0x2122)); /* â„¢ */
+		string= replace(string, "symbol-tm", fromCharCode(0x2122)); /* ™ */
 		string= replace(string, "symbol-parallelto", fromCharCode(0x2225)); /* PARALLEL TO  note CANNOT use "|" key */
 		// string= replace(string, "symbol-perpendicularto", fromCharCode(0x27C2)); /* PERPENDICULAR note CANNOT use "|" key */
 		string= replace(string, "symbol-degree", fromCharCode(0x00B0)); /* Degree */
@@ -745,7 +747,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		/* v180828 added Fluorescent Colors
 		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
 		   v191211 added Cyan
-		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference
+		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference v220706 restores missing magenta
+		   REQUIRES restoreExit function.  56 Colors
 		*/
 		if (colorName == "white") cA = newArray(255,255,255);
 		else if (colorName == "black") cA = newArray(0,0,0);
@@ -762,6 +765,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		else if (colorName == "pink") cA = newArray(255, 192, 203);
 		else if (colorName == "green") cA = newArray(0,255,0); /* #00FF00 AKA Lime green */
 		else if (colorName == "blue") cA = newArray(0,0,255);
+		else if (colorName == "magenta") cA = newArray(255,0,255); /* #FF00FF */
 		else if (colorName == "yellow") cA = newArray(255,255,0);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);
 		else if (colorName == "cyan") cA = newArray(0, 255, 255);
@@ -843,7 +847,6 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	  if (lengthOf(n)==1) n= "0"+n; return n;
 	  if (lengthOf(""+n)==1) n= "0"+n; return n;
 	}
-	
 	function unCleanLabel(string) {
 	/* v161104 This function replaces special characters with standard characters for file system compatible filenames
 	+ 041117 to remove spaces as well */
@@ -852,7 +855,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ã…ngstrÃ¶m unit symbol */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces deg */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */
@@ -864,5 +867,5 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	function writeLabel_CFXY(label,labelColor,labelFontName, labelFontSize,labelX,labelY){
 		setFont(labelFontName, labelFontSize, "antialiased");
 		setColorFromColorName(labelColor);
-		drawString(label, labelX, labelY); 
+		drawString(label, labelX, labelY);
 	}

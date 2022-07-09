@@ -9,10 +9,10 @@
 	v210630 Replaced unnecessary getAngle function
 	v211022 Updated color function choices
 	v211102 Added option to edit the label
-	v211103 Expanded expansion function  f1-5: updated functions
+	v211103 Expanded expansion function  f1-6: updated functions f7: updated colors
  */
 macro "Add Summary Table to Copy of Image"{
-	macroL = "Fancy_Summary_Table_v211103-f5";
+	macroL = "Fancy_Summary_Table_v211103-f7.ijm";
 	requires("1.47r");
 	saveSettings;
 	/* Set options for black objects on white background as this works better for publications */
@@ -23,7 +23,7 @@ macro "Add Summary Table to Copy of Image"{
 	/*	The above should be the defaults but this makes sure (black particles on a white background)
 		http://imagejdocu.tudor.lu/doku.php?id=faq:technical:how_do_i_set_up_imagej_to_deal_with_white_particles_on_a_black_background_by_default */
 	getPixelSize(unit, pixWidth, pixHeight, pixDepth);
-	selEType = selectionType; 
+	selEType = selectionType;
 	if (selEType>=0) {
 		if ((selEType>=5) && (selEType<=7)) {
 			line==true;
@@ -36,7 +36,7 @@ macro "Add Summary Table to Copy of Image"{
 				selEY2 = Fit.f(selEX2);
 			}
 			else = getLine(selEX1, selEY1, selEX2, selEY2, selLineWidth);
-			x1=selEX1*pixWidth; y1=selEY1*pixHeight; x2=selEX2*pixWidth; y2=selEY2*pixHeight; 
+			x1=selEX1*pixWidth; y1=selEY1*pixHeight; x2=selEX2*pixWidth; y2=selEY2*pixHeight;
 			scaledLineAngle = (180/PI) * Math.atan2((y1-y2), (x1-x2));
 			scaledLineLength = sqrt(pow(x2-x1,2)+pow(y2-y1,2));
 			selLineLength = sqrt(pow(selEX2-x1,2)+pow(selEY2-selEY1,2));
@@ -48,7 +48,7 @@ macro "Add Summary Table to Copy of Image"{
 	}
 	t=getTitle();
 	/* Now checks to see if a Ramp legend has been selected by accident */
-	if (matches(t, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you really want to label " + t + " ?"); 
+	if (matches(t, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you really want to label " + t + " ?");
 	setBatchMode(true);
 	checkForResults();
 	items= nResults;
@@ -62,17 +62,19 @@ macro "Add Summary Table to Copy of Image"{
 	dIShO = 5; /* default inner shadow drop: % of font size */
 	offsetX = round(1 + imageWidth/150); /* default offset of label from edge */
 	offsetY = round(1 + imageHeight/150); /* default offset of label from edge */
-	outlineColor = "black"; 	
+	outlineColor = "black";
 	imageDepth = bitDepth();
 	paraLabFontSize = round((imageHeight+imageWidth)/60);
 	decPlacesSummary = -1;	/* defaults to scientific notation */
 	Dialog.create("Label Formatting Options: " + macroL);
 		headings = split(String.getResultsHeadings);
 		Dialog.addChoice("Measurement:", headings, "Area");
-		if (imageDepth==24)
-			colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "cyan", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "radical_red", "wild_watermelon", "outrageous_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
-		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
-		Dialog.addChoice("Text color:", colorChoice, colorChoice[0]);
+		colorChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
+		colorChoicesStd = newArray("red", "cyan", "pink", "green", "blue", "magenta", "yellow", "orange");
+		colorChoicesMod = newArray("garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
+		colorChoicesNeon = newArray("jazzberry_jam", "radical_red", "wild_watermelon", "outrageous_orange", "supernova_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "dodger_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
+		if (imageDepth==24) colorChoices = Array.concat(colorChoices,scolorChoicesStd,scolorChoicesMod, colorChoicesNeon);
+		Dialog.addChoice("Text color:", colorChoices, colorChoices[0]);
 		fontStyleChoice = newArray("bold", "bold antialiased", "italic", "italic antialiased", "bold italic", "bold italic antialiased", "unstyled");
 		Dialog.addChoice("Font style:", fontStyleChoice, fontStyleChoice[1]);
 		fontNameChoice = newArray("SansSerif", "Serif", "Monospaced");
@@ -83,7 +85,7 @@ macro "Add Summary Table to Copy of Image"{
 		unitChoice = newArray("Auto", "Manual", unit, unit+"^2", "None", "pixels", "pixels^2", fromCharCode(0x00B0), "degrees", "radians", "%", "arb.");
 		Dialog.addChoice("Unit Label \(if needed\):", unitChoice, unitChoice[0]);
 		Dialog.addNumber("Outline stroke:", outlineStroke,0,3,"% of font size");
-		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
+		Dialog.addChoice("Outline (background) color:", colorChoices, colorChoices[1]);
 		Dialog.addNumber("Shadow drop: ±", shadowDrop,0,3,"% of font size");
 		Dialog.addNumber("Shadow displacement right: ±", shadowDrop,0,3,"% of font size");
 		Dialog.addNumber("Shadow Gaussian blur:", floor(0.75 * shadowDrop),0,3,"% of font size");
@@ -121,9 +123,9 @@ macro "Add Summary Table to Copy of Image"{
 			Dialog.show();
 			unitLabel = Dialog.getString();
 	}
-	if (unitLabel=="None") unitLabel = ""; 
+	if (unitLabel=="None") unitLabel = "";
 	parameterLabel = stripUnitFromString(parameter);
-	unitLabel= cleanLabel(unitLabel);	
+	unitLabel= cleanLabel(unitLabel);
 	parameterLabel= cleanLabel(parameterLabel);
 	parameterLabel = replace(parameterLabel, "px", "pixels"); // expand "px" used to keep Results columns narrower
 	//recombine units and labels
@@ -171,17 +173,16 @@ macro "Add Summary Table to Copy of Image"{
 	sortedValues = Array.sort(sortedValues);
 	arrayMedian = sortedValues[floor(items/2)];
 	arrayMedianLab = d2s(arrayMedian,dpLab);
-				
 	if (selEType>=0) loc = 6; /* default choice selector for dialog */
 	else loc = 2; /* default choice selector for dialog - center */
 	paraLabel = expandLabel(paraLabel);
 	Dialog.create("Feature Label Formatting Options");
-		if (selEType>=0) paraLocChoice = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection", "At Selection"); 
-		else paraLocChoice = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection"); 
+		if (selEType>=0) paraLocChoice = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection", "At Selection");
+		else paraLocChoice = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection");
 		Dialog.addChoice("Location of Summary:", paraLocChoice, paraLocChoice[loc]);
 		Dialog.addString("Parameter label:",cleanLabel(paraLabel),lengthOf(paraLabel) + 10);
 		Dialog.addChoice("Parameter Label: " + paraLabel, newArray("Yes", "No"), "Yes");
-		Dialog.addNumber("Image Label Font size:", paraLabFontSize);			
+		Dialog.addNumber("Image Label Font size:", paraLabFontSize);
 		statsChoice = newArray("None", "No more labels", "Dashed line:  ---", "Number of objects:  "+items,  "Mean:  "+arrayMeanLab, "Median:  "+arrayMedianLab, "StdDev:  "+arraySDLab, "CoeffVar:  "+coeffVarLab, "Min-Max:  "+arrayMinLab+"-"+arrayMaxLab, "Minimum:  "+arrayMinLab, "Maximum:  "+arrayMaxLab, "6 Underlines:  ___", "12 Underlines:  ___", "18 Underlines:  ___", "24 Underlines:  ___");
 		statsChoiceLines = 8;
 		for (i=0; i<statsChoiceLines; i++)
@@ -190,7 +191,6 @@ macro "Add Summary Table to Copy of Image"{
 		Dialog.addChoice("Change Decimal Places from "+dpLab, dpChoice, dpLab);
 		Dialog.addNumber("Statistics Label Font size:", statsLabFontSize);
 		Dialog.show();
-		
 		paraLabPos = Dialog.getChoice();
 		paraLabel = Dialog.getString();
 		paraLabChoice = Dialog.getChoice();
@@ -200,7 +200,6 @@ macro "Add Summary Table to Copy of Image"{
 			statsLabLine[i] = Dialog.getChoice();
 		decPlacesSummary = Dialog.getChoice();
 		statsLabFontSize = Dialog.getNumber();
-			
 	if (paraLabChoice=="Yes") labLines = 1;
 	else labLines = 0;
 	statsLines = 0;
@@ -246,7 +245,7 @@ macro "Add Summary Table to Copy of Image"{
 		selEY = round((imageHeight/2) - (linesSpace/2));
 	} else if (paraLabPos == "Bottom Left") {
 		selEX = offsetX;
-		selEY = imageHeight - (offsetY + linesSpace); 
+		selEY = imageHeight - (offsetY + linesSpace);
 	} else if (paraLabPos == "Bottom Right") {
 		selEX = imageWidth - longestStringWidth - offsetX;
 		selEY = imageHeight - (offsetY + linesSpace);
@@ -362,15 +361,14 @@ macro "Add Summary Table to Copy of Image"{
 	beep();beep();beep();
 	call("java.lang.System.gc");
 	showStatus("Fancy Summary Table Macro Finished");
-}	
-
+}
   /* ********* ASC modified BAR Color Functions Color Functions ********* */
-  
 	function getColorArrayFromColorName(colorName) {
 		/* v180828 added Fluorescent Colors
 		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
 		   v191211 added Cyan
-		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference
+		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference v220706 restores missing magenta
+		   REQUIRES restoreExit function.  56 Colors
 		*/
 		if (colorName == "white") cA = newArray(255,255,255);
 		else if (colorName == "black") cA = newArray(0,0,0);
@@ -387,6 +385,7 @@ macro "Add Summary Table to Copy of Image"{
 		else if (colorName == "pink") cA = newArray(255, 192, 203);
 		else if (colorName == "green") cA = newArray(0,255,0); /* #00FF00 AKA Lime green */
 		else if (colorName == "blue") cA = newArray(0,0,255);
+		else if (colorName == "magenta") cA = newArray(255,0,255); /* #FF00FF */
 		else if (colorName == "yellow") cA = newArray(255,255,0);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);
 		else if (colorName == "cyan") cA = newArray(0, 255, 255);
@@ -441,11 +440,8 @@ macro "Add Summary Table to Copy of Image"{
 	  if (lengthOf(n)==1) n= "0"+n; return n;
 	  if (lengthOf(""+n)==1) n= "0"+n; return n;
 	}
-	
 	/* End ASC modified BAR Color Functions */
-	
 		/* ( 8(|)   ( 8(|)  ASC Functions  ( 8(|)  ( 8(|)   */
-	
 	function autoCalculateDecPlacesFromValueOnly(value){ /* Note this version is different from the one used for ramp legends */
 		valueSci = d2s(value, -1);
 		iExp = indexOf(valueSci, "E");
@@ -457,15 +453,16 @@ macro "Add Summary Table to Copy of Image"{
 		return dP;
 	}
 	function binaryCheck(windowTitle) { /* For black objects on a white background */
-		/* v180601 added choice to invert or not 
+		/* v180601 added choice to invert or not
 		v180907 added choice to revert to the true LUT, changed border pixel check to array stats
 		v190725 Changed to make binary
+		v220701 Added additional corner coordinates
 		Requires function: restoreExit
 		*/
 		selectWindow(windowTitle);
 		if (!is("binary")) run("8-bit");
 		/* Quick-n-dirty threshold if not previously thresholded */
-		getThreshold(t1,t2); 
+		getThreshold(t1,t2);
 		if (t1==-1)  {
 			run("8-bit");
 			run("Auto Threshold", "method=Default");
@@ -477,14 +474,15 @@ macro "Add Summary Table to Copy of Image"{
 			if (trueLUT) run("Invert LUT");
 		}
 		/* Make sure black objects on white background for consistency */
-		cornerPixels = newArray(getPixel(0, 0), getPixel(0, 1), getPixel(1, 0), getPixel(1, 1));
+		yMax = Image.height-1;	xMax = Image.width-1;
+		cornerPixels = newArray(getPixel(0,0),getPixel(1,1),getPixel(0,yMax),getPixel(xMax,0),getPixel(xMax,yMax),getPixel(xMax-1,yMax-1));
 		Array.getStatistics(cornerPixels, cornerMin, cornerMax, cornerMean, cornerStdDev);
 		if (cornerMax!=cornerMin) restoreExit("Problem with image border: Different pixel intensities at corners");
 		/*	Sometimes the outline procedure will leave a pixel border around the outside - this next step checks for this.
 			i.e. the corner 4 pixels should now be all black, if not, we have a "border issue". */
-		if (cornerMean==0) {
+		if (cornerMean<1) {
 			inversion = getBoolean("The background appears to have intensity zero, do you want the intensities inverted?", "Yes Please", "No Thanks");
-			if (inversion) run("Invert"); 
+			if (inversion) run("Invert");
 		}
 	}
 	function checkForResults() {
@@ -499,7 +497,7 @@ macro "Add Summary Table to Copy of Image"{
 			if (analyzeNow==true) {
 				if (roiManager("count")!=0) {
 					roiManager("deselect")
-					roiManager("delete"); 
+					roiManager("delete");
 				}
 				setOption("BlackBackground", false);
 				run("Analyze Particles..."); /* Let user select settings */
@@ -568,7 +566,7 @@ macro "Add Summary Table to Copy of Image"{
 		string = replace(string, "Rndnss", "Roundness");
 		string = replace(string, "_cAR", "\(Corrected by Aspect Ratio\)");
 		string = replace(string, "Da_Equiv","Diameter from Area \(Circular\)");
-		string = replace(string, "Dp_Equiv","Diameter from Perimeter \(Circular\)");	
+		string = replace(string, "Dp_Equiv","Diameter from Perimeter \(Circular\)");
 		string = replace(string, "Dsph_Equiv","Diameter from Feret \(Spherical\)");
 		string = replace(string, "Hxgn_", "Hexagon: ");
 		string = replace(string, "Perim", "Perimeter");
@@ -731,7 +729,7 @@ macro "Add Summary Table to Copy of Image"{
 		}
 		for (i=0; i<lengthOf(unwantedSuffixes); i++){
 			sL = lengthOf(preString);
-			if (endsWith(preString,unwantedSuffixes[i])) { 
+			if (endsWith(preString,unwantedSuffixes[i])) {
 				preString = substring(preString,0,sL-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
 				i=-1; /* check one more time */
 			}

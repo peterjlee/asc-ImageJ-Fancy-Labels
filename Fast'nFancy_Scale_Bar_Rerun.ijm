@@ -8,14 +8,14 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	v200706: changed variable names to match v200706 version of Fancy Scale Bar macro. v210521 whoops should not have changed imageDepth name :-$
 	v211022: Updated color choices
 	v211025: Updated multiple functions
-	v211104: Updated stripKnownExtensionsFromString function    v211112: Again  f1-5: updated functions
+	v211104: Updated stripKnownExtensionsFromString function    v211112+v220616: Again  f1-5 updated functions f7: updated colors
 */
-	macroL = "Fast'nFancy_Scale_Bar_Rerun_v211112-f5.ijm";
+	macroL = "Fast'nFancy_Scale_Bar_Rerun_v211112-f7.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
 	if(is("Inverting LUT")) run("Invert LUT"); /* more effectively removes Inverting LUT */
-	selEType = selectionType; 
+	selEType = selectionType;
 	if (selEType>=0) {
 		getSelectionBounds(selEX, selEY, selEWidth, selEHeight);
 		if ((selEWidth + selEHeight)<6) selEType=-1; /* Ignore junk selections that are suspiciously small */
@@ -80,7 +80,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 		nSF = newArray(1,sF/(1E-2),sF/(1E-3),sF/(1E-6),sF/(1E-6),sF/(1E-9),sF/(1E-10),sF/(1E-12), sF/(2.54E-2), sF/(1E-4));
 		overrideUnitChoice = newArray(selectedUnit, "cm", "mm", "µm", "microns", "nm", "Å", "pm", "inches", "human hairs");
 	}
-	if (selEType>=0) {	
+	if (selEType>=0) {
 		sbWidth = lcf*selEWidth;
 		sbDP = autoCalculateDecPlacesFromValueOnly(sbWidth);
 		sbWidth = d2s(sbWidth, sbDP);
@@ -121,7 +121,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	labelRest = true;
 	setBatchMode(true);
 	setFont(fontName,fontSize, fontStyle);
-	if (fontStyle!="unstyled") fontStyle += "antialiased"; /* antialising will be applied if possible */ 
+	if (fontStyle!="unstyled") fontStyle += "antialiased"; /* antialising will be applied if possible */
 	outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
 	selLengthInPixels = selLengthInUnits / lcf;
 	innerShadowDrop = floor(fontFactor * innerShadowDrop);
@@ -171,12 +171,10 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	selEY = maxOf(minOf(selEY,maxSelEY),selOffsetY);
 	maxSelEX = imageWidth - selLengthInPixels + selOffsetX;
 	selEX = maxOf(minOf(selEX,maxSelEX),selOffsetX);
-
 	selLengthLabel = removeTrailingZerosAndPeriod(toString(selLengthInUnits));
 	label = selLengthLabel + " " + selectedUnit;
 	/* stop overrun on scale bar by label of more than 20% */
 	stringOF = getStringWidth(label)/selLengthInPixels;
-	
 	if (stringOF > 1.2) {
 		shrinkFont = getBoolean("Shrink font size by " + 1/stringOF + "x to fit within scale bar?");
 		if (shrinkFont) fontSize = round(fontSize/stringOF);
@@ -474,7 +472,8 @@ macro "Fast'nFancy Scale Bar Rerun" {
 		/* v180828 added Fluorescent Colors
 		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
 		   v191211 added Cyan
-		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference
+		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference v220706 restores missing magenta
+		   REQUIRES restoreExit function.  56 Colors
 		*/
 		if (colorName == "white") cA = newArray(255,255,255);
 		else if (colorName == "black") cA = newArray(0,0,0);
@@ -491,6 +490,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 		else if (colorName == "pink") cA = newArray(255, 192, 203);
 		else if (colorName == "green") cA = newArray(0,255,0); /* #00FF00 AKA Lime green */
 		else if (colorName == "blue") cA = newArray(0,0,255);
+		else if (colorName == "magenta") cA = newArray(255,0,255); /* #FF00FF */
 		else if (colorName == "yellow") cA = newArray(255,255,0);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);
 		else if (colorName == "cyan") cA = newArray(0, 255, 255);
@@ -549,7 +549,6 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	  if (lengthOf(n)==1) n= "0"+n; return n;
 	  if (lengthOf(""+n)==1) n= "0"+n; return n;
 	}
-	
 	function getHexColorFromRGBArray(colorNameString) {
 		colorArray = getColorArrayFromColorName(colorNameString);
 		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);
@@ -659,7 +658,6 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	 v161103 with minor tweaks by Peter J. Lee National High Magnetic Field Laboratory
 	 v161108 adds Boolean unit option, v171024 fixes Boolean option.
 	 v180820 fixed incorrect message in dialog box. */
-	
 	/* Gets the path+name of the active image */
 	path = getDirectory("image");
 	if (path=="") exit ("path not available");
@@ -668,7 +666,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	if (!matches(getInfo("image.filename"),".*[tT][iI][fF].*")) exit("Not a TIFF file \(original Zeiss TIFF file required\)");
 	if (!checkForPlugin("tiff_tags.jar")) exit("TIFF Tags plugin missing");
 	path = path + name;
-	/* 
+	/*
 	Gets the tag, and parses it to get the pixel size information */
 	tag = call("TIFF_Tags.getTag", path, 34118);
 	i0 = indexOf(tag, "Image Pixel Size = ");
@@ -678,7 +676,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 		if (i1==-1 || i2==-1 || i2 <= i1+4)
 		   exit ("Parsing error! Maybe the file structure changed?");
 		text = substring(tag,i1+2,i2-2);
-		/* 
+		/*
 		Splits the pixel size in number+unit and sets the scale of the active image */
 		splits=split(text);
 		setVoxelSize(splits[0], splits[0], 1, splits[1]);
@@ -693,6 +691,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 		v211101: Added ".Ext_" removal
 		v211104: Restricts cleanup to end of string to reduce risk of corrupting path
 		v211112: Tries to fix trapped extension before channel listing. Adds xlsx extension.
+		v220615: Tries to fix the fix for the trapped extensions ...
 		*/
 		string = "" + string;
 		if (lastIndexOf(string, ".")>0 || lastIndexOf(string, "_lzw")>0) {
@@ -704,18 +703,19 @@ macro "Fast'nFancy Scale Bar Rerun" {
 			for (i=0; i<kEL; i++) {
 				for (j=0; j<3; j++){ /* Looking for channel-label-trapped extensions */
 					ichanLabels = lastIndexOf(string, chanLabels[j]);
-					if(ichanLabels>0){
-						index = lastIndexOf(string, "." + knownExt[i]);
-						if (ichanLabels>index && index>0) string = "" + substring(string, 0, index) + "_" + chanLabels[j];
+					iExt = lastIndexOf(string, "." + knownExt[i]);
+					if(ichanLabels>0 && iExt>(ichanLabels+lengthOf(chanLabels[j]))){
+						iExt = lastIndexOf(string, "." + knownExt[i]);
+						if (ichanLabels>iExt && iExt>0) string = "" + substring(string, 0, iExt) + "_" + chanLabels[j];
 						ichanLabels = lastIndexOf(string, chanLabels[j]);
 						for (k=0; k<uSL; k++){
-							index = lastIndexOf(string, unwantedSuffixes[k]);  /* common ASC suffix */
-							if (ichanLabels>index && index>0) string = "" + substring(string, 0, index) + "_" + chanLabels[j];	
-						}				
+							iExt = lastIndexOf(string, unwantedSuffixes[k]);  /* common ASC suffix */
+							if (ichanLabels>iExt && iExt>0) string = "" + substring(string, 0, iExt) + "_" + chanLabels[j];
+						}
 					}
 				}
-				index = lastIndexOf(string, "." + knownExt[i]);
-				if (index>=(lengthOf(string)-(lengthOf(knownExt[i])+1)) && index>0) string = "" + substring(string, 0, index);
+				iExt = lastIndexOf(string, "." + knownExt[i]);
+				if (iExt>=(lengthOf(string)-(lengthOf(knownExt[i])+1)) && iExt>0) string = "" + substring(string, 0, iExt);
 			}
 		}
 		unwantedSuffixes = newArray("_lzw"," ","  ", "__","--","_","-");
@@ -779,7 +779,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 		}
 		for (i=0; i<lengthOf(unwantedSuffixes); i++){
 			sL = lengthOf(preString);
-			if (endsWith(preString,unwantedSuffixes[i])) { 
+			if (endsWith(preString,unwantedSuffixes[i])) {
 				preString = substring(preString,0,sL-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
 				i=-1; /* check one more time */
 			}
@@ -790,10 +790,10 @@ macro "Fast'nFancy Scale Bar Rerun" {
 		return string;
 	}
 	function writeLabel7(font, size, color, text,x,y,aA){
-	/* Requires the functions setColorFromColorName, getColorArrayFromColorName(colorName) etc. 
+	/* Requires the functions setColorFromColorName, getColorArrayFromColorName(colorName) etc.
 	v190619 all variables as options */
 		if (aA == true) setFont(font , size, "antialiased");
 		else setFont(font, size);
 		setColorFromColorName(color);
-		drawString(text, x, y); 
+		drawString(text, x, y);
 	}

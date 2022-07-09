@@ -7,10 +7,10 @@
 	v180612 set to work on only one slice.
 	v180723 Allows use of system fonts.
 	+ v200706 Changed imageDepth variable name added macro label.  + bugfix v210415
-	+ v211022 Updated color choices  f5: function updates 
+	+ v211022 Updated color choices  f5: function updates f6: updated colors and replaced binary[-]Check with toWhiteBGBinary
  */
 macro "Add scaled value labels to each ROI object and add summary"{
-	macroL = "Fancy_Feature_Labeler+Summary_v211022-f5";
+	macroL = "Fancy_Feature_Labeler+Summary_v211022-f6";
 	requires("1.47r");
 	saveSettings;
 	/* Some cleanup */
@@ -24,9 +24,8 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		http://imagejdocu.tudor.lu/doku.php?id=faq:technical:how_do_i_set_up_imagej_to_deal_with_white_particles_on_a_black_background_by_default */
 	t=getTitle();
 	/* Now checks to see if a Ramp legend has been selected by accident */
-	if (matches(t, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + t + " ?"); 
+	if (matches(t, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + t + " ?");
 	checkForRoiManager(); /* macro requires that the objects are in the ROI manager */
-		
 	setBatchMode(true);
 	nROIs= roiManager("count");
 	nRES= nResults;
@@ -35,16 +34,16 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	items = nROIs;
 	if (nMismatch>0) {
 		nMB = getBoolean("Results table \(" + nRES + "\) and ROI Manager \(" + nROIs + "\) mismatch do you want to continue with largest number?");
-			if(nMB){
-				items = maxOf(nROIs, nRES);
-				}
-			else {
-				nMBn = getBoolean("Do you want to continue with the smallest number?");
-				if(nMBn){
+		if(nMB){
+			items = maxOf(nROIs, nRES);
+		}
+		else {
+			nMBn = getBoolean("Do you want to continue with the smallest number?");
+			if(nMBn){
 				items = minOf(nROIs, nRES);
-				}
-				else restoreExit("ROI mismatch not to your liking; will exit macro");
-				}
+			}
+			else restoreExit("ROI mismatch not to your liking; will exit macro");
+		}
 	}
 	roiManager("Show All without labels");
 	id = getImageID();
@@ -64,14 +63,14 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	offsetY = round(1 + imageHeight/150); /* default offset of label from edge */
 	decPlaces = -1;	/* defaults to scientific notation */
 	fontColor = "white";
-	outlineColor = "black"; 	
+	outlineColor = "black";
 	headings = split(String.getResultsHeadings, "\t"); /* the tab specificity avoids problems with unusual column titles */
 	headingsWithRange= newArray(lengthOf(headings));
 	for (i=0; i<lengthOf(headings); i++) {
 		resultsColumn = newArray(items);
 		for (j=0; j<items; j++)
 			resultsColumn[j] = getResult(headings[i], j);
-		Array.getStatistics(resultsColumn, min, max, null, null); 
+		Array.getStatistics(resultsColumn, min, max, null, null);
 		headingsWithRange[i] = headings[i] + ":  " + min + " - " + max;
 	}
 	/* Object number column has to be replaced, default column does not work for labeling */
@@ -91,23 +90,27 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		fontNameChoice = getFontChoiceList();
 		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[0]);
 		Dialog.addNumber("Font_size:", fontSize, 0, 3, "pt \(ROI manager\)");
-		if (imageDepth==24)
-			colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "cyan", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "radical_red", "wild_watermelon", "outrageous_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
-		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
-		Dialog.addChoice("Object label color:", colorChoice, colorChoice[0]);
+		colorChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
+		if (imageDepth==24){
+			colorChoicesStd = newArray("red", "cyan", "pink", "green", "blue", "magenta", "yellow", "orange");
+			colorChoicesMod = newArray("garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
+			colorChoicesNeon = newArray("jazzberry_jam", "radical_red", "wild_watermelon", "outrageous_orange", "supernova_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "dodger_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
+			colorChoices = Array.concat(colorChoices, colorChoicesStd, colorChoicesMod, colorChoicesNeon);
+		}
+		Dialog.addChoice("Object label color:", colorChoices, colorChoices[0]);
 		Dialog.addNumber("Font scaling % of Auto", 66);
 		Dialog.addNumber("Minimum Label Font Size", round(imageDims/90));
 		Dialog.addNumber("Maximum Label Font Size", round(imageDims/16));
 		Dialog.addNumber("Outline stroke:", outlineStroke,0,3,"% of font size");
-		Dialog.addChoice("Outline (background) color:", colorChoice, colorChoice[1]);
-		Dialog.addNumber("Shadow drop: Â±", shadowDrop,0,3,"% of font size");
-		Dialog.addNumber("Shadow displacement right: Â±", shadowDrop,0,3,"% of font size");
+		Dialog.addChoice("Outline (background) color:", colorChoices, colorChoices[1]);
+		Dialog.addNumber("Shadow drop: ±", shadowDrop,0,3,"% of font size");
+		Dialog.addNumber("Shadow displacement right: ±", shadowDrop,0,3,"% of font size");
 		Dialog.addNumber("Shadow Gaussian blur:", floor(0.75 * shadowDrop),0,3,"% of font size");
 		Dialog.addNumber("Shadow darkness \(darkest = 100%\):", 60,0,3,"%");
-		Dialog.addChoice("Shadow color \(overrides darkness in overlay\):", colorChoice, colorChoice[4]);
+		Dialog.addChoice("Shadow color \(overrides darkness in overlay\):", colorChoices, colorChoices[4]);
 		Dialog.addMessage("The following \"Inner Shadow\" options do not change the Overlay scale bar");
-		Dialog.addNumber("Inner shadow drop: Â±", dIShO,0,3,"% of font size");
-		Dialog.addNumber("Inner displacement right: Â±", dIShO,0,3,"% of font size");
+		Dialog.addNumber("Inner shadow drop: ±", dIShO,0,3,"% of font size");
+		Dialog.addNumber("Inner displacement right: ±", dIShO,0,3,"% of font size");
 		Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,2,"pixels");
 		Dialog.addNumber("Inner shadow darkness \(darkest = 100%\):", 20,0,3,"%");
 		if (isNaN(getResult("mc_X\(px\)",0))) {
@@ -116,8 +119,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			Dialog.addMessage("If selected, Morphological Centers will be added to the Results table.");
 		}
 		else Dialog.addRadioButtonGroup("Object Label At:", newArray("ROI Center", "Morphological Center"), 1, 2, "Morphological Center");
-		Dialog.addRadioButtonGroup("Add statistical summary?", newArray("No", "Yes", "Parameter Label Only"), 1, 2, "Yes"); 
-			
+		Dialog.addRadioButtonGroup("Add statistical summary?", newArray("No", "Yes", "Parameter Label Only"), 1, 2, "Yes");
 	Dialog.show;
 		parameterWithLabel= Dialog.getChoice;
 		parameter= substring(parameterWithLabel, 0, indexOf(parameterWithLabel, ":  "));
@@ -130,8 +132,8 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		/* Then Dialog . . . */
 		fontColor = Dialog.getChoice();
 		fontSizeCorrection = Dialog.getNumber/100;
-		minLFontS = Dialog.getNumber(); 
-		maxLFontS = Dialog.getNumber(); 
+		minLFontS = Dialog.getNumber();
+		maxLFontS = Dialog.getNumber();
 		outlineStroke = Dialog.getNumber();
 		outlineColor = Dialog.getChoice();
 		shadowDrop = Dialog.getNumber();
@@ -147,14 +149,21 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		summaryChoice = Dialog.getRadioButton();
 		if (summaryChoice=="Yes") statsChoiceLines = 7;
 		else statsChoiceLines = 0;
-		if (isNaN(getResult("mc_X\(px\)",0)) && ctrChoice=="Morphological Center") 
-			AddMCsToResultsTable ();
+		if (isNaN(getResult("mc_X\(px\)",0)) && ctrChoice=="Morphological Center"){
+			if (!is("binary")){
+				run("Duplicate...", "title=temp_binary_for_MCs");
+				run("8-bit");
+				AddMCsToResultsTable();
+				closeImageByTitle("temp_binary_for_MCs");
+			}
+			else AddMCsToResultsTable();
+		}
 	/*
 	Get values for chosen parameter */
 	values= newArray(items);
 	if (parameter=="Object#") for (i=0; i<items; i++) values[i]= i+1;
 	else for (i=0; i<items; i++) values[i]= getResult(parameter,i);
-	Array.getStatistics(values, arrayMin, arrayMax, arrayMean, arraySD); 
+	Array.getStatistics(values, arrayMin, arrayMax, arrayMean, arraySD);
 	if (isNaN(min)) min= arrayMin;
 	if (isNaN(max)) max= arrayMax;
 	coeffVar = arraySD*100/arrayMean;
@@ -187,9 +196,9 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	shadowDarkness = (255/100) * (abs(shadowDarkness));
 	innerShadowDarkness = (255/100) * (100 - (abs(innerShadowDarkness)));
 	decPlaces = -1;	/* defaults to scientific notation */
-	if (dpChoice=="Manual") 
+	if (dpChoice=="Manual")
 		decPlaces = getNumber("Choose Number of Decimal Places", decPlaces);
-	else if (dpChoice=="scientific") 
+	else if (dpChoice=="scientific")
 		decPlaces = -1;
 	else if (dpChoice!="Auto")
 		decPlaces = dpChoice;
@@ -197,19 +206,24 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	if (summaryChoice!="No") {
 		if (summaryChoice=="Yes") {
 		Dialog.create("Summary Label Options: "+ getTitle);
-			paraLocChoice = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection"); 
+			paraLocChoice = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection");
 			Dialog.addChoice("Location of Summary Label:", paraLocChoice, paraLocChoice[0]);
 			Dialog.addChoice("Parameter Label Too?", newArray("Yes", "No"), "Yes");
-			Dialog.addNumber("Parameter Label Font size:", paraLabFontSize);			
+			Dialog.addNumber("Parameter Label Font size:", paraLabFontSize);
 			statsChoice = newArray("None", "Dashed line:  ---", "Number of objects", "Mean", "Median", "StdDev", "CoeffVar", "Minimum", "Maximum", "Min-Max", "Long dashed underline:  ___","Blank line");
 			for (i=0; i<statsChoiceLines; i++)
 					Dialog.addChoice("Statistics Label Line "+(i+1)+":", statsChoice, statsChoice[i+2]);
 			Dialog.addNumber("Statistics Label Font size:", statsLabFontSize);
-		if (imageDepth==24)
-			colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "cyan", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "radical_red", "wild_watermelon", "outrageous_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
-		else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
-			Dialog.addChoice("Summary and Parameter Font Color:", colorChoice, fontColor);
-			Dialog.addChoice("Summary and Parameter Outline Color:", colorChoice, outlineColor);	
+			/* This redo of color arrays may not be necessary */
+			colorChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
+			if (imageDepth==24){
+				colorChoicesStd = newArray("red", "cyan", "pink", "green", "blue", "magenta", "yellow", "orange");
+				colorChoicesMod = newArray("garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
+				colorChoicesNeon = newArray("jazzberry_jam", "radical_red", "wild_watermelon", "outrageous_orange", "supernova_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "dodger_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
+				colorChoices = Array.concat(colorChoices, colorChoicesStd, colorChoicesMod, colorChoicesNeon);
+			}
+			Dialog.addChoice("Summary and Parameter Font Color:", colorChoices, fontColor);
+			Dialog.addChoice("Summary and Parameter Outline Color:", colorChoices, outlineColor);
 		Dialog.show;
 			paraLabPos = Dialog.getChoice();
 			paraLabChoice = Dialog.getChoice();
@@ -225,12 +239,11 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			paraLabChoice = "Yes";
 			statsLines = 0;
 			Dialog.create("Parameter Label Options: "+ getTitle);
-				paraLocChoice = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection"); 
+				paraLocChoice = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection");
 				Dialog.addChoice("Location of Summary Label:", paraLocChoice, paraLocChoice[0]);
-				Dialog.addNumber("Parameter Label Font size:", paraLabFontSize);	
-				Dialog.addChoice("Parameter Font Color:", colorChoice, fontColor);
-				Dialog.addChoice("Parameter Outline Color:", colorChoice, outlineColor);				
-						
+				Dialog.addNumber("Parameter Label Font size:", paraLabFontSize);
+				Dialog.addChoice("Parameter Font Color:", colorChoices, fontColor);
+				Dialog.addChoice("Parameter Outline Color:", colorChoices, outlineColor);
 			Dialog.show;
 				paraLabPos = Dialog.getChoice();
 				paraLabFontSize = Dialog.getNumber();
@@ -279,8 +292,8 @@ macro "Add scaled value labels to each ROI object and add summary"{
 				}
 			}
 			linesSpace = 1.2 * ((labLines*paraLabFontSize)+(statsLines*statsLabFontSize));
-		}			
-		if (paraLabChoice=="Yes") {		
+		}
+		if (paraLabChoice=="Yes") {
 			/* recombine units and labels that were used in Ramp */
 			if (unitLabel!="") paraLabel = parameterLabel + ", " + unitLabel;
 			else paraLabel = parameterLabel;
@@ -301,7 +314,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 				selEY = round((imageHeight - linesSpace)/2);
 			} else if (paraLabPos == "Bottom Left") {
 				selEX = offsetX;
-				selEY = imageHeight - offsetY + linesSpace; 
+				selEY = imageHeight - offsetY + linesSpace;
 			} else if (paraLabPos == "Bottom Right") {
 				selEX = imageWidth - longestStringWidth - offsetX;
 				selEY = imageHeight - offsetY + linesSpace;
@@ -345,16 +358,16 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		lFontS = fontSize; /* Initial estimate */
 		setFont(fontName,lFontS, fontStyle);
 		lFontS = fontSizeCorrection * fontSize * roiMin/(getStringWidth(labelString));
-		if (lFontS>maxLFontS) lFontS = maxLFontS; 
+		if (lFontS>maxLFontS) lFontS = maxLFontS;
 		if (lFontS<minLFontS) lFontS = minLFontS;
 		setFont(fontName,lFontS, fontStyle);
-		if (ctrChoice=="ROI Center") 
+		if (ctrChoice=="ROI Center")
 			textOffset = roiX + ((roiWidth) - getStringWidth(labelString))/2;
 		else textOffset = getResult("mc_X\(px\)",i) - getStringWidth(labelString)/2;
 		setColorFromColorName("white");
 		if (ctrChoice=="ROI Center")
 			drawString(labelString, textOffset, roiY+roiHeight/2 + lFontS/2);
-		else drawString(labelString, textOffset, getResult("mc_Y\(px\)",i) + lFontS/2);	
+		else drawString(labelString, textOffset, getResult("mc_Y\(px\)",i) + lFontS/2);
 			fontArray[i] = lFontS; /* to generate statistics for mean shadow drop */
 	}
 		Array.getStatistics(fontArray, null, null, meanfontSize, null);
@@ -373,7 +386,6 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	innerShadowDrop = floor(fontPC * innerShadowDrop);
 	innerShadowDisp = floor(fontPC * innerShadowDisp);
 	innerShadowBlur = floor(fontPC * innerShadowBlur);
-			
 	setThreshold(0, 128);
 	setOption("BlackBackground", false);
 	run("Convert to Mask");
@@ -413,7 +425,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		run("Select None");
 		run("Invert");  /* Create an image that can be subtracted - this works better for color than Min */
 	}
-	if (isOpen("shadow"))		
+	if (isOpen("shadow"))
 		imageCalculator("Subtract", flatImage,"shadow");
 	run("Select None");
 	getSelectionFromMask("label_mask");
@@ -444,7 +456,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			// if (statsLabLine[i]!="None") statsLines = statsLines + 1;
 			if (statsLabLine[i]!="None") {
 				drawString(statsLabLineText[i], paraLabelX, paraLabelY);
-				paraLabelY += round(1.2 * statsLabFontSize);			
+				paraLabelY += round(1.2 * statsLabFontSize);
 			}
 		}
 	}
@@ -487,7 +499,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		run("Select None");
 		run("Invert");  /* Create an image that can be subtracted - this works better for color than Min */
 	}
-	if (isOpen("shadow"))		
+	if (isOpen("shadow"))
 		imageCalculator("Subtract", flatImage,"shadow");
 	run("Select None");
 	getSelectionFromMask("label_mask");
@@ -501,7 +513,6 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	run("Select None");
 	if (isOpen("inner_shadow"))
 		imageCalculator("Subtract", flatImage,"inner_shadow");
-		
 	closeImageByTitle("shadow");
 	closeImageByTitle("inner_shadow");
 	closeImageByTitle("label_mask");
@@ -516,89 +527,88 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		restoreSettings;
 	setBatchMode("exit & display");
 	showStatus("Labeling Macro Finished");
-	
 	/*   ( 8(|)  ( 8(|) Functions ( 8(|)  ( 8(|)   */
-	
-	function AddMCsToResultsTable () {
-/* 	Based on "MCentroids.txt" Morphological centroids by thinning assumes white particles: G. Landini
-	http://imagejdocu.tudor.lu/doku.php?id=plugin:morphology:morphological_operators_for_imagej:start
-	http://www.mecourse.com/landinig/software/software.html
-	Modified to add coordinates to Results Table: Peter J. Lee NHMFL  7/20-29/2016
-	v180102	Fixed typos and updated functions.
-	v180104 Removed unnecessary changes to settings.
-	v180312 Add minimum and maximum morphological radii.
-	v180602 Add 0.5 pixels to output co-ordinates to match X,Y, XM and YM system for ImageJ results
-*/
-	workingTitle = getTitle();
-	if (!checkForPlugin("morphology_collection")) restoreExit("Exiting: Gabriel Landini's morphology suite is needed to run this macro.");
-	binaryCheck(workingTitle); /* Makes sure image is binary and sets to white background, black objects */
-	checkForRoiManager(); /* This macro uses ROIs and a Results table that matches in count */
-	roiOriginalCount = roiManager("count");
-	addRadii = getBoolean("Do you also want to add the min and max M-Centroid radii to the Results table?");
-	batchMode = is("Batch Mode"); /* Store batch status mode before toggling */
-	if (!batchMode) setBatchMode(true); /* Toggle batch mode on if previously off */
-	start = getTime();
-	getPixelSize(unit, pixelWidth, pixelHeight);
-	lcf=(pixelWidth+pixelHeight)/2;
-	objects = roiManager("count");
-	mcImageWidth = getWidth();
-	mcImageHeight = getHeight();
-	showStatus("Looping through all " + roiOriginalCount + " objects for morphological centers . . .");
-	for (i=0 ; i<roiOriginalCount; i++) {
-		showProgress(-i, roiManager("count"));
-		selectWindow(workingTitle);
-		roiManager("select", i);
-		if(addRadii) run("Interpolate", "interval=1");	getSelectionCoordinates(xPoints, yPoints); /* place border coordinates in array for radius measurements - Wayne Rasband: http://imagej.1557.x6.nabble.com/List-all-pixel-coordinates-in-ROI-td3705127.html */
-		Roi.getBounds(Rx, Ry, Rwidth, Rheight);
-		setResult("ROIctr_X\(px\)", i, Rx + Rwidth/2);
-		setResult("ROIctr_Y\(px\)", i, Ry + Rheight/2);
-		Roi.getContainedPoints(RPx, RPy); /* This includes holes when ROIs are used, so no hole filling is needed */
-		newImage("Contained Points","8-bit black",Rwidth,Rheight,1); /* Give each sub-image a unique name for debugging purposes */
-		for (j=0; j<lengthOf(RPx); j++)
-			setPixel(RPx[j]-Rx, RPy[j]-Ry, 255);
-		selectWindow("Contained Points");
-		run("BinaryThin2 ", "kernel_a='0 2 2 0 1 1 0 0 2 ' kernel_b='0 0 2 0 1 1 0 2 2 ' rotations='rotate 45' iterations=-1 white");
-		for (j=0; j<lengthOf(RPx); j++){
-			if((getPixel(RPx[j]-Rx, RPy[j]-Ry))==255) {
-				centroidX = RPx[j]; centroidY = RPy[j];
-				setResult("mc_X\(px\)", i, centroidX + 0.5); /* Add 0.5 pixel to correct pixel coordinates to center of pixel */
-				setResult("mc_Y\(px\)", i, centroidY + 0.5);
-				setResult("mc_offsetX\(px\)", i, getResult("X",i)/lcf-(centroidX + 0.5));
-				setResult("mc_offsetY\(px\)", i, getResult("Y",i)/lcf-(centroidY + 0.5));
-				j = lengthOf(RPx); /* one point and done */
+	function AddMCsToResultsTable() {
+	/* 	Based on "MCentroids.txt" Morphological centroids by thinning assumes white particles: G. Landini
+		http://imagejdocu.tudor.lu/doku.php?id=plugin:morphology:morphological_operators_for_imagej:start
+		http://www.mecourse.com/landinig/software/software.html
+		Modified to add coordinates to Results Table: Peter J. Lee NHMFL  7/20-29/2016
+		v180102	Fixed typos and updated functions.
+		v180104 Removed unnecessary changes to settings.
+		v180312 Add minimum and maximum morphological radii.
+		v180602 Add 0.5 pixels to output co-ordinates to match X,Y, XM and YM system for ImageJ results
+		v190802 Updated distance measurement to use more compact pow function.
+		v220707 Uses toWhiteBGBinary instead of binary[-]Check. Use duplicate image to retain color.
+	*/
+		workingTitle = getTitle();
+		if (!checkForPlugin("morphology_collection")) restoreExit("Exiting: Gabriel Landini's morphology suite is needed to run this function.");
+		toWhiteBGBinary(workingTitle); /* Makes sure image is binary and sets to white background, black objects */
+		checkForRoiManager(); /* This macro uses ROIs and a Results table that matches in count */
+		roiOriginalCount = roiManager("count");
+		addRadii = getBoolean("Do you also want to add the min and max M-Centroid radii to the Results table?");
+		batchMode = is("Batch Mode"); /* Store batch status mode before toggling */
+		if (!batchMode) setBatchMode(true); /* Toggle batch mode on if previously off */
+		start = getTime();
+		getPixelSize(unit, pixelWidth, pixelHeight);
+		lcf=(pixelWidth+pixelHeight)/2;
+		objects = roiManager("count");
+		mcImageWidth = getWidth();
+		mcImageHeight = getHeight();
+		showStatus("Looping through all " + roiOriginalCount + " objects for morphological centers . . .");
+		for (i=0 ; i<roiOriginalCount; i++) {
+			showProgress(-i, roiManager("count"));
+			selectWindow(workingTitle);
+			roiManager("select", i);
+			if(addRadii) run("Interpolate", "interval=1");	getSelectionCoordinates(xPoints, yPoints); /* place border coordinates in array for radius measurements - Wayne Rasband: http://imagej.1557.x6.nabble.com/List-all-pixel-coordinates-in-ROI-td3705127.html */
+			Roi.getBounds(Rx, Ry, Rwidth, Rheight);
+			setResult("ROIctr_X\(px\)", i, Rx + Rwidth/2);
+			setResult("ROIctr_Y\(px\)", i, Ry + Rheight/2);
+			Roi.getContainedPoints(RPx, RPy); /* This includes holes when ROIs are used, so no hole filling is needed */
+			newImage("Contained Points","8-bit black",Rwidth,Rheight,1); /* Give each sub-image a unique name for debugging purposes */
+			for (j=0; j<lengthOf(RPx); j++)
+				setPixel(RPx[j]-Rx, RPy[j]-Ry, 255);
+			selectWindow("Contained Points");
+			run("BinaryThin2 ", "kernel_a='0 2 2 0 1 1 0 0 2 ' kernel_b='0 0 2 0 1 1 0 2 2 ' rotations='rotate 45' iterations=-1 white");
+			for (j=0; j<lengthOf(RPx); j++){
+				if((getPixel(RPx[j]-Rx, RPy[j]-Ry))==255) {
+					centroidX = RPx[j]; centroidY = RPy[j];
+					setResult("mc_X\(px\)", i, centroidX + 0.5); /* Add 0.5 pixel to correct pixel coordinates to center of pixel */
+					setResult("mc_Y\(px\)", i, centroidY + 0.5);
+					setResult("mc_offsetX\(px\)", i, getResult("X",i)/lcf-(centroidX + 0.5));
+					setResult("mc_offsetY\(px\)", i, getResult("Y",i)/lcf-(centroidY + 0.5));
+					j = lengthOf(RPx); /* one point and done */
+				}
+			}
+			closeImageByTitle("Contained Points");
+			if(addRadii) {
+				/* Now measure min and max radii from M-Centroid */
+				rMin = Rwidth + Rheight; rMax = 0;
+				for (j=0 ; j<(lengthOf(xPoints)); j++) {
+					dist = sqrt(pow(centroidX-xPoints[j],2)+pow(centroidY-yPoints[j],2));
+					if (dist < rMin) { rMin = dist; rMinX = xPoints[j]; rMinY = yPoints[j];}
+					if (dist > rMax) { rMax = dist; rMaxX = xPoints[j]; rMaxY = yPoints[j];}
+				}
+				if (rMin == 0) rMin = 0.5; /* Correct for 1 pixel width objects and interpolate error */
+				setResult("mc_minRadX", i, rMinX + 0.5); /* Add 0.5 pixel to correct pixel coordinates to center of pixel */
+				setResult("mc_minRadY", i, rMinY + 0.5);
+				setResult("mc_maxRadX", i, rMaxX + 0.5);
+				setResult("mc_maxRadY", i, rMaxY + 0.5);
+				setResult("mc_minRad\(px\)", i, rMin);
+				setResult("mc_maxRad\(px\)", i, rMax);
+				setResult("mc_AR", i, rMax/rMin);
+				if (lcf!=1) {
+					setResult('mc_minRad' + "\(" + unit + "\)", i, rMin*lcf);
+					setResult('mc_maxRad' + "\(" + unit + "\)", i, rMax*lcf);
+				}
 			}
 		}
-		closeImageByTitle("Contained Points");
-		if(addRadii) {
-			/* Now measure min and max radii from M-Centroid */
-			rMin = Rwidth + Rheight; rMax = 0;
-			for (j=0 ; j<(lengthOf(xPoints)); j++) {
-				dist = sqrt(pow(centroidX-xPoints[j],2)+pow(centroidY-yPoints[j],2));
-				if (dist < rMin) { rMin = dist; rMinX = xPoints[j]; rMinY = yPoints[j];}
-				if (dist > rMax) { rMax = dist; rMaxX = xPoints[j]; rMaxY = yPoints[j];}
-			}
-			if (rMin == 0) rMin = 0.5; /* Correct for 1 pixel width objects and interpolate error */
-			setResult("mc_minRadX", i, rMinX + 0.5); /* Add 0.5 pixel to correct pixel coordinates to center of pixel */
-			setResult("mc_minRadY", i, rMinY + 0.5);
-			setResult("mc_maxRadX", i, rMaxX + 0.5);
-			setResult("mc_maxRadY", i, rMaxY + 0.5);
-			setResult("mc_minRad\(px\)", i, rMin);
-			setResult("mc_maxRad\(px\)", i, rMax);
-			setResult("mc_AR", i, rMax/rMin);
-			if (lcf!=1) {
-				setResult('mc_minRad' + "\(" + unit + "\)", i, rMin*lcf);
-				setResult('mc_maxRad' + "\(" + unit + "\)", i, rMax*lcf);
-			}
-		}
+		updateResults();
+		run("Select None");
+		if (!batchMode) setBatchMode(false); /* Toggle batch mode off */
+		showStatus("MC Function Finished: " + roiManager("count") + " objects analyzed in " + (getTime()-start)/1000 + "s.");
+		beep(); wait(300); beep(); wait(300); beep();
+		call("java.lang.System.gc");
 	}
-	updateResults();
-	run("Select None");
-	if (!batchMode) setBatchMode(false); /* Toggle batch mode off */
-	showStatus("MC Function Finished: " + roiManager("count") + " objects analyzed in " + (getTime()-start)/1000 + "s.");
-	beep(); wait(300); beep(); wait(300); beep();
-	call("java.lang.System.gc"); 
-	}
-	
 	function autoCalculateDecPlacesFromValueOnly(value){
 		valueSci = d2s(value, -1);
 		iExp = indexOf(valueSci, "E");
@@ -608,29 +618,6 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		if (valueExp<-5) decPlaces = -1; /* Scientific Notation */
 		if (valueExp>=4) decPlaces = -1; /* Scientific Notation */
 		return decPlaces;
-	}
-	function binaryCheck(windowTitle) { /* For black objects on a white background */
-		/* v180104 added line to remove inverting LUT and changed to auto default threshold 
-		v180602 Added dialog option to opt out of inverting image */
-		selectWindow(windowTitle);
-		if (is("binary")==0) run("8-bit");
-		/* Quick-n-dirty threshold if not previously thresholded */
-		getThreshold(t1,t2); 
-		if (t1==-1)  {
-			run("8-bit");
-			run("Auto Threshold", "method=Default");
-			run("Convert to Mask");
-			}
-		/* Make sure black objects on white background for consistency */
-		if (((getPixel(0, 0))==0 || (getPixel(0, 1))==0 || (getPixel(1, 0))==0 || (getPixel(1, 1))==0)) {
-			inversion = getBoolean("The background appears to have intensity zero, do you want the intensities inverted?", "Yes Please", "No Thanks");
-			if (inversion==true) run("Invert"); 
-		}
-		/*	Sometimes the outline procedure will leave a pixel border around the outside - this next step checks for this.
-			i.e. the corner 4 pixels should now be all black, if not, we have a "border issue". */
-		if (((getPixel(0, 0))+(getPixel(0, 1))+(getPixel(1, 0))+(getPixel(1, 1))) != 4*(getPixel(0, 0)) ) 
-				restoreExit("Border Issue"); 	
-		if(is("Inverting LUT")) run("Invert LUT");
 	}
 	function checkForPlugin(pluginName) {
 		/* v161102 changed to true-false */
@@ -698,14 +685,14 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
 		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
 		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micron units */
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ã…ngstrÃ¶m unit symbol */
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ångström unit symbol */
 		string= replace(string, "  ", " "); /* Replace double spaces with single spaces */
 		string= replace(string, "_", fromCharCode(0x2009)); /* Replace underlines with thin spaces */
 		string= replace(string, "px", "pixels"); /* Expand pixel abbreviation */
 		string = replace(string, " " + fromCharCode(0x00B0), fromCharCode(0x00B0)); /* Remove space before degree symbol */
-		string= replace(string, " Â°", fromCharCode(0x2009)+"Â°"); /* Remove space before degree symbol */
+		string= replace(string, " °", fromCharCode(0x2009)+"°"); /* Remove space before degree symbol */
 		return string;
-	}	
+	}
 	function closeImageByTitle(windowTitle) {  /* Cannot be used with tables */
         if (isOpen(windowTitle)) {
 		selectWindow(windowTitle);
@@ -717,7 +704,8 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		/* v180828 added Fluorescent Colors
 		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
 		   v191211 added Cyan
-		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference
+		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference v220706 restores missing magenta
+		   REQUIRES restoreExit function.  56 Colors
 		*/
 		if (colorName == "white") cA = newArray(255,255,255);
 		else if (colorName == "black") cA = newArray(0,0,0);
@@ -734,6 +722,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		else if (colorName == "pink") cA = newArray(255, 192, 203);
 		else if (colorName == "green") cA = newArray(0,255,0); /* #00FF00 AKA Lime green */
 		else if (colorName == "blue") cA = newArray(0,0,255);
+		else if (colorName == "magenta") cA = newArray(255,0,255); /* #FF00FF */
 		else if (colorName == "yellow") cA = newArray(255,255,0);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);
 		else if (colorName == "cyan") cA = newArray(0, 255, 255);
@@ -792,13 +781,12 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	  if (lengthOf(n)==1) n= "0"+n; return n;
 	  if (lengthOf(""+n)==1) n= "0"+n; return n;
 	}
-	
 	function getHexColorFromRGBArray(colorNameString) {
 		colorArray = getColorArrayFromColorName(colorNameString);
 		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);
 		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);
 		 return hexName;
-	}	
+	}
 	function getFontChoiceList() {
 		/* v180723 first version */
 		systemFonts = getFontList();
@@ -835,8 +823,32 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		/* 9/9/2017 added Garbage clean up suggested by Luc LaLonde - LBNL */
 		restoreSettings(); /* Restore previous settings before exiting */
 		setBatchMode("exit & display"); /* Probably not necessary if exiting gracefully but otherwise harmless */
-		call("java.lang.System.gc"); 
+		call("java.lang.System.gc");
 		exit(message);
+	}
+	function toWhiteBGBinary(windowTitle) { /* For black objects on a white background */
+		/* Replaces binary[-]Check function
+		v220707
+		*/
+		selectWindow(windowTitle);
+		if (!is("binary")) run("8-bit");
+		/* Quick-n-dirty threshold if not previously thresholded */
+		getThreshold(t1,t2);
+		if (t1==-1)  {
+			run("8-bit");
+			run("Auto Threshold", "method=Default");
+			setOption("BlackBackground", false);
+			run("Make Binary");
+		}
+		if (is("Inverting LUT")) run("Invert LUT");
+		/* Make sure black objects on white background for consistency */
+		yMax = Image.height-1;	xMax = Image.width-1;
+		cornerPixels = newArray(getPixel(0,0),getPixel(1,1),getPixel(0,yMax),getPixel(xMax,0),getPixel(xMax,yMax),getPixel(xMax-1,yMax-1));
+		Array.getStatistics(cornerPixels, cornerMin, cornerMax, cornerMean, cornerStdDev);
+		if (cornerMax!=cornerMin) IJ.log("Warning: There may be a problem with the image border, there are different pixel intensities at the corners");
+		/*	Sometimes the outline procedure will leave a pixel border around the outside - this next step checks for this.
+			i.e. the corner 4 pixels should now be all black, if not, we have a "border issue". */
+		if (cornerMean<1) run("Invert");
 	}
 	function unCleanLabel(string) {
 	/* v161104 This function replaces special characters with standard characters for file system compatible filenames.
@@ -852,7 +864,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(181), "u"); /* micron units */
 		string= replace(string, getInfo("micrometer.abbreviation"), "um"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ã…ngstrÃ¶m unit symbol */
+		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, "%", "pc"); /* % causes issues with html listing */
@@ -892,7 +904,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		}
 		for (i=0; i<lengthOf(unwantedSuffixes); i++){
 			sL = lengthOf(preString);
-			if (endsWith(preString,unwantedSuffixes[i])) { 
+			if (endsWith(preString,unwantedSuffixes[i])) {
 				preString = substring(preString,0,sL-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
 				i=-1; /* check one more time */
 			}
@@ -904,8 +916,8 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	}
 	function writeLabel(labelColor){
 		setColorFromColorName(labelColor);
-		drawString(finalLabel, finalLabelX, finalLabelY); 
-	}	
+		drawString(finalLabel, finalLabelX, finalLabelY);
+	}
 	function writeObjectLabelNoRamp() {
 		roiManager("Select", i);
 		labelValue = getResult(parameter,i);
@@ -920,7 +932,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		if (lFontSize>maxLFontSize) lFontSize = maxLFontSize;
 		if (lFontSize<minLFontSize) lFontSize = minLFontSize;
 		setFont(font,lFontSize,fontStyle);
-		if (ctrChoice=="ROI Center") 
+		if (ctrChoice=="ROI Center")
 			textOffset = roiX + ((roiWidth) - getStringWidth(labelString))/2;
 		else textOffset = getResult("mc_X\(px\)",i) - getStringWidth(labelString)/2;
 		setColorFromColorName("white");

@@ -4,9 +4,9 @@ macro "Fancy Border" {
 	+ v200706 Changed imageDepth variable name added macro label.
 	+ v211022 Updated color choices
 	+ v211025 Updated stripKnownExtensionFromString
-	+ v211104: Updated stripKnownExtensionsFromString function    v211112: Again  f5: updated pad function
+	+ v211104: Updated stripKnownExtensionsFromString function    v211112+v220616: Again  f5: updated pad function f6: updated colors
 */
-	macroL = "Fancy_Border_v211112-f5.ijm";
+	macroL = "Fancy_Border_v211112-f6.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	selEType = selectionType;  /* Returns the selection type, where 0=rectangle, 1=oval, 2=polygon, 3=freehand, 4=traced, 5=straight line, 6=segmented line, 7=freehand line, 8=angle, 9=composite and 10=point.*/
@@ -27,24 +27,27 @@ macro "Fancy Border" {
 	startSliceNumber = getSliceNumber();
 	remSlices = slices-startSliceNumber;
 	dBrderThick = maxOf(round((imageWidth+imageHeight)/1000),1);
-	if (imageDepth==24) colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray", "red", "cyan", "pink", "green", "blue", "yellow", "orange", "garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "orange_modern", "pink_modern", "purple_modern", "jazzberry_jam", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern", "radical_red", "wild_watermelon", "outrageous_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
-	else colorChoice = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
+	colorChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
+	colorChoicesStd = newArray("red", "cyan", "pink", "green", "blue", "magenta", "yellow", "orange");
+	colorChoicesMod = newArray("garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
+	colorChoicesNeon = newArray("jazzberry_jam", "radical_red", "wild_watermelon", "outrageous_orange", "supernova_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "dodger_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
+	if (imageDepth==24) colorChoices = Array.concat(colorChoices,colorChoicesStd,colorChoicesMod,colorChoicesNeon);
 	fancyBorderLocationsString = call("ij.Prefs.get", "fancy.borderLocations", "false|true|false");
 	fancyBorderLocations = split(fancyBorderLocationsString,"|");
 	Dialog.create("Border Format: " + macroL);
 		Dialog.addMessage("Borders are added in the order: inner,outer,center")
 		Dialog.addCheckbox("Draw border marking inside of selection?", fancyBorderLocations[0]);
 		Dialog.addNumber("Width of inner border:",dBrderThick,0,3,"pixels");
-		iIBC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.innerBorderColor",colorChoice[1]),1);
-		Dialog.addChoice("Inner border color:", colorChoice, colorChoice[iIBC]);
+		iIBC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.innerBorderColor",colorChoices[1]),1);
+		Dialog.addChoice("Inner border color:", colorChoices, colorChoices[iIBC]);
 		Dialog.addCheckbox("Draw border marking outside of selection?",  fancyBorderLocations[1]);
 		Dialog.addNumber("Width of outer border:",dBrderThick,0,3,"pixels");
-		iOBC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.outerBorderColor",colorChoice[1]),1);
-		Dialog.addChoice("Outer border color:", colorChoice, colorChoice[iOBC]);
+		iOBC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.outerBorderColor",colorChoices[1]),1);
+		Dialog.addChoice("Outer border color:", colorChoices, colorChoices[iOBC]);
 		Dialog.addCheckbox("Draw border marking centered on selection?",  fancyBorderLocations[2]);
 		Dialog.addNumber("Width of center border:",dBrderThick,0,3,"pixels");
-		iCBC = indexOfArray(colorChoice, call("ij.Prefs.get", "fancy.centerBorderColor",colorChoice[1]),1);
-		Dialog.addChoice("Center border color:", colorChoice, colorChoice[iCBC]);
+		iCBC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.centerBorderColor",colorChoices[1]),1);
+		Dialog.addChoice("Center border color:", colorChoices, colorChoices[iCBC]);
 		overwriteChoice = newArray("Add overlays");
 		if (Overlay.size>0) overwriteChoice = Array.concat(overwriteChoice, "Replace ALL overlays");
 		if (selEType<2) overwriteChoice = Array.concat(overwriteChoice, "Destructive overwrite", "New image");
@@ -180,7 +183,8 @@ macro "Fancy Border" {
 		/* v180828 added Fluorescent Colors
 		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
 		   v191211 added Cyan
-		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference
+		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference v220706 restores missing magenta
+		   REQUIRES restoreExit function.  56 Colors
 		*/
 		if (colorName == "white") cA = newArray(255,255,255);
 		else if (colorName == "black") cA = newArray(0,0,0);
@@ -197,6 +201,7 @@ macro "Fancy Border" {
 		else if (colorName == "pink") cA = newArray(255, 192, 203);
 		else if (colorName == "green") cA = newArray(0,255,0); /* #00FF00 AKA Lime green */
 		else if (colorName == "blue") cA = newArray(0,0,255);
+		else if (colorName == "magenta") cA = newArray(255,0,255); /* #FF00FF */
 		else if (colorName == "yellow") cA = newArray(255,255,0);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);
 		else if (colorName == "cyan") cA = newArray(0, 255, 255);
@@ -251,7 +256,6 @@ macro "Fancy Border" {
 	  if (lengthOf(n)==1) n= "0"+n; return n;
 	  if (lengthOf(""+n)==1) n= "0"+n; return n;
 	}
-	
 	function getHexColorFromRGBArray(colorNameString) {
 		colorArray = getColorArrayFromColorName(colorNameString);
 		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);
@@ -295,6 +299,7 @@ macro "Fancy Border" {
 		v211101: Added ".Ext_" removal
 		v211104: Restricts cleanup to end of string to reduce risk of corrupting path
 		v211112: Tries to fix trapped extension before channel listing. Adds xlsx extension.
+		v220615: Tries to fix the fix for the trapped extensions ...
 		*/
 		string = "" + string;
 		if (lastIndexOf(string, ".")>0 || lastIndexOf(string, "_lzw")>0) {
@@ -306,18 +311,19 @@ macro "Fancy Border" {
 			for (i=0; i<kEL; i++) {
 				for (j=0; j<3; j++){ /* Looking for channel-label-trapped extensions */
 					ichanLabels = lastIndexOf(string, chanLabels[j]);
-					if(ichanLabels>0){
-						index = lastIndexOf(string, "." + knownExt[i]);
-						if (ichanLabels>index && index>0) string = "" + substring(string, 0, index) + "_" + chanLabels[j];
+					iExt = lastIndexOf(string, "." + knownExt[i]);
+					if(ichanLabels>0 && iExt>(ichanLabels+lengthOf(chanLabels[j]))){
+						iExt = lastIndexOf(string, "." + knownExt[i]);
+						if (ichanLabels>iExt && iExt>0) string = "" + substring(string, 0, iExt) + "_" + chanLabels[j];
 						ichanLabels = lastIndexOf(string, chanLabels[j]);
 						for (k=0; k<uSL; k++){
-							index = lastIndexOf(string, unwantedSuffixes[k]);  /* common ASC suffix */
-							if (ichanLabels>index && index>0) string = "" + substring(string, 0, index) + "_" + chanLabels[j];	
-						}				
+							iExt = lastIndexOf(string, unwantedSuffixes[k]);  /* common ASC suffix */
+							if (ichanLabels>iExt && iExt>0) string = "" + substring(string, 0, iExt) + "_" + chanLabels[j];
+						}
 					}
 				}
-				index = lastIndexOf(string, "." + knownExt[i]);
-				if (index>=(lengthOf(string)-(lengthOf(knownExt[i])+1)) && index>0) string = "" + substring(string, 0, index);
+				iExt = lastIndexOf(string, "." + knownExt[i]);
+				if (iExt>=(lengthOf(string)-(lengthOf(knownExt[i])+1)) && iExt>0) string = "" + substring(string, 0, iExt);
 			}
 		}
 		unwantedSuffixes = newArray("_lzw"," ","  ", "__","--","_","-");
@@ -381,7 +387,7 @@ macro "Fancy Border" {
 		}
 		for (i=0; i<lengthOf(unwantedSuffixes); i++){
 			sL = lengthOf(preString);
-			if (endsWith(preString,unwantedSuffixes[i])) { 
+			if (endsWith(preString,unwantedSuffixes[i])) {
 				preString = substring(preString,0,sL-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
 				i=-1; /* check one more time */
 			}

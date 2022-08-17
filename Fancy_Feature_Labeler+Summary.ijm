@@ -7,10 +7,10 @@
 	v180612 set to work on only one slice.
 	v180723 Allows use of system fonts.
 	+ v200706 Changed imageDepth variable name added macro label.  + bugfix v210415
-	+ v211022 Updated color choices  f5: function updates f6: updated colors and replaced binary[-]Check with toWhiteBGBinary
+	+ v211022 Updated color choices  f5: function updates f6: updated colors and replaced binary[-]Check with toWhiteBGBinary f7-8: updated colors 
  */
 macro "Add scaled value labels to each ROI object and add summary"{
-	macroL = "Fancy_Feature_Labeler+Summary_v211022-f6";
+	macroL = "Fancy_Feature_Labeler+Summary_v211022-f8";
 	requires("1.47r");
 	saveSettings;
 	/* Some cleanup */
@@ -92,7 +92,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		Dialog.addNumber("Font_size:", fontSize, 0, 3, "pt \(ROI manager\)");
 		colorChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		if (imageDepth==24){
-			colorChoicesStd = newArray("red", "cyan", "pink", "green", "blue", "magenta", "yellow", "orange");
+			colorChoicesStd = newArray("red", "green", "blue", "cyan", "magenta", "yellow", "pink", "orange", "violet", "violet");
 			colorChoicesMod = newArray("garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
 			colorChoicesNeon = newArray("jazzberry_jam", "radical_red", "wild_watermelon", "outrageous_orange", "supernova_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "dodger_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
 			colorChoices = Array.concat(colorChoices, colorChoicesStd, colorChoicesMod, colorChoicesNeon);
@@ -217,7 +217,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			/* This redo of color arrays may not be necessary */
 			colorChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 			if (imageDepth==24){
-				colorChoicesStd = newArray("red", "cyan", "pink", "green", "blue", "magenta", "yellow", "orange");
+				colorChoicesStd = newArray("red", "green", "blue", "cyan", "magenta", "yellow", "pink", "orange", "violet", "violet");
 				colorChoicesMod = newArray("garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
 				colorChoicesNeon = newArray("jazzberry_jam", "radical_red", "wild_watermelon", "outrageous_orange", "supernova_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "dodger_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
 				colorChoices = Array.concat(colorChoices, colorChoicesStd, colorChoicesMod, colorChoicesNeon);
@@ -705,7 +705,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
 		   v191211 added Cyan
 		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference v220706 restores missing magenta
-		   REQUIRES restoreExit function.  56 Colors
+		   REQUIRES restoreExit function.  57 Colors
 		*/
 		if (colorName == "white") cA = newArray(255,255,255);
 		else if (colorName == "black") cA = newArray(0,0,0);
@@ -719,13 +719,14 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		else if (colorName == "gray") cA = newArray(127,127,127);
 		else if (colorName == "dark_gray") cA = newArray(51,51,51);
 		else if (colorName == "red") cA = newArray(255,0,0);
-		else if (colorName == "pink") cA = newArray(255, 192, 203);
 		else if (colorName == "green") cA = newArray(0,255,0); /* #00FF00 AKA Lime green */
 		else if (colorName == "blue") cA = newArray(0,0,255);
-		else if (colorName == "magenta") cA = newArray(255,0,255); /* #FF00FF */
-		else if (colorName == "yellow") cA = newArray(255,255,0);
-		else if (colorName == "orange") cA = newArray(255, 165, 0);
 		else if (colorName == "cyan") cA = newArray(0, 255, 255);
+		else if (colorName == "yellow") cA = newArray(255,255,0);
+		else if (colorName == "magenta") cA = newArray(255,0,255); /* #FF00FF */
+		else if (colorName == "pink") cA = newArray(255, 192, 203);
+		else if (colorName == "violet") cA = newArray(127,0,255);
+		else if (colorName == "orange") cA = newArray(255, 165, 0);
 		else if (colorName == "garnet") cA = newArray(120,47,64);
 		else if (colorName == "gold") cA = newArray(206,184,136);
 		else if (colorName == "aqua_modern") cA = newArray(75,172,198); /* #4bacc6 AKA "Viking" aqua */
@@ -856,21 +857,23 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	+ v220126 added getInfo("micrometer.abbreviation").
 	+ v220128 add loops that allow removal of multiple duplication.
 	+ v220131 fixed so that suffix cleanup works even if extensions are included.
+	+ v220616 Minor index range fix that does not seem to have an impact if macro is working as planned. v220715 added 8-bit to unwanted dupes. v220812 minor changes to micron and Ångström handling
 	*/
 		/* Remove bad characters */
 		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
 		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
-		string= replace(string, fromCharCode(181), "u"); /* micron units */
+		string= replace(string, fromCharCode(181)+"m", "um"); /* micron units */
 		string= replace(string, getInfo("micrometer.abbreviation"), "um"); /* micron units */
 		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
+		string= replace(string, fromCharCode(0x212B), "Angstrom"); /* the other Ångström unit symbol */
 		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
 		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string= replace(string, "%", "pc"); /* % causes issues with html listing */
 		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */
 		/* Remove duplicate strings */
-		unwantedDupes = newArray("8bit","lzw");
+		unwantedDupes = newArray("8bit","8-bit","lzw");
 		for (i=0; i<lengthOf(unwantedDupes); i++){
 			iLast = lastIndexOf(string,unwantedDupes[i]);
 			iFirst = indexOf(string,unwantedDupes[i]);
@@ -892,7 +895,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		unwantedSuffixes = newArray(" ","_","-","\\+"); /* things you don't wasn't to end a filename with */
 		extStart = lastIndexOf(string,".");
 		sL = lengthOf(string);
-		if (sL-extStart<=4) extIncl = true;
+		if (sL-extStart<=4 && extStart>0) extIncl = true;
 		else extIncl = false;
 		if (extIncl){
 			preString = substring(string,0,extStart);

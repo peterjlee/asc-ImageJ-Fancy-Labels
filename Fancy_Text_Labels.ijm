@@ -19,8 +19,9 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		v210625 Added saving of user last-used settings (preferences). Fixed overlay alignment issues by using bitmap mask instead of rewriting text.
 		v210628 Improved shadow and fixed text rotation issues. Split dialog into two dialogs to allow to remove menu tweaks that might not work in scalable GUIs
 		v211022 Updated color function choices  f1-4 updated functions f5-7 updated colors
+		v220823 Gray indices refer to grayChoices only;
 	 */
-	macroL = "Fancy_Text_Labels_v211022-f7.ijm";
+	macroL = "Fancy_Text_Labels_v220823.ijm";
 	requires("1.47r");
 	originalImage = getTitle();
 	if (matches(originalImage, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + originalImage + " ?");
@@ -143,8 +144,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		colorChoices = Array.concat(grayChoices,colorChoicesStd,colorChoicesMod,colorChoicesNeon);
 		iTC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.textLabels.font.color",colorChoices[0]),0);
 		iBC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.textLabels.outline.color",colorChoices[1]),1);
-		iTCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.textLabels.font.gray",colorChoices[0]),0);
-		iBCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.textLabels.outline.gray",colorChoices[1]),1);
+		iTCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.textLabels.font.gray",grayChoices[0]),0);
+		iBCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.textLabels.outline.gray",grayChoices[1]),1);
 		if (imageDepth==24) Dialog.addChoice("Text color:", colorChoices, colorChoices[iTC]);
 		else {
 			Dialog.addChoice("Destructive text gray choices:", grayChoices, grayChoices[iTCg]);
@@ -817,6 +818,11 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);
 		 return hexName;
 	}
+	function pad(n) {
+	  /* This version by Tiago Ferreira 6/6/2022 eliminates the toString macro function */
+	  if (lengthOf(n)==1) n= "0"+n; return n;
+	  if (lengthOf(""+n)==1) n= "0"+n; return n;
+	}
 	function indexOfArray(array, value, default) {
 		/* v190423 Adds "default" parameter (use -1 for backwards compatibility). Returns only first found value */
 		index = default;
@@ -842,11 +848,6 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	function setBackgroundFromColorName(colorName) {
 		colorArray = getColorArrayFromColorName(colorName);
 		setBackgroundColor(colorArray[0], colorArray[1], colorArray[2]);
-	}
-	function pad(n) {
-	  /* This version by Tiago Ferreira 6/6/2022 eliminates the toString macro function */
-	  if (lengthOf(n)==1) n= "0"+n; return n;
-	  if (lengthOf(""+n)==1) n= "0"+n; return n;
 	}
 	function unCleanLabel(string) {
 	/* v161104 This function replaces special characters with standard characters for file system compatible filenames.

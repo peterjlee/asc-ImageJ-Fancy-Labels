@@ -6,9 +6,10 @@ macro "Fancy Scale Bar" {
 	v220510: Checks to make sure default text color is not the same as the background for simple format f2: updated pad function f3: updated colors
 	v220711: Added dialog info showing more precise lengths for non-line selections.
 	v220726: Fixes anti-aliasing issue and adds a transparent text option.
-	v220808-10: Minor tweaks to inner shadow and font size v220810_f1 updates CZ scale functions only f2: updated colors
+	v220808-10: Minor tweaks to inner shadow and font size v220810_f1 updates CZ scale functions only f2: updated colors f3: Updated checkForPlugins function
+	v220823: Gray choices for graychoices only. Corrected gray index formulae.
 */
-	macroL = "Fancy_Scale_Bar_v220810-f2.ijm";
+	macroL = "Fancy_Scale_Bar_v220823.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -25,7 +26,9 @@ macro "Fancy Scale Bar" {
 	checkForUnits();
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
 	overlayN = Overlay.size;
-	bgI = maxOf(0,guessBGMedianIntensity());
+	medianBGIs = guessBGMedianIntensity();
+	medianBGI = round((medianBGIs[0]+medianBGIs[1]+medianBGIs[2])/3);
+	bgI = maxOf(0,medianBGI);
 	if (imageDepth==8 || imageDepth==24) bgIpc = round(bgI*100/255);
 	else if (imageDepth==16) bgIpc = round(bgI*100/65536);
 	if (bgIpc<3 || bgIpc>97) sText = true;
@@ -120,33 +123,35 @@ macro "Fancy Scale Bar" {
 		colorChoices = Array.concat(grayChoices, colorChoicesStd, colorChoicesMod, colorChoicesNeon);
 		iTC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.scale.font.color",colorChoices[0]),0);
 		iBC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.scale.outline.color",colorChoices[1]),1);
-		iTCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.font.gray",colorChoices[0]),0);
-		iBCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.outline.gray",colorChoices[1]),1);
+		iTCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.font.gray",grayChoices[0]),0);
+		iBCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.outline.gray",grayChoices[1]),1);
 		/* Reverse Black/white if it looks like it will not work with background intensity
 		Note: keep white/black color order in colorChoices for intensity reversal after background intensity check */
+		gCiMax = grayChoices.length-1;
+		cCiMax = colorChoices.length-1;
 		if (bgIpc>97){
-			if(indexOf(colorChoices[iTC],"white")>=0 && sText) iTC += 1;
-			if(indexOf(colorChoices[iTC],"white")>=0) iBC = iTC + 1; /* invert default b/w of text for outline */
-			else if(indexOf(colorChoices[iTC],"black")>=0) iBC = iTC - 1; /* invert default b/w of text for outline */
-			if(indexOf(grayChoices[iTCg],"white")>=0 && sText) iTCg += 1;
-			if(indexOf(grayChoices[iTCg],"white")>=0) iBCg = iTCG + 1;
-			else if(indexOf(colorChoices[iTCg],"black")>=0) iBCg = iTC - 1; /* invert default b/w of text for outline */
+			if(indexOf(colorChoices[iTC],"white")>=0 && sText) iTC = minOf(cCiMax,iTC+1);
+			if(indexOf(colorChoices[iTC],"white")>=0) iBC = minOf(cCiMax,iTC+1); /* invert default b/w of text for outline */
+			else if(indexOf(colorChoices[iTC],"black")>=0) iBC = maxOf(0,iTC-1); /* invert default b/w of text for outline */
+			if(indexOf(grayChoices[iTCg],"white")>=0 && sText) iTCg = minOf(gCiMax,iTCg+1);
+			if(indexOf(grayChoices[iTCg],"white")>=0) iBCg = minOf(gCiMax,iTCg+1);
+			else if(indexOf(grayChoices[iTCg],"black")>=0) iBCg = maxOf(0,iTCg-1); /* invert default b/w of text for outline */
 		}
 		else if (bgIpc<3){
-			if(indexOf(colorChoices[iTC],"black")>=0 && sText) iTC -= 1;
-			if(indexOf(colorChoices[iTC],"black")>=0) iBC = iTC - 1; /* invert default b/w of text for outline */
-			else if(indexOf(colorChoices[iTC],"white")>=0) iBC = iTC + 1; /* invert default b/w of text for outline */
-			if(indexOf(grayChoices[iTCg],"black")>=0 && sText) iTCg 1= 1;
-			if(indexOf(grayChoices[iTCg],"black")>=0) iBCg = iTCG - 1;
-			else if(indexOf(colorChoices[iTCg],"white")>=0) iBCg = iTC + 1; /* invert default b/w of text for outline */
+			if(indexOf(colorChoices[iTC],"black")>=0 && sText) iTC = maxOf(0,iTC-1);
+			if(indexOf(colorChoices[iTC],"black")>=0) iBC = maxOf(0,iTC-1); /* invert default b/w of text for outline */
+			else if(indexOf(colorChoices[iTC],"white")>=0) iBC = minOf(cCiMax,iTC+1); /* invert default b/w of text for outline */
+			if(indexOf(grayChoices[iTCg],"black")>=0 && sText) iTCg = maxOf(0,iTCg-1);
+			if(indexOf(grayChoices[iTCg],"black")>=0) iBCg = maxOf(0,iTCg-1);
+			else if(indexOf(grayChoices[iTCg],"white")>=0) iBCg = minOf(gCiMax,iTCg+1); /* invert default b/w of text for outline */
 		}
 		if (imageDepth==24){
 			Dialog.addChoice("Color of " + modeStr + " and text:", colorChoices, colorChoices[iTC]);
 			Dialog.addChoice("Outline (background) color:", colorChoices, colorChoices[iBC]);
 		}
 		else {
-			Dialog.addChoice("Gray tone of " + modeStr + " and text:", colorChoices, colorChoices[iTCg]);
-			Dialog.addChoice("Gray tone (background) color:", colorChoices, colorChoices[iBCg]);
+			Dialog.addChoice("Gray tone of " + modeStr + " and text:", grayChoices, grayChoices[iTCg]);
+			Dialog.addChoice("Gray tone of background:", grayChoices, grayChoices[iBCg]);
 			Dialog.addMessage("Image depth is " + imageDepth + " bits: Only gray tones used unless overlays are selected for output",13,"#099FFF");
 			Dialog.addChoice("Overlay color of " + modeStr + " and text:", colorChoices, colorChoices[iTC]);
 			Dialog.addChoice("Overlay outline (background) color:", colorChoices, colorChoices[iBC]);
@@ -757,33 +762,38 @@ macro "Fancy Scale Bar" {
 		/* v161102 changed to true-false
 			v180831 some cleanup
 			v210429 Expandable array version
-			v220510 Looks for both class and jar if no extension is given */
-		var pluginCheck = false;
-		if (getDirectory("plugins") == "") restoreExit("Failure to find any plugins!");
-		else pluginDir = getDirectory("plugins");
-		pExts = newArray(".jar",".class");
-		pluginNameO = pluginName;
-		for (j=0; j<lengthOf(pExts); j++){
-			pluginName = pluginNameO;
-			if (!endsWith(pluginName,pExts[0]) && !endsWith(pluginName,pExts[1])) pluginName = pluginName + pExts[j];
-			if (File.exists(pluginDir + pluginName)) {
-				pluginCheck = true;
-				showStatus(pluginName + "found in: "  + pluginDir);
-			}
-			else {
-				pluginList = getFileList(pluginDir);
-				subFolderList = newArray;
-				for (i=0,subFolderCount=0; i<lengthOf(pluginList); i++) {
-					if (endsWith(pluginList[i], "/")) {
-						subFolderList[subFolderCount] = pluginList[i];
-						subFolderCount++;
-					}
+			v220510 Looks for both class and jar if no extension is given
+			v220818 Mystery issue fixed, no longer requires restoreExit	*/
+		pluginCheck = false;
+		if (getDirectory("plugins") == "") print("Failure to find any plugins!");
+		else {
+			pluginDir = getDirectory("plugins");
+			if (lastIndexOf(pluginName,".")==pluginName.length-1) pluginName = substring(pluginName,0,pluginName.length-1);
+			pExts = newArray(".jar",".class");
+			knownExt = false;
+			for (j=0; j<lengthOf(pExts); j++) if(endsWith(pluginName,pExts[j])) knownExt = true;
+			pluginNameO = pluginName;
+			for (j=0; j<lengthOf(pExts) && !pluginCheck; j++){
+				if (!knownExt) pluginName = pluginName + pExts[j];
+				if (File.exists(pluginDir + pluginName)) {
+					pluginCheck = true;
+					showStatus(pluginName + "found in: "  + pluginDir);
 				}
-				for (i=0; i<lengthOf(subFolderList); i++) {
-					if (File.exists(pluginDir + subFolderList[i] +  "\\" + pluginName)) {
-						pluginCheck = true;
-						showStatus(pluginName + " found in: " + pluginDir + subFolderList[i]);
-						i = lengthOf(subFolderList);
+				else {
+					pluginList = getFileList(pluginDir);
+					subFolderList = newArray;
+					for (i=0,subFolderCount=0; i<lengthOf(pluginList); i++) {
+						if (endsWith(pluginList[i], "/")) {
+							subFolderList[subFolderCount] = pluginList[i];
+							subFolderCount++;
+						}
+					}
+					for (i=0; i<lengthOf(subFolderList); i++) {
+						if (File.exists(pluginDir + subFolderList[i] +  "\\" + pluginName)) {
+							pluginCheck = true;
+							showStatus(pluginName + " found in: " + pluginDir + subFolderList[i]);
+							i = lengthOf(subFolderList);
+						}
 					}
 				}
 			}
@@ -1094,28 +1104,39 @@ macro "Fancy Scale Bar" {
 		if (!batchMode) setBatchMode(false); /* Return to original batch mode setting */
 	}
 	function guessBGMedianIntensity(){
-		/* v210827 1st working version */
+		/* v220822 1st color array version (based on https://wsr.imagej.net//macros/tools/ColorPickerTool.txt) */
 		iW = Image.width-1;
 		iH = Image.height-1;
 		interrogate = round(maxOf(1,(iW+iH)/200));
-		samples = 4*interrogate;
-		iVs = newArray();
-		for (i=0; i<interrogate; i++){
-			if (bitDepth!=24){
-				iVs = Array.concat(iVs,getPixel(i,i));
-				iVs = Array.concat(iVs,getPixel(i,iH-i));
-				iVs = Array.concat(iVs,getPixel(iW-i,i));
-				iVs = Array.concat(iVs,getPixel(iW-i,iH-i));
-			}
-			else {
-				iVs = Array.concat(iVs,getValue(i,i));
-				iVs = Array.concat(iVs,getValue(i,iH-i));
-				iVs = Array.concat(iVs,getValue(iW-i,i));
-				iVs = Array.concat(iVs,getValue(iW-i,iH-i));
+		if (bitDepth==24){red = 0; green = 0; blue = 0;}
+		else int = 0;
+		xC = newArray(0,iW,0,iW);
+		yC = newArray(0,0,iH,iH);
+		xAdd = newArray(1,-1,1,-1);
+		yAdd = newArray(1,1,-1,-1);
+		if (bitDepth==24){ reds = newArray(); greens = newArray(); blues = newArray();}
+		else ints = newArray;
+		for (i=0; i<xC.length; i++){
+			for(j=0;j<interrogate;j++){
+				if (bitDepth==24){
+					v = getPixel(xC[i]+j*xAdd[i],yC[i]+j*yAdd[i]);
+					reds = Array.concat(reds,(v>>16)&0xff);  // extract red byte (bits 23-17)
+	           		greens = Array.concat(greens,(v>>8)&0xff); // extract green byte (bits 15-8)
+	            	blues = Array.concat(blues,v&0xff);       // extract blue byte (bits 7-0)
+				}
+				else ints = Array.concat(ints,getValue(xC[i]+j*xAdd[i],yC[i]+j*yAdd[i]));
 			}
 		}
-		iVs = Array.sort(iVs);
-		return(iVs[round(lengthOf(iVs)/2)]);
+		midV = round((xC.length-1)/2);
+		if (bitDepth==24){
+			reds = Array.sort(reds); greens = Array.sort(greens); blues = Array.sort(blues);
+			medianVals = newArray(reds[midV],greens[midV],blues[midV]);
+		}
+		else{
+			ints = Array.sort(ints);
+			medianVals = newArray(ints[midV],ints[midV],ints[midV]);
+		}
+		return medianVals;
 	}
 	function indexOfArray(array, value, default) {
 		/* v190423 Adds "default" parameter (use -1 for backwards compatibility). Returns only first found value */

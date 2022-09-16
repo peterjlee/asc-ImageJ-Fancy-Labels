@@ -8,8 +8,9 @@ macro "Fancy Scale Bar" {
 	v220726: Fixes anti-aliasing issue and adds a transparent text option.
 	v220808-10: Minor tweaks to inner shadow and font size v220810_f1 updates CZ scale functions only f2: updated colors f3: Updated checkForPlugins function
 	v220823: Gray choices for graychoices only. Corrected gray index formulae.
+	v220916: Uses imageIDs instead of titles to avoid issues with duplicate image titles. Overlay outlines restored.
 */
-	macroL = "Fancy_Scale_Bar_v220823.ijm";
+	macroL = "Fancy_Scale_Bar_v220916.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -22,6 +23,7 @@ macro "Fancy Scale Bar" {
 	}
 	run("Select None");
 	activeImage = getTitle();
+	activeImageID = getImageID();
 	imageDepth = bitDepth();
 	checkForUnits();
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
@@ -336,7 +338,7 @@ macro "Fancy Scale Bar" {
 			if (endsWith(tS, "LLabel")) tS = tS + "s";
 			else if (!endsWith(tS, "LLabels")) tS += "+LLabel";
 		}
-		selectWindow(activeImage);
+		selectImage(activeImageID);
 		run("Select None");
 		run("Duplicate...", "title=&tS duplicate");
 		if (remAllOverlays) removeOverlaysByName("");
@@ -347,6 +349,7 @@ macro "Fancy Scale Bar" {
 			call("ij.Prefs.set", "fancy.scale.reduceDepth", true); /* not used here but saved for future version of fast'n fancy variant */
 		}
 		activeImage = getTitle();
+		activeImageID = getImageID();
 		imageDepth = bitDepth();
 	}
 	else if (remAllOverlays) removeOverlaysByName("");
@@ -586,7 +589,7 @@ macro "Fancy Scale Bar" {
 				run("Select None");
 			}
 			/* shadow and outline selection masks have now been created */
-			selectWindow(activeImage);
+			selectImage(activeImageID);
 			for (sl=startSliceNumber; sl<endSlice+1; sl++) {
 				setSlice(sl);
 				if (allSlices) sl=0;
@@ -601,14 +604,12 @@ macro "Fancy Scale Bar" {
 					setSelectionName("Scale bar shadow");
 					run("Add Selection...", "fill="+shadowHex);
 				}
-				if(transparent) { 
-					getSelectionFromMask("outline_template");
-					run("Make Inverse");
-					setSelectionName("Scale bar outline " + outlineColor);
-					run("Add Selection...", "fill=&outlineColorHex");
-					/* alignment of overlay drawn text varies with font so the label_mask is reused instead of redrawing the text directly */
-				}
-				else {
+				getSelectionFromMask("outline_template");
+				run("Make Inverse");
+				setSelectionName("Scale bar outline " + outlineColor);
+				run("Add Selection...", "fill=&outlineColorHex");
+				/* alignment of overlay drawn text varies with font so the label_mask is reused instead of redrawing the text directly */
+				if(!transparent) {
 					getSelectionFromMask("label_mask");
 					setSelectionName("Scale label " + scaleBarColor);
 					run("Add Selection...", "fill=" + scaleBarColorHex);
@@ -699,7 +700,7 @@ macro "Fancy Scale Bar" {
 	}
 	else {
 		if(!transparent){
-			selectWindow(activeImage);
+			selectImage(activeImageID);
 			scaleBarColorHex = getHexColorFromRGBArray(scaleBarColor);
 			setColor(scaleBarColorHex);
 			setFont(fontName,fontSize);

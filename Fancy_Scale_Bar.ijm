@@ -9,8 +9,10 @@ macro "Fancy Scale Bar" {
 	v220808-10: Minor tweaks to inner shadow and font size v220810_f1 updates CZ scale functions only f2: updated colors f3: Updated checkForPlugins function
 	v220823: Gray choices for graychoices only. Corrected gray index formulae.
 	v220916: Uses imageIDs instead of titles to avoid issues with duplicate image titles. Overlay outlines restored.
+	v220920: Allows use of just text for labeling arrows if a line selection is used. Arrow width corrected.
+	v220921: Overlay issues with new version of getSelectionFromMask function fixed v220921b: Allows rotation of label text if line selected
 */
-	macroL = "Fancy_Scale_Bar_v220916.ijm";
+	macroL = "Fancy_Scale_Bar_v220921b.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -59,6 +61,9 @@ macro "Fancy Scale Bar" {
 	innerShadowDisp = dIShO;
 	innerShadowBlur = floor(dIShO/2);
 	innerShadowDarkness = 20;
+	textLabel = "";
+	rotText = false;
+	diagnostic = false;
 	if (sF!=0) {
 		nSF = newArray(1,sF/(1E-2),sF/(1E-3),sF/(1E-6),sF/(1E-6),sF/(1E-9),sF/(1E-10),sF/(1E-12), sF/(2.54E-2), sF/(1E-4));
 		overrideUnitChoice = newArray(selectedUnit, "cm", "mm", micronS, "microns", "nm", "Å", "pm", "inches", "human hairs");
@@ -78,7 +83,8 @@ macro "Fancy Scale Bar" {
 			sbDP = autoCalculateDecPlacesFromValueOnly(sbWidth)+2; /* Add more dp for line labeling */
 			sbPreciseWidth = d2s(sbWidth, sbDP+3);
 			sbWidth = d2s(sbWidth, sbDP);
-			lineAngle = (180/PI) * Math.atan2(lineYPx, lineXPx);
+			lineAngle = Math.toDegrees(atan2(selLY[1]-selLY[0], selLX[1]-selLX[0]));
+			if (abs(lineAngle)>0.01) rotText = true;
 			lineXPx = abs(selLX[1]-selLX[0]);
 			lineYPx = abs(selLY[1]-selLY[0]);
 			lineMidX = (selLX[0] + selLX[1])/2;
@@ -102,7 +108,9 @@ macro "Fancy Scale Bar" {
 			Dialog.addNumber("Selected line length \(" + d2s(lineLength,1) + " pixels\):", sbWidth, dpSB+2, 10, selectedUnit);
 			Dialog.addNumber("Selected line angle \(" + fromCharCode(0x00B0) + " from horizontal\):", lineAngle, 2, 5, fromCharCode(0x00B0));
 			Dialog.addString("Length/angle separator:", "No angle label",10);
-			Dialog.setInsets(-90, 370, 0);
+			Dialog.addString("Insert text here for text only", textLabel,20);
+			Dialog.addCheckbox("Rotate text " + lineAngle + fromCharCode(0x00B0) + "?", rotText);
+			Dialog.setInsets(-130, 370, 0);
 			Dialog.addMessage("Length labeling mode:\nSelect none or a non-\nstraight-line selection\nto draw a scale bar",13,"#782F40");
 			modeStr = "length line";
 		} else {
@@ -221,11 +229,14 @@ macro "Fancy Scale Bar" {
 			Dialog.addMessage("All "+channels+" channels will be identically labeled.");
 		}
 		Dialog.addCheckboxGroup(1,2,newArray("Tweak formatting?","Transparent fill"),newArray(false,false));
+		Dialog.addCheckbox("Diagnostic mode?",diagnostic);
 	Dialog.show();
 		selLengthInUnits = Dialog.getNumber;
 		if (selEType==5){
 			angleLabel = Dialog.getNumber;
 			angleSeparator = Dialog.getString;
+			textLabel = Dialog.getString;
+			rotText = Dialog.getCheckbox();
 		}
 		if (sF!=0) overrideUnit = Dialog.getChoice;
 		else overrideUnit = "";
@@ -279,6 +290,7 @@ macro "Fancy Scale Bar" {
 		}
 		tweakF = Dialog.getCheckbox();
 		transparent = Dialog.getCheckbox();
+		diagnostic = Dialog.getCheckbox();
 		if (!sText){
 			if (tweakF){
 				Dialog.create("Scale Bar Format Tweaks: " + macroL);
@@ -310,7 +322,7 @@ macro "Fancy Scale Bar" {
 				}
 			}
 		}
-	setBatchMode(true);
+	if (!diagnostic) setBatchMode(true);
 	 /* save last used color settings in user in preferences */
 	sbHeight = maxOf(2,round(fontSize*sbHeightPC/100)); /*  set minimum default bar height as 2 pixels */
 	if (!sText){  /* simplified formatting is not saved */
@@ -367,9 +379,12 @@ macro "Fancy Scale Bar" {
 	if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
 	selLengthInPixels = selLengthInUnits / lcf;
 	if (sF!=0) selLengthInUnits *= oSF; /* now safe to change units */
-	selLengthLabel = removeTrailingZerosAndPeriod(toString(selLengthInUnits));
-	label = selLengthLabel + " " + selectedUnit;
-	if (selEType==5){
+	if(textLabel!="") label = textLabel;
+	else{
+		selLengthLabel = removeTrailingZerosAndPeriod(toString(selLengthInUnits));
+		label = selLengthLabel + " " + selectedUnit;
+	}
+	if (selEType==5 && textLabel==""){
 		if (angleSeparator!="No angle label") label += angleSeparator + " " + angleLabel + fromCharCode(0x00B0);
 	}
 	labelL = getStringWidth(label);
@@ -440,7 +455,7 @@ macro "Fancy Scale Bar" {
 		getSelectionBounds(newSelEX, newSelEY, newSelEWidth, newSelEHeight);
 		selEX = newSelEX + round((newSelEWidth/2) - selLengthInPixels/2);
 		selEY = newSelEY + round(newSelEHeight/2)- sbHeight - selOffsetY;
-		if (is("Batch Mode")==false) setBatchMode(true);	/* toggle batch mode back on */
+		if (is("Batch Mode")==false && !diagnostic) setBatchMode(true);	/* toggle batch mode back on */
 	} else if (selPos=="At Selection"){
 		if (selEY>imageHeight/2) selEY += selEHeight;  /*  Annotation relative to the bottom of the selection if in lower half of image */
 		selEY = minOf(selEY, imageHeight-(sbHeight/2 + selOffsetY));
@@ -518,10 +533,19 @@ macro "Fancy Scale Bar" {
 		setColor(255,255,255);
 		/* Although text should overlap any bar we write it first here so that we can also create a separate text mask to use later */
 		if (!noText){
-			writeLabel7(fontName, fontSize, "white", label,finalLabelX,finalLabelY,false);
 			tempID = getImageID;
-			run("Duplicate...", "title=text_mask");
-			run("Select None");
+			newImage("text_mask", "8-bit black", imageWidth, imageHeight, 1);
+			writeLabel7(fontName, fontSize, "white", label,finalLabelX,finalLabelY,false);
+			if(rotText){
+				getSelectionFromMask("text_mask"); 
+				run("Rotate...", "  angle=&lineAngle");
+				setColor("white");
+				fill();
+				run("Make Inverse");
+				setColor("black");
+				fill();
+				run("Select None");
+			}
 			selectImage(tempID);
 		}
 		if (sBStyle=="Solid Bar" && selEType!=5) fillRect(selEX, selEY, selLengthInPixels, sbHeight); /* Rectangle drawn to produce thicker bar */
@@ -551,18 +575,26 @@ macro "Fancy Scale Bar" {
 		/* Now create outline around text in case of overlap */
 		if (!noText){
 			newImage("outline_text", "8-bit black", imageWidth, imageHeight, 1);
-			setBackgroundFromColorName("white");
 			getSelectionFromMask("text_mask");
-			run("Clear", "slice");
+			setColor("white");
+			fill();
 			run("Enlarge...", "enlarge=&outlineStroke pixel");
 			run("Invert");	
 			run("Select None");
 			run("Convert to Mask");
 			imageCalculator("Max", "outline_template","outline_text");
-			run("Select None");
 			imageCalculator("XOR create", "outline_template","label_mask");
 			selectWindow("Result of outline_template");
 			rename("outline_filled");
+			imageCalculator("OR", "label_mask","outline_text");
+			selectWindow("outline_filled");
+			getSelectionFromMask("text_mask");
+			run("Enlarge...", "enlarge=&outlineStroke pixel");
+			fill();
+			run("Select None");
+			selectWindow("label_mask");
+			getSelectionFromMask("text_mask");
+			fill();
 			run("Select None");
 		}
 		/* If Overlay chosen add fancy scale bar as overlay */
@@ -605,7 +637,6 @@ macro "Fancy Scale Bar" {
 					run("Add Selection...", "fill="+shadowHex);
 				}
 				getSelectionFromMask("outline_template");
-				run("Make Inverse");
 				setSelectionName("Scale bar outline " + outlineColor);
 				run("Add Selection...", "fill=&outlineColorHex");
 				/* alignment of overlay drawn text varies with font so the label_mask is reused instead of redrawing the text directly */
@@ -650,10 +681,7 @@ macro "Fancy Scale Bar" {
 				if (!sText){
 					/* apply outline around label */
 					if(!transparent) getSelectionFromMask("outline_filled");
-					else {
-						getSelectionFromMask("outline_template");
-						run("Make Inverse");
-					}
+					else getSelectionFromMask("outline_template");
 					setBackgroundFromColorName(outlineColor);
 					run("Clear", "slice");
 					run("Enlarge...", "enlarge=1 pixel");
@@ -663,16 +691,26 @@ macro "Fancy Scale Bar" {
 				}
 				/* color label */
 				if(!transparent) {
-					writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true);
-					if (sBStyle=="Solid Bar" && selEType!=5) fillRect(selEX, selEY, selLengthInPixels, sbHeight); /* Rectangle drawn to produce thicker bar */
-					else {
-						if (selEType!=5) makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
-						else makeArrow(selLX[0],selLY[0],selLX[1],selLY[1],arrowStyle); /* Line location is as drawn (no offsets) */
-						run("Fill");
+					if(!rotText){
+						writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true);
+						if (sBStyle=="Solid Bar" && selEType!=5) fillRect(selEX, selEY, selLengthInPixels, sbHeight); /* Rectangle drawn to produce thicker bar */
+						else {
+							if (selEType!=5) makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
+							else makeArrow(selLX[0],selLY[0],selLX[1],selLY[1],arrowStyle); /* Line location is as drawn (no offsets) */
+							if(sBStyle=="Solid Bar") Roi.setStrokeWidth(sbHeight);
+							else Roi.setStrokeWidth(sbHeight/2);
+							run("Fill");
+						}
+						run("Select None");
+						if (!noText && (imageDepth==16 || imageDepth==32)) writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true); /* force anti-aliasing */
 					}
-					run("Select None");
-					if (!noText && (imageDepth==16 || imageDepth==32)) writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true); /* force anti-aliasing */
-				}
+					else {
+						getSelectionFromMask("label_mask");
+						setColorFromColorName(scaleBarColor);
+						run("Fill");
+						run("Select None");
+					}
+				}	
 				if (!noShadow && !sText) {
 					if (isOpen("inner_shadow")) imageCalculator("Subtract", tS,"inner_shadow");
 				}
@@ -687,6 +725,10 @@ macro "Fancy Scale Bar" {
 					run("Gaussian Blur...", "sigma=0.55");
 					run("Convolve...", "text1=[-0.0556 -0.0556 -0.0556 \n-0.0556 1.4448  -0.0556 \n-0.0556 -0.0556 -0.0556]"); /* moderate sharpen */
 					run("Select None");
+					getSelectionFromMask("outline_text");
+					setBackgroundFromColorName(outlineColor);
+					run("Fill", "slice");
+					run("Select None");
 				}
 				if(emboss) {
 					getSelectionFromMask("label_mask");
@@ -696,7 +738,7 @@ macro "Fancy Scale Bar" {
 			}
 		}
 		tempTitles = newArray("shadow","inner_shadow","label_mask","text_mask","outline_template","outline_text","outline_filled","outline_only_template");
-		for(i=0;i<lengthOf(tempTitles);i++) closeImageByTitle(tempTitles[i]);
+		if (!diagnostic) for(i=0;i<lengthOf(tempTitles);i++) closeImageByTitle(tempTitles[i]);
 	}
 	else {
 		if(!transparent){
@@ -724,19 +766,29 @@ macro "Fancy Scale Bar" {
 					run("Select None");
 				}
 				else {
-					writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true);
-					if (sBStyle=="Solid Bar" && selEType!=5) fillRect(selEX, selEY, selLengthInPixels, sbHeight); /* Rectangle drawn to produce thicker bar */
-					else {
-						if (selEType!=5) makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
-						else makeArrow(selLX[0],selLY[0],selLX[1],selLY[1],arrowStyle); /* Line location is as drawn (no offsets) */
-						run("Fill");
+					if(!rotText){
+						writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true);
+						if (sBStyle=="Solid Bar" && selEType!=5) fillRect(selEX, selEY, selLengthInPixels, sbHeight); /* Rectangle drawn to produce thicker bar */
+						else {
+							if (selEType!=5) makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
+							else makeArrow(selLX[0],selLY[0],selLX[1],selLY[1],arrowStyle); /* Line location is as drawn (no offsets) */
+							if(sBStyle=="Solid Bar") Roi.setStrokeWidth(sbHeight);
+							else Roi.setStrokeWidth(sbHeight/2);
+							run("Fill");
+						}
+						run("Select None");
 					}
-					run("Select None");
+					else {
+						getSelectionFromMask("label_mask");
+						setColorFromColorName(scaleBarColor);
+						run("Fill");
+						run("Select None");
+					}
 				}
 				if (allSlices) sl = endSlice+1;
 			}
-			/* End simple-Text fancy scale bar section */
 		}
+		/* End simple-Text fancy scale bar section */
 	}
 	restoreSettings();
 	setSlice(startSliceNumber);
@@ -1094,12 +1146,15 @@ macro "Fancy Scale Bar" {
 		else return scaleFactor;
 	}
 	function getSelectionFromMask(sel_M){
+		/* v220920 inverts selection if full width */
 		batchMode = is("Batch Mode"); /* Store batch status mode before toggling */
 		if (!batchMode) setBatchMode(true); /* Toggle batch mode on if previously off */
 		tempID = getImageID();
 		selectWindow(sel_M);
 		run("Create Selection"); /* Selection inverted perhaps because the mask has an inverted LUT? */
-		run("Make Inverse");
+		getSelectionBounds(gSelX,gSelY,gWidth,gHeight);
+		if(gSelX==0 && gSelY==0 && gWidth==Image.width && gHeight==Image.height)	run("Make Inverse");
+		run("Select None");
 		selectImage(tempID);
 		run("Restore Selection");
 		if (!batchMode) setBatchMode(false); /* Return to original batch mode setting */

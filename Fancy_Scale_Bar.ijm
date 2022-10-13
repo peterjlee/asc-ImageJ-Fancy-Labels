@@ -10,9 +10,10 @@ macro "Fancy Scale Bar" {
 	v220823: Gray choices for graychoices only. Corrected gray index formulae.
 	v220916: Uses imageIDs instead of titles to avoid issues with duplicate image titles. Overlay outlines restored.
 	v220920: Allows use of just text for labeling arrows if a line selection is used. Arrow width corrected.
-	v220921: Overlay issues with new version of getSelectionFromMask function fixed v220921b: Allows rotation of label text if line selected
+	v220921: Overlay issues with new version of getSelectionFromMask function fixed v220921b: Allows rotation of label text if line selected.
+	v221005: Provides option of converting non-standard bit-depths rather than just crashing.
 */
-	macroL = "Fancy_Scale_Bar_v220921b.ijm";
+	macroL = "Fancy_Scale_Bar_v221005.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -27,14 +28,27 @@ macro "Fancy Scale Bar" {
 	activeImage = getTitle();
 	activeImageID = getImageID();
 	imageDepth = bitDepth();
+	if(imageDepth!=24){
+		if (imageDepth<8 || imageDepth>16){
+			if(getBoolean("Image depth of " + imageDepth + " does not work for this macro; change to 8-bit?")){
+				run("8-bit");
+				imageDepth = bitDepth();
+			}
+			else restoreExit("Goodbye");
+		}
+		else if ((imageDepth==8) && indexOf(getInfo(), "Display range:") < 0){
+			run("RGB Color");
+			imageDepth = bitDepth();
+		}
+	}
 	checkForUnits();
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
 	overlayN = Overlay.size;
 	medianBGIs = guessBGMedianIntensity();
 	medianBGI = round((medianBGIs[0]+medianBGIs[1]+medianBGIs[2])/3);
 	bgI = maxOf(0,medianBGI);
-	if (imageDepth==8 || imageDepth==24) bgIpc = round(bgI*100/255);
-	else if (imageDepth==16) bgIpc = round(bgI*100/65536);
+	if (imageDepth==16) bgIpc = round(bgI*100/65536);
+	else bgIpc = round(bgI*100/255);
 	if (bgIpc<3 || bgIpc>97) sText = true;
 	else sText = false;
 	/* End simple text default options */

@@ -1,16 +1,16 @@
 /* Inspired by ROI_Color_Coder.ijm
 	IJ BAR: https://github.com/tferr/Scripts#scripts
-	http://imagejdocu.tudor.lu/doku.php?id=macro:roi_color_coder
+	https://imagej.net/doku.php?id=macro:roi_color_coder
 	Tiago Ferreira, v.5.2 2015.08.13 -	v.5.3 2016.05.1 + pjl mods 6/16-30/2016 to automate defaults and add labels to ROIs
 	This macro adds scaled result labels to each ROI object as well as a summary.
 	3/16/2017 Add labeling by ID number and additional image label locations.
 	v180612 set to work on only one slice.
 	v180723 Allows use of system fonts.
 	+ v200706 Changed imageDepth variable name added macro label.  + bugfix v210415
-	+ v211022 Updated color choices  f5: function updates f6: updated colors and replaced binary[-]Check with toWhiteBGBinary f7-8: updated colors 
+	+ v211022 Updated color choices  f5: function updates f6: updated colors and replaced binary[-]Check with toWhiteBGBinary f7-11: updated colors
  */
 macro "Add scaled value labels to each ROI object and add summary"{
-	macroL = "Fancy_Feature_Labeler+Summary_v211022-f8";
+	macroL = "Fancy_Feature_Labeler+Summary_v211022-f11";
 	requires("1.47r");
 	saveSettings;
 	/* Some cleanup */
@@ -21,13 +21,12 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	setOption("BlackBackground", false);
 	run("Appearance...", " "); if(is("Inverting LUT")) run("Invert LUT"); /* do not use Inverting LUT */
 	/*	The above should be the defaults but this makes sure (black particles on a white background)
-		http://imagejdocu.tudor.lu/doku.php?id=faq:technical:how_do_i_set_up_imagej_to_deal_with_white_particles_on_a_black_background_by_default */
+		https://imagej.net/doku.php?id=faq:technical:how_do_i_set_up_imagej_to_deal_with_white_particles_on_a_black_background_by_default */
 	t=getTitle();
 	/* Now checks to see if a Ramp legend has been selected by accident */
 	if (matches(t, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + t + " ?");
-	checkForRoiManager(); /* macro requires that the objects are in the ROI manager */
+	nROIs = checkForRoiManager(); /* macro requires that the objects are in the ROI manager */
 	setBatchMode(true);
-	nROIs= roiManager("count");
 	nRES= nResults;
 	/* get id of image and number of ROIs */
 	nMismatch = nROIs-nRES;
@@ -39,9 +38,8 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		}
 		else {
 			nMBn = getBoolean("Do you want to continue with the smallest number?");
-			if(nMBn){
+			if(nMBn)
 				items = minOf(nROIs, nRES);
-			}
 			else restoreExit("ROI mismatch not to your liking; will exit macro");
 		}
 	}
@@ -92,7 +90,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		Dialog.addNumber("Font_size:", fontSize, 0, 3, "pt \(ROI manager\)");
 		colorChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		if (imageDepth==24){
-			colorChoicesStd = newArray("red", "green", "blue", "cyan", "magenta", "yellow", "pink", "orange", "violet", "violet");
+			colorChoicesStd = newArray("red", "green", "blue", "cyan", "magenta", "yellow", "pink", "orange", "violet");
 			colorChoicesMod = newArray("garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
 			colorChoicesNeon = newArray("jazzberry_jam", "radical_red", "wild_watermelon", "outrageous_orange", "supernova_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "dodger_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
 			colorChoices = Array.concat(colorChoices, colorChoicesStd, colorChoicesMod, colorChoicesNeon);
@@ -217,7 +215,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 			/* This redo of color arrays may not be necessary */
 			colorChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 			if (imageDepth==24){
-				colorChoicesStd = newArray("red", "green", "blue", "cyan", "magenta", "yellow", "pink", "orange", "violet", "violet");
+				colorChoicesStd = newArray("red", "green", "blue", "cyan", "magenta", "yellow", "pink", "orange", "violet");
 				colorChoicesMod = newArray("garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
 				colorChoicesNeon = newArray("jazzberry_jam", "radical_red", "wild_watermelon", "outrageous_orange", "supernova_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "dodger_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
 				colorChoices = Array.concat(colorChoices, colorChoicesStd, colorChoicesMod, colorChoicesNeon);
@@ -520,17 +518,17 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	if ((lastIndexOf(flatImage,"."))>0) labeledImageNameWOExt = substring(flatImage, 0, lastIndexOf(flatImage,"."));
 	else labeledImageNameWOExt = flatImage;
 	rename(unCleanLabel(labeledImageNameWOExt + "_" + parameter));
-		if (countNaN!=0)
+	if (countNaN!=0)
 		print("\n>>>> ROI Color Coder:\n"
 			+ "Some values from the \""+ parameter +"\" column could not be retrieved.\n"
 			+ countNaN +" ROI(s) were labeled with a default color.");
-		restoreSettings;
+	restoreSettings;
 	setBatchMode("exit & display");
 	showStatus("Labeling Macro Finished");
 	/*   ( 8(|)  ( 8(|) Functions ( 8(|)  ( 8(|)   */
 	function AddMCsToResultsTable() {
 	/* 	Based on "MCentroids.txt" Morphological centroids by thinning assumes white particles: G. Landini
-		http://imagejdocu.tudor.lu/doku.php?id=plugin:morphology:morphological_operators_for_imagej:start
+		https://imagej.net/doku.php?id=plugin:morphology:morphological_operators_for_imagej:start
 		http://www.mecourse.com/landinig/software/software.html
 		Modified to add coordinates to Results Table: Peter J. Lee NHMFL  7/20-29/2016
 		v180102	Fixed typos and updated functions.
@@ -620,30 +618,42 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		return decPlaces;
 	}
 	function checkForPlugin(pluginName) {
-		/* v161102 changed to true-false */
-		var pluginCheck = false, subFolderCount = 0;
-		if (getDirectory("plugins") == "") restoreExit("Failure to find any plugins!");
-		else pluginDir = getDirectory("plugins");
-		if (!endsWith(pluginName, ".jar")) pluginName = pluginName + ".jar";
-		if (File.exists(pluginDir + pluginName)) {
-				pluginCheck = true;
-				showStatus(pluginName + "found in: "  + pluginDir);
-		}
+		/* v161102 changed to true-false
+			v180831 some cleanup
+			v210429 Expandable array version
+			v220510 Looks for both class and jar if no extension is given
+			v220818 Mystery issue fixed, no longer requires restoreExit	*/
+		pluginCheck = false;
+		if (getDirectory("plugins") == "") print("Failure to find any plugins!");
 		else {
-			pluginList = getFileList(pluginDir);
-			subFolderList = newArray(lengthOf(pluginList));
-			for (i=0; i<lengthOf(pluginList); i++) {
-				if (endsWith(pluginList[i], "/")) {
-					subFolderList[subFolderCount] = pluginList[i];
-					subFolderCount = subFolderCount +1;
-				}
-			}
-			subFolderList = Array.slice(subFolderList, 0, subFolderCount);
-			for (i=0; i<lengthOf(subFolderList); i++) {
-				if (File.exists(pluginDir + subFolderList[i] +  "\\" + pluginName)) {
+			pluginDir = getDirectory("plugins");
+			if (lastIndexOf(pluginName,".")==pluginName.length-1) pluginName = substring(pluginName,0,pluginName.length-1);
+			pExts = newArray(".jar",".class");
+			knownExt = false;
+			for (j=0; j<lengthOf(pExts); j++) if(endsWith(pluginName,pExts[j])) knownExt = true;
+			pluginNameO = pluginName;
+			for (j=0; j<lengthOf(pExts) && !pluginCheck; j++){
+				if (!knownExt) pluginName = pluginName + pExts[j];
+				if (File.exists(pluginDir + pluginName)) {
 					pluginCheck = true;
-					showStatus(pluginName + " found in: " + pluginDir + subFolderList[i]);
-					i = lengthOf(subFolderList);
+					showStatus(pluginName + "found in: "  + pluginDir);
+				}
+				else {
+					pluginList = getFileList(pluginDir);
+					subFolderList = newArray;
+					for (i=0,subFolderCount=0; i<lengthOf(pluginList); i++) {
+						if (endsWith(pluginList[i], "/")) {
+							subFolderList[subFolderCount] = pluginList[i];
+							subFolderCount++;
+						}
+					}
+					for (i=0; i<lengthOf(subFolderList); i++) {
+						if (File.exists(pluginDir + subFolderList[i] +  "\\" + pluginName)) {
+							pluginCheck = true;
+							showStatus(pluginName + " found in: " + pluginDir + subFolderList[i]);
+							i = lengthOf(subFolderList);
+						}
+					}
 				}
 			}
 		}
@@ -651,53 +661,148 @@ macro "Add scaled value labels to each ROI object and add summary"{
 	}
 	function checkForRoiManager() {
 		/* v161109 adds the return of the updated ROI count and also adds dialog if there are already entries just in case . .
-			v180104 only asks about ROIs if there is a mismatch with the results */
+			v180104 only asks about ROIs if there is a mismatch with the results
+			v190628 adds option to import saved ROI set
+			v210428	include thresholding if necessary and color check
+			v211108 Uses radio-button group.
+			NOTE: Requires ASC restoreExit function, which assumes that saveSettings has been run at the beginning of the macro
+			v220706: Table friendly version
+			v220816: Enforces non-inverted LUT as well as white background and fixes ROI-less analyze.  Adds more dialog labeling.
+			v230126: Does not change foreground or background colors.
+			v230130: Cosmetic improvements to dialog.
+			*/
+		functionL = "checkForRoiManager_v230130";
 		nROIs = roiManager("count");
-		nRES = nResults; /* Used to check for ROIs:Results mismatch */
-		if(nROIs==0) runAnalyze = true; /* Assumes that ROIs are required and that is why this function is being called */
-		else if(nROIs!=nRES) runAnalyze = getBoolean("There are " + nRES + " results and " + nROIs + " ROIs; do you want to clear the ROI manager and reanalyze?");
-		else runAnalyze = false;
-		if (runAnalyze) {
-			roiManager("reset");
-			Dialog.create("Analysis check");
-			Dialog.addCheckbox("Run Analyze-particles to generate new roiManager values?", true);
-			Dialog.addMessage("This macro requires that all objects have been loaded into the ROI manager.\n \nThere are   " + nRES +"   results.\nThere are   " + nROIs +"   ROIs.");
-			Dialog.show();
-			analyzeNow = Dialog.getCheckbox();
-			if (analyzeNow) {
-				setOption("BlackBackground", false);
-				if (nResults==0)
-					run("Analyze Particles...", "display add");
-				else run("Analyze Particles..."); /* Let user select settings */
-				if (nResults!=roiManager("count"))
-					restoreExit("Results and ROI Manager counts do not match!");
+		nRes = nResults;
+		tSize = Table.size;
+		if (nRes==0 && tSize>0){
+			oTableTitle = Table.title;
+			renameTable = getBoolean("There is no Results table but " + oTableTitle + "has " +tSize+ "rows:", "Rename to Results", "No, I will take may chances");
+			if (renameTable) {
+				Table.rename(oTableTitle, "Results");
+				nRes = nResults;
 			}
-			else restoreExit("Goodbye, your previous setting will be restored.");
 		}
+		if(nROIs==0 || nROIs!=nRes){
+			Dialog.create("ROI mismatch options: " + functionL);
+				Dialog.addMessage("This macro requires that all objects have been loaded into the ROI manager.\n \nThere are   " + nRes +"   results.\nThere are   " + nROIs + "   ROIs",12,"#782F40");
+				mismatchOptions = newArray();
+				if(nROIs==0) mismatchOptions = Array.concat(mismatchOptions,"Import a saved ROI list");
+				else mismatchOptions = Array.concat(mismatchOptions,"Replace the current ROI list with a saved ROI list");
+				if(nRes==0) mismatchOptions = Array.concat(mismatchOptions,"Import a Results Table \(csv\) file");
+				else mismatchOptions = Array.concat(mismatchOptions,"Clear Results Table and import saved csv");
+				mismatchOptions = Array.concat(mismatchOptions,"Clear ROI list and Results Table and reanalyze \(overrides above selections\)");
+				if (!is("binary")) Dialog.addMessage("The active image is not binary, so it may require thresholding before analysis");
+				mismatchOptions = Array.concat(mismatchOptions,"Get me out of here, I am having second thoughts . . .");
+				Dialog.addRadioButtonGroup("How would you like to proceed:_____", mismatchOptions, lengthOf(mismatchOptions), 1, mismatchOptions[0]);
+			Dialog.show();
+				mOption = Dialog.getRadioButton();
+				if (startsWith(mOption,"Sorry")) restoreExit("Sorry this did not work out for you.");
+			if (startsWith(mOption,"Clear ROI list and Results Table and reanalyze")) {
+				if (!is("binary")){
+					if (is("grayscale") && bitDepth()>8){
+						proceed = getBoolean(functionL + ": Image is grayscale but not 8-bit, convert it to 8-bit?", "Convert for thresholding", "Get me out of here");
+						if (proceed) run("8-bit");
+						else restoreExit(functionL + ": Goodbye, perhaps analyze first?");
+					}
+					if (bitDepth()==24){
+						colorThreshold = getBoolean(functionL + ": Active image is RGB, so analysis requires thresholding", "Color Threshold", "Convert to 8-bit and threshold");
+						if (colorThreshold) run("Color Threshold...");
+						else run("8-bit");
+					}
+					if (!is("binary")){
+						/* Quick-n-dirty threshold if not previously thresholded */
+						getThreshold(t1,t2);
+						if (t1==-1)  {
+							run("Auto Threshold", "method=Default");
+							run("Convert to Mask");
+							if (is("Inverting LUT")) run("Invert LUT");
+							if(getPixel(0,0)==0) run("Invert");
+						}
+					}
+				}
+				if (is("Inverting LUT"))  run("Invert LUT");
+				/* Make sure black objects on white background for consistency */
+				cornerPixels = newArray(getPixel(0, 0), getPixel(0, 1), getPixel(1, 0), getPixel(1, 1));
+				Array.getStatistics(cornerPixels, cornerMin, cornerMax, cornerMean, cornerStdDev);
+				if (cornerMax!=cornerMin) restoreExit("Problem with image border: Different pixel intensities at corners");
+				/*	Sometimes the outline procedure will leave a pixel border around the outside - this next step checks for this.
+					i.e. the corner 4 pixels should now be all black, if not, we have a "border issue". */
+				if (cornerMean==0) run("Invert");
+				if (isOpen("ROI Manager"))	roiManager("reset");
+				if (isOpen("Results")) {
+					selectWindow("Results");
+					run("Close");
+				}
+				// run("Analyze Particles..."); /* Letting users select settings does not create ROIs  ¯\_(?)_/¯ */
+				run("Analyze Particles...", "display clear include add");
+				nROIs = roiManager("count");
+				nRes = nResults;
+				if (nResults!=roiManager("count"))
+					restoreExit(functionL + ": Results \(" +nRes+ "\) and ROI Manager \(" +nROIs+ "\) counts still do not match!");
+			}
+			else {
+				if (startsWith(mOption,"Import a saved ROI")) {
+					if (isOpen("ROI Manager"))	roiManager("reset");
+					msg = functionL + ": Import ROI set \(zip file\), click \"OK\" to continue to file chooser";
+					showMessage(msg);
+					pathROI = File.openDialog(functionL + ": Select an ROI file set to import");
+                    roiManager("open", pathROI);
+				}
+				if (startsWith(mOption,"Import a Results")){
+					if (isOpen("Results")) {
+						selectWindow("Results");
+						run("Close");
+					}
+					msg = functionL + ": Import Results Table: Click \"OK\" to continue to file chooser";
+					showMessage(msg);
+					open(File.openDialog(functionL + ": Select a Results Table to import"));
+					Table.rename(Table.title, "Results");
+				}
+			}
+		}
+		nROIs = roiManager("count");
+		nRes = nResults; /* Used to check for ROIs:Results mismatch */
+		if(nROIs==0 || nROIs!=nRes)
+			restoreExit(functionL + ": Goodbye, there are " + nROIs + " ROIs and " + nRes + " results; your previous settings will be restored.");
 		return roiManager("count"); /* Returns the new count of entries */
 	}
 	function cleanLabel(string) {
-		/* v161104 */
+		/*  ImageJ macro default file encoding (ANSI or UTF-8) varies with platform so non-ASCII characters may vary: hence the need to always use fromCharCode instead of special characters.
+		v180611 added "degreeC"
+		v200604	fromCharCode(0x207B) removed as superscript hyphen not working reliably	*/
 		string= replace(string, "\\^2", fromCharCode(178)); /* superscript 2 */
 		string= replace(string, "\\^3", fromCharCode(179)); /* superscript 3 UTF-16 (decimal) */
-		string= replace(string, "\\^-1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
-		string= replace(string, "\\^-2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
-		string= replace(string, "\\^-^1", fromCharCode(0x207B) + fromCharCode(185)); /* superscript -1 */
-		string= replace(string, "\\^-^2", fromCharCode(0x207B) + fromCharCode(178)); /* superscript -2 */
+		string= replace(string, "\\^-"+fromCharCode(185), "-" + fromCharCode(185)); /* superscript -1 */
+		string= replace(string, "\\^-"+fromCharCode(178), "-" + fromCharCode(178)); /* superscript -2 */
+		string= replace(string, "\\^-^1", "-" + fromCharCode(185)); /* superscript -1 */
+		string= replace(string, "\\^-^2", "-" + fromCharCode(178)); /* superscript -2 */
+		string= replace(string, "\\^-1", "-" + fromCharCode(185)); /* superscript -1 */
+		string= replace(string, "\\^-2", "-" + fromCharCode(178)); /* superscript -2 */
+		string= replace(string, "\\^-^1", "-" + fromCharCode(185)); /* superscript -1 */
+		string= replace(string, "\\^-^2", "-" + fromCharCode(178)); /* superscript -2 */
 		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micron units */
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* Ångström unit symbol */
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(197)); /* ?ngstr?m unit symbol */
 		string= replace(string, "  ", " "); /* Replace double spaces with single spaces */
-		string= replace(string, "_", fromCharCode(0x2009)); /* Replace underlines with thin spaces */
+		string= replace(string, "_", " "); /* Replace underlines with space as thin spaces (fromCharCode(0x2009)) not working reliably  */
 		string= replace(string, "px", "pixels"); /* Expand pixel abbreviation */
-		string = replace(string, " " + fromCharCode(0x00B0), fromCharCode(0x00B0)); /* Remove space before degree symbol */
-		string= replace(string, " °", fromCharCode(0x2009)+"°"); /* Remove space before degree symbol */
+		string= replace(string, "degreeC", fromCharCode(0x00B0) + "C"); /* Degree symbol for dialog boxes */
+		string = replace(string, " " + fromCharCode(0x00B0), fromCharCode(0x2009) + fromCharCode(0x00B0)); /* Replace normal space before degree symbol with thin space */
+		string= replace(string, " ?", fromCharCode(0x2009) + fromCharCode(0x00B0)); /* Replace normal space before degree symbol with thin space */
+		string= replace(string, "sigma", fromCharCode(0x03C3)); /* sigma for tight spaces */
+		string= replace(string, "?", fromCharCode(0x00B1)); /* plus or minus */
 		return string;
 	}
 	function closeImageByTitle(windowTitle) {  /* Cannot be used with tables */
-        if (isOpen(windowTitle)) {
-		selectWindow(windowTitle);
-        close();
+		/* v181002 reselects original image at end if open
+		   v200925 uses "while" instead of "if" so that it can also remove duplicates
+		*/
+		oIID = getImageID();
+        while (isOpen(windowTitle)) {
+			selectWindow(windowTitle);
+			close();
 		}
+		if (isOpen(oIID)) selectImage(oIID);
 	}
 	/* ASC Color Functions */
 	function getColorArrayFromColorName(colorName) {
@@ -705,7 +810,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
 		   v191211 added Cyan
 		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference v220706 restores missing magenta
-		   REQUIRES restoreExit function.  57 Colors
+		   REQUIRES restoreExit function.  57 Colors v230130 Added more descriptions and modified order
 		*/
 		if (colorName == "white") cA = newArray(255,255,255);
 		else if (colorName == "black") cA = newArray(0,0,0);
@@ -727,13 +832,13 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		else if (colorName == "pink") cA = newArray(255, 192, 203);
 		else if (colorName == "violet") cA = newArray(127,0,255);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);
-		else if (colorName == "garnet") cA = newArray(120,47,64);
-		else if (colorName == "gold") cA = newArray(206,184,136);
+		else if (colorName == "garnet") cA = newArray(120,47,64); /* #782F40 */
+		else if (colorName == "gold") cA = newArray(206,184,136); /* #CEB888 */
 		else if (colorName == "aqua_modern") cA = newArray(75,172,198); /* #4bacc6 AKA "Viking" aqua */
 		else if (colorName == "blue_accent_modern") cA = newArray(79,129,189); /* #4f81bd */
 		else if (colorName == "blue_dark_modern") cA = newArray(31,73,125); /* #1F497D */
-		else if (colorName == "blue_modern") cA = newArray(58,93,174); /* #3a5dae */
 		else if (colorName == "blue_honolulu") cA = newArray(0,118,182); /* Honolulu Blue #30076B6 */
+		else if (colorName == "blue_modern") cA = newArray(58,93,174); /* #3a5dae */
 		else if (colorName == "gray_modern") cA = newArray(83,86,90); /* bright gray #53565A */
 		else if (colorName == "green_dark_modern") cA = newArray(121,133,65); /* Wasabi #798541 */
 		else if (colorName == "green_modern") cA = newArray(155,187,89); /* #9bbb59 AKA "Chelsea Cucumber" */
@@ -751,20 +856,20 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		/* Fluorescent Colors https://www.w3schools.com/colors/colors_crayola.asp */
 		else if (colorName == "radical_red") cA = newArray(255,53,94);			/* #FF355E */
 		else if (colorName == "wild_watermelon") cA = newArray(253,91,120);		/* #FD5B78 */
+		else if (colorName == "shocking_pink") cA = newArray(255,110,255);		/* #FF6EFF Ultra Pink */
+		else if (colorName == "razzle_dazzle_rose") cA = newArray(238,52,210); 	/* #EE34D2 */
+		else if (colorName == "hot_magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
 		else if (colorName == "outrageous_orange") cA = newArray(255,96,55);	/* #FF6037 */
 		else if (colorName == "supernova_orange") cA = newArray(255,191,63);	/* FFBF3F Supernova Neon Orange*/
-		else if (colorName == "atomic_tangerine") cA = newArray(255,153,102);	/* #FF9966 */
-		else if (colorName == "neon_carrot") cA = newArray(255,153,51);			/* #FF9933 */
 		else if (colorName == "sunglow") cA = newArray(255,204,51); 			/* #FFCC33 */
+		else if (colorName == "neon_carrot") cA = newArray(255,153,51);			/* #FF9933 */
+		else if (colorName == "atomic_tangerine") cA = newArray(255,153,102);	/* #FF9966 */
 		else if (colorName == "laser_lemon") cA = newArray(255,255,102); 		/* #FFFF66 "Unmellow Yellow" */
 		else if (colorName == "electric_lime") cA = newArray(204,255,0); 		/* #CCFF00 */
 		else if (colorName == "screamin'_green") cA = newArray(102,255,102); 	/* #66FF66 */
 		else if (colorName == "magic_mint") cA = newArray(170,240,209); 		/* #AAF0D1 */
 		else if (colorName == "blizzard_blue") cA = newArray(80,191,230); 		/* #50BFE6 Malibu */
 		else if (colorName == "dodger_blue") cA = newArray(9,159,255);			/* #099FFF Dodger Neon Blue */
-		else if (colorName == "shocking_pink") cA = newArray(255,110,255);		/* #FF6EFF Ultra Pink */
-		else if (colorName == "razzle_dazzle_rose") cA = newArray(238,52,210); 	/* #EE34D2 */
-		else if (colorName == "hot_magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
 		else restoreExit("No color match to " + colorName);
 		return cA;
 	}
@@ -776,7 +881,7 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		colorArray = getColorArrayFromColorName(colorName);
 		setBackgroundColor(colorArray[0], colorArray[1], colorArray[2]);
 	}
-	/* Hex conversion below adapted from T.Ferreira, 20010.01 http://imagejdocu.tudor.lu/doku.php?id=macro:rgbtohex */
+	/* Hex conversion below adapted from T.Ferreira, 20010.01 https://imagej.net/doku.php?id=macro:rgbtohex */
 	function pad(n) {
 	  /* This version by Tiago Ferreira 6/6/2022 eliminates the toString macro function */
 	  if (lengthOf(n)==1) n= "0"+n; return n;
@@ -788,20 +893,23 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);
 		 return hexName;
 	}
-	function getFontChoiceList() {
-		/* v180723 first version */
+  	function getFontChoiceList() {
+		/*	v180723 first version
+			v180828 Changed order of favorites
+			v190108 Longer list of favorites
+			v230209 Minor optimization
+		*/
 		systemFonts = getFontList();
 		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
 		fontNameChoice = Array.concat(IJFonts,systemFonts);
-		faveFontList = newArray("Your favorite fonts here", "SansSerif", "Arial Black", "Open Sans ExtraBold", "Calibri", "Roboto", "Roboto Bk", "Tahoma", "Times New Roman", "Helvetica");
+		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Noto Sans Black", "Arial Black", "Montserrat Black", "Lato Black", "Roboto Black", "Merriweather Black", "Alegreya Black", "Tahoma Bold", "Calibri Bold", "Helvetica", "SansSerif", "Calibri", "Roboto", "Tahoma", "Times New Roman Bold", "Times Bold", "Serif");
 		faveFontListCheck = newArray(faveFontList.length);
-		counter = 0;
-		for (i=0; i<faveFontList.length; i++) {
+		for (i=0,counter=0; i<faveFontList.length; i++) {
 			for (j=0; j<fontNameChoice.length; j++) {
 				if (faveFontList[i] == fontNameChoice[j]) {
 					faveFontListCheck[counter] = faveFontList[i];
-					counter +=1;
 					j = fontNameChoice.length;
+					counter++;
 				}
 			}
 		}
@@ -809,23 +917,29 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		fontNameChoice = Array.concat(faveFontListCheck,fontNameChoice);
 		return fontNameChoice;
 	}
-	function getSelectionFromMask(selection_Mask){
+	function getSelectionFromMask(sel_M){
+		/* v220920 only inverts if full width */
 		batchMode = is("Batch Mode"); /* Store batch status mode before toggling */
 		if (!batchMode) setBatchMode(true); /* Toggle batch mode on if previously off */
-		tempTitle = getTitle();
-		selectWindow(selection_Mask);
+		tempID = getImageID();
+		selectWindow(sel_M);
 		run("Create Selection"); /* Selection inverted perhaps because the mask has an inverted LUT? */
-		run("Make Inverse");
-		selectWindow(tempTitle);
+		getSelectionBounds(gSelX,gSelY,gWidth,gHeight);
+		if(gSelX==0 && gSelY==0 && gWidth==Image.width && gHeight==Image.height)	run("Make Inverse");
+		run("Select None");
+		selectImage(tempID);
 		run("Restore Selection");
-		if (!batchMode) setBatchMode("exit");
+		if (!batchMode) setBatchMode(false); /* Return to original batch mode setting */
 	}
 	function restoreExit(message){ /* Make a clean exit from a macro, restoring previous settings */
-		/* 9/9/2017 added Garbage clean up suggested by Luc LaLonde - LBNL */
+		/* 9/9/2017 added Garbage clean up suggested by Luc LaLonde - LBNL
+		v220316 if message is blank this should still work now
+		NOTE: REQUIRES previous run of saveSettings		*/
 		restoreSettings(); /* Restore previous settings before exiting */
 		setBatchMode("exit & display"); /* Probably not necessary if exiting gracefully but otherwise harmless */
 		call("java.lang.System.gc");
-		exit(message);
+		if (message!="") exit(message);
+		else exit;
 	}
 	function toWhiteBGBinary(windowTitle) { /* For black objects on a white background */
 		/* Replaces binary[-]Check function
@@ -922,8 +1036,10 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		drawString(finalLabel, finalLabelX, finalLabelY);
 	}
 	function writeObjectLabelNoRamp() {
+		/* 3/16/2017 this version adds labeling by "ID" number */
 		roiManager("Select", i);
-		labelValue = getResult(parameter,i);
+		if (parameter=="ID") labelValue = i+1;
+		else labelValue = getResult(parameter,i);
 		if (dpChoice=="Auto")
 			decPlaces = autoCalculateDecPlacesFromValueOnly(labelValue);
 		labelString = d2s(labelValue,decPlaces); /* Reduce decimal places for labeling (move these two lines to below the labels you prefer) */
@@ -941,6 +1057,6 @@ macro "Add scaled value labels to each ROI object and add summary"{
 		setColorFromColorName("white");
 		if (ctrChoice=="ROI Center")
 			drawString(labelString, textOffset, roiY+roiHeight/2 + lFontSize/2);
-		else drawString(labelString, textOffset, round(getResult("mc_Y\(px\)",i) + lFontSize/2));
+		else drawString(labelString, textOffset, getResult("mc_Y\(px\)",i) + lFontSize/2);
 	}
 }

@@ -5,6 +5,10 @@
 <img src="/images/ASC_Fancy_Scale_Bar_1302x267Anim.gif" alt="Examples of ASC Fancy Scale Bar for ImageJ">
  </p>
  
+ <p>The scale bar can also be placed under the image (on the right or left sides):</p>
+    
+ <p><img src="/images/ASC_Fancy_Scale_Bar_Color_Under_640x100.jpg" alt="Fancy Scale Bar under image example" width="320" /></p>  
+ 
 <p>Using the line selection tool the precise length and angle can be shown (single or multiple arrows can be used):</p>
     
 <p><img src="/images/F-ScaleBar_Arrows_Length_Angle_1024x182.jpg" alt="Example of Fancy Scale Bar used to label length and angle" width="512" /></p> 

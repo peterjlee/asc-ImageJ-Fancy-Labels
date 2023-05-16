@@ -10,8 +10,10 @@ macro "Fancy Scale Bar" {
 	v230407: 'Raised' and 'Recessed' option using convolve replace inner shadow and emboss. Expanded arrow options and moved the transparency option.
 	v230410: Replaced font size with font.height and font spaceWidth for most positions and added d2s to prefs string for consistency.
 	v230411: Allows non-square pixels (angles are calculated using true pixel dimensions). Does not override saved default colors based on backgrounds when "Under" locations were last-used.
+	v230413: Recessed and Raised effects now use expanding matrices. Font styles removed as they seem to have no impact. Bar thickness now based on '!' character width. 'No-text' option working again.
+	v230417-9: Restored missing line length line for distance labels, renamed to be obvious that it is a length in pixels. Location of distance labels still inconsistent though.  f1: updated stripKnownExtensionFromString function.
 */
-	macroL = "Fancy_Scale_Bar_v230411.ijm";
+	macroL = "Fancy_Scale_Bar_v230419-f1.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -88,11 +90,12 @@ macro "Fancy Scale Bar" {
 		else {
 			lineXPx = abs(selLX[1]-selLX[0]); /* used for label offsets later */
 			lineYPx = abs(selLY[1]-selLY[0]); /* used for label offsets later */
+			lineLengthPx = sqrt(pow(lineXPx,2) + pow(lineYPx,2)); /* NOTE: not corrected for pixel aspect ratio */
 			sbWidth = sqrt(pow(lineXPx * pixelWidth,2) + pow(lineYPx * pixelHeight,2));
 			sbDP = autoCalculateDecPlacesFromValueOnly(sbWidth)+2; /* Add more dp for line labeling */
 			sbPreciseWidth = d2s(sbWidth, sbDP+3);
 			sbWidth = d2s(sbWidth, sbDP);
-			lineAngle = Math.toDegrees(atan2((selLY[1]-selLY[0])* pixAr, selLX[1]-selLX[0]));
+			lineAngle = Math.toDegrees(atan2((selLY[1]-selLY[0]) * pixelHeight, (selLX[1]-selLX[0]) * pixelWidth));
 			if (abs(lineAngle)>0.01) rotText = true;
 			lineXPx = abs(selLX[1]-selLX[0]);
 			lineYPx = abs(selLY[1]-selLY[0]);
@@ -116,7 +119,7 @@ macro "Fancy Scale Bar" {
 	Dialog.create("Scale Bar Parameters: " + macroL);
 		if(pixelHeight!=pixelWidth) Dialog.addMessage("Warning: Non-square pixels \(pixelHeight/pixelWidth = " + pixelHeight/pixelWidth + "\)",infoFontSize,"red");
 		if (selEType==5){
-			Dialog.addNumber("Selected line length \(" + d2s(lineLength,1) + " pixels\):", sbWidth, dpSB+2, 10, selectedUnit);
+			Dialog.addNumber("Selected line length \(" + d2s(lineLengthPx,1) + " pixels\):", sbWidth, dpSB+2, 10, selectedUnit);
 			Dialog.addNumber("Selected line angle \(" + fromCharCode(0x00B0) + " from horizontal\):", lineAngle, 2, 5, fromCharCode(0x00B0));
 			Dialog.addString("Length/angle separator:", "No angle label",10);
 			Dialog.addString("Insert text here for text only", textLabel,20);
@@ -136,7 +139,7 @@ macro "Fancy Scale Bar" {
 			Dialog.addChoice("Override unit with new choice?", newUnits, newUnits[0]);
 		}
 		Dialog.addNumber("Font size \(\"FS\"\):", sbFontSize, 0, 4,"");
-		Dialog.addNumber("Thickness of " + modeStr + " :",19,0,3,"% of font size");
+		Dialog.addNumber("Thickness of " + modeStr + " :", call("ij.Prefs.get", "fancy.scale.barheightpc",70),0,3,"% of '!' character width");
 		grayChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		colorChoicesStd = newArray("red", "green", "blue", "cyan", "magenta", "yellow", "pink", "orange", "violet");
 		colorChoicesMod = newArray("garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
@@ -221,12 +224,16 @@ macro "Fancy Scale Bar" {
 		Dialog.addChoice("Arrowhead/bar header thickness",barHThicknessChoices, barHThicknessChoices[iHT]);
 		Dialog.addNumber("X offset from edge \(for corners only\)", selOffsetX,0,1,"pixels");
 		Dialog.addNumber("Y offset from edge \(corners only\)", selOffsetY,0,1,"pixel");
-		fontStyleChoices = newArray("bold", "italic", "bold italic", "unstyled");
-		iFS = indexOfArray(fontStyleChoices, call("ij.Prefs.get", "fancy.scale.font.style",fontStyleChoices[0]),0);
-		Dialog.addChoice("Font style*:", fontStyleChoices, fontStyleChoices[iFS]);
+		// fontStyleChoices = newArray("bold", "italic", "bold italic", "unstyled");
+		// iFS = indexOfArray(fontStyleChoices, call("ij.Prefs.get", "fancy.scale.font.style",fontStyleChoices[0]),0);
+		// Dialog.addChoice("Font style*:", fontStyleChoices, fontStyleChoices[iFS]);
 		fontNameChoice = getFontChoiceList();
+		fontChoiceText = "Font name:";
+		if (indexOfArrayThatContains(fontNameChoice,"Black",-1)<0 && indexOfArrayThatContains(fontNameChoice,"ExtraBold",-1)<0)
+			Dialog.addMessage("No 'Black' or 'ExtraBold' fonts found: These work best here",12,"red"); 
+		else if (indexOfArrayThatContains(fontNameChoice,"Black",-1)>0 && indexOfArrayThatContains(fontNameChoice,"ExtraBold",-1)>0) fontChoiceText = "Font name \('Black' or 'ExtraBold' recommended\):";
 		iFN = indexOfArray(fontNameChoice, call("ij.Prefs.get", "fancy.scale.font",fontNameChoice[0]),0);
-		Dialog.addChoice("Font name:", fontNameChoice, fontNameChoice[iFN]);
+		Dialog.addChoice(fontChoiceText, fontNameChoice, fontNameChoice[iFN]);
 		overwriteChoices = newArray("Add as overlays");
 		if (imageWidth<=23000) overwriteChoices = Array.concat("New image","Add to image",overwriteChoices);
 		if (imageDepth==16) overwriteChoices = Array.concat("New 8-bit image",overwriteChoices);
@@ -261,7 +268,7 @@ macro "Fancy Scale Bar" {
 		if (sF!=0) overrideUnit = Dialog.getChoice;
 		else overrideUnit = "";
 		fontSize =  Dialog.getNumber;
-		sbHeightPC = Dialog.getNumber; /*  set minimum default bar height as 2 pixels */
+		sbHeightPC = Dialog.getNumber;
 		if (imageDepth==24){
 			scaleBarColor = Dialog.getChoice;
 			outlineColor = Dialog.getChoice;
@@ -302,13 +309,12 @@ macro "Fancy Scale Bar" {
 		transparent = Dialog.getCheckbox();
 		if (startsWith(selPos,"Under")) transparent = false;
 		fancyStyleEffectsString += "|" + d2s(transparent,0);
-		call("ij.Prefs.set", "fancy.scale.fancyStyleEffects", fancyStyleEffectsString);
-		/* End of checkbbox gourp */
+		/* End of checkbox group */
 		sBStyle = Dialog.getRadioButton;
 		barHThickness = Dialog.getChoice;
 		selOffsetX = Dialog.getNumber;
 		selOffsetY = Dialog.getNumber;
-		fontStyle = Dialog.getChoice;
+		// fontStyle = Dialog.getChoice;
 		fontName = Dialog.getChoice;
 		overWrite = Dialog.getRadioButton();
 		if(overlayN > 0 && fScaleBarOverlays > 0) remOverlays = Dialog.getCheckbox();
@@ -333,7 +339,9 @@ macro "Fancy Scale Bar" {
 		diagnostic = Dialog.getCheckbox();
 	if (endsWith(overWrite,"overlays")) applyOverlays = true;
 	else  applyOverlays = false;
-	setFont(fontName,fontSize);
+	if (fontName=="SansSerif" || fontName=="Serif" || fontName=="Monospaced") fontStyle = "bold antialiased";
+	else fontStyle = "antialiased";
+	setFont(fontName,fontSize,fontStyle);
 	if (noShadow && noOutline && !raised && !recessed) notFancy = true;
 	selLengthInPixels = selLengthInUnits / pixelWidth;
 	if (sF!=0) selLengthInUnits *= oSF; /* now safe to change units */
@@ -365,8 +373,6 @@ macro "Fancy Scale Bar" {
 			if (stringFL > 1) exit("Combined scale width and text are too long for the 'Under' option");
 		}
 	}
-	fontHeight = getValue("font.height");
-	spaceWidth = getStringWidth(" ");
 	if (startsWith(fancyStyle,"Minimal")){
 		dOutS = 1.5; /* default outline stroke: % of font size */
 		dShO = 1.5;  /* default outer shadow drop: % of font size */
@@ -403,7 +409,11 @@ macro "Fancy Scale Bar" {
 		else setBatchMode(true);
 	}
 	 /* save last used color settings in user in preferences */
-	sbHeight = maxOf(2,round(fontHeight*sbHeightPC/100)); /*  set minimum default bar height as 2 pixels */
+	fontHeight = getValue("font.height");
+	spaceWidth = getStringWidth(" ");
+	pxConv = fontHeight/fontSize;
+	fontLineWidth = getStringWidth("!");
+	sbHeight = maxOf(2,round(fontLineWidth*sbHeightPC/100)); /*  set minimum default bar height as 2 pixels */
 	if (!notFancy){  /* simplified formatting is not saved */
 		if (imageDepth==24){
 			call("ij.Prefs.set", "fancy.scale.font.color", scaleBarColor);
@@ -426,7 +436,7 @@ macro "Fancy Scale Bar" {
 			if (endsWith(tS, "_EmbScale")) tS = replace(tS, "_EmbScale", ""); /* just removes my preferred note for embedded scale */
 			if (!endsWith(tS, "cale")) tS = tS + "+scale";
 		} else {
-			if (endsWith(tS, "LLabel")) tS = tS + "s";
+			if (endsWith(tS, "LLabel")) tS += "s";
 			else if (!endsWith(tS, "LLabels")) tS += "+LLabel";
 		}
 		c=1;
@@ -435,7 +445,7 @@ macro "Fancy Scale Bar" {
 			tS = "" + tS0 + c;
 			c++;
 		} 
-		selectImage(activeImageID);		
+		selectImage(activeImageID);	
 		run("Select None");
 		run("Duplicate...", "title="+tS+" duplicate");
 		if (remAllOverlays) removeOverlaysByName("");
@@ -455,15 +465,18 @@ macro "Fancy Scale Bar" {
 		expH = fontHeight + 2*selOffsetY;
 		imageHeight += expH;
 	}
-	setFont(fontName,fontSize, fontStyle);
+	// setFont(fontName,fontSize,fontStyle);
+	setFont(fontName,fontSize);
 	 /* save last used settings in user in preferences */
-	call("ij.Prefs.set", "fancy.scale.font.style", fontStyle);
+	// call("ij.Prefs.set", "fancy.scale.font.style", fontStyle);
 	call("ij.Prefs.set", "fancy.scale.font", fontName);
 	call("ij.Prefs.set", "fancy.scale.bar.style", sBStyle);
+	call("ij.Prefs.set", "fancy.scale.barheightpc",sbHeightPC);
+	call("ij.Prefs.set", "fancy.scale.fancyStyleEffects", fancyStyleEffectsString);
 	call("ij.Prefs.set", "fancy.scale.location", selPos);
 	call("ij.Prefs.set", "fancy.scale.output", overWrite);
 	call("ij.Prefs.set", "fancy.scale.barHeader.thickness", barHThickness);
-	if (imageDepth!=16 && imageDepth!=32 && fontStyle!="unstyled") fontStyle += "antialiased"; /* antialising will be applied if possible */
+	// if (imageDepth!=16 && imageDepth!=32 && fontStyle!="unstyled") fontStyle += "antialiased"; /* antialising will be applied if possible */
 	fontFactor = fontSize/100;
 	if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
 	if (!noShadow) {
@@ -489,7 +502,7 @@ macro "Fancy Scale Bar" {
 		scaleBarColorOv = scaleBarColor;
 		outlineColorOv = outlineColor;
 	}
-	if (fontStyle=="unstyled") fontStyle="";
+	// if (fontStyle=="unstyled") fontStyle="";
 	if (selPos == "Top Left") {
 		selEX = selOffsetX;
 		selEY = selOffsetY;
@@ -671,6 +684,12 @@ macro "Fancy Scale Bar" {
 			safeColornameFill("white");
 			run("Select None");
 		}
+		else {
+			newImage("outline_filled", "8-bit black", imageWidth, imageHeight, 1);
+			getSelectionFromMask("label_mask");
+			run("Enlarge...", "enlarge="+outlineStroke+" pixel");
+			safeColornameFill("white");
+		}
 		/* If Overlay chosen add fancy scale bar as overlay */
 		if (endsWith(overWrite,"verlays")) {
 			/* Create shadow and outline selection masks to be used for overlay components */
@@ -731,7 +750,7 @@ macro "Fancy Scale Bar" {
 		/* End overlay + (!(startsWith(fancyStyle,"No")) fancy scale bar section  */
 		else {
 			/* Create shadow and outline selection masks to be used for bitmap components */
-			if(!noShadow) createShadowDropFromMask7("label_mask", shadowDrop, shadowDisp, shadowBlur, shadowDarkness, outlineStroke);
+			if(!noShadow) createShadowDropFromMask7Safe("label_mask", shadowDrop, shadowDisp, shadowBlur, shadowDarkness, outlineStroke);
 			if (startsWith(overWrite,"Add to image")) tS = activeImage;
 			selectImage(activeImageID);
 			if (slices==1 && channels>1){  /* process channels instead of slices */
@@ -751,21 +770,27 @@ macro "Fancy Scale Bar" {
 				run("Select None");
 				if (!noOutline){
 					/* apply outline around label */
-					if(!transparent) getSelectionFromMask("outline_filled");
-					else getSelectionFromMask("outline_template");
-					setBackgroundFromColorName(outlineColor);
-					run("Clear", "slice");
-					if (fontSize>=12 && !applyOverlays){
-						run("Enlarge...", "enlarge=1 pixel");
-						run("Gaussian Blur...", "sigma=0.55");
-						run("Convolve...", "text1=[-0.0556 -0.0556 -0.0556 \n-0.0556 1.4448  -0.0556 \n-0.0556 -0.0556 -0.0556]"); /* moderate sharpen */
+					if (isOpen("outline_filled")){
+						if(!transparent) getSelectionFromMask("outline_filled");
+						else getSelectionFromMask("outline_template");
 					}
-					run("Select None");
+					if (selectionType>=0){
+						setBackgroundFromColorName(outlineColor);
+						run("Clear", "slice");
+						if (fontSize>=12 && !applyOverlays){
+							run("Enlarge...", "enlarge=1 pixel");
+							run("Gaussian Blur...", "sigma=0.55");
+							run("Convolve...", "text1=[-0.0556 -0.0556 -0.0556 \n-0.0556 1.4448  -0.0556 \n-0.0556 -0.0556 -0.0556]"); /* moderate sharpen */
+						}
+						run("Select None");
+					}
 				}
 				/* color label */
+				setColor("red");
 				if(!transparent) {
 					if(!rotText){
-						writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true);
+						setColorFromColorName(scaleBarColor);
+						if (!noText) writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true);
 						if (sBStyle=="Solid Bar" && selEType!=5) fillRect(selEX, selEY, selLengthInPixels, sbHeight); /* Rectangle drawn to produce thicker bar */
 						else {
 							if (selEType!=5) makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
@@ -773,7 +798,6 @@ macro "Fancy Scale Bar" {
 							if(sBStyle=="Solid Bar") Roi.setStrokeWidth(sbHeight);
 							else Roi.setStrokeWidth(sbHeight/2);
 							run("Fill"); /* safeColornameFill does not work here */
-
 						}
 						run("Select None");
 						if (!noText && (imageDepth==16 || imageDepth==32)) writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true); /* force anti-aliasing */
@@ -799,31 +823,27 @@ macro "Fancy Scale Bar" {
 							recessed = false;
 						}
 					}
-					rAlpha = fontSize/120;
+					fontLineWidth = getStringWidth("!");
+					rAlpha = fontLineWidth/40;
 					if(raised) {
 						getSelectionFromMask("label_mask");
 						if(!noOutline) run("Enlarge...", "enlarge=1 pixel");
-						if (fontSize<25) run("Convolve...", "text1=[-0.5 0 0\n0 1 0 \n0 0 0.5 \n]");
-						else if (fontSize<36) run("Convolve...", "text1=[-0.25 0 0 0 0\n0 -0.25  0 0 0\n0 0 1 0 0\n0 0 0 0.25  0\n0 0 0 0 0.25 ]");
-						else run("Convolve...", "text1=[-0.125 0 0 0 0 0 0\n0 -0.125 0 0 0 0 0\n0 0 -0.125 0 0 0 0\n0 0 0 1 0 0 0\n0 0 0 0 0.125 0 0 \n0 0 0 0 0 0.125 0\n0 0 0 0 0 0 0.125 ]");
-						if (rAlpha>0.33) run("Gaussian Blur...", "sigma=&rAlpha");
+						run("Convolve...", "text1=[ " + createConvolverMatrix("raised",fontLineWidth) + " ]");
+						if (rAlpha>0.33) run("Gaussian Blur...", "sigma="+rAlpha);
 						run("Select None");
 					}
 					if(recessed) {
-
 						getSelectionFromMask("label_mask");
-						// if(!noOutline && !raised) run("Enlarge...", "enlarge=1 pixel");
+						if(!noOutline && !raised) run("Enlarge...", "enlarge=1 pixel");
 						run("Enlarge...", "enlarge=1 pixel");
-						if (fontSize<25) run("Convolve...", "text1=[0.5 0 0\n0 1 0 \n0 0 -0.5 \n]");
-						else if (fontSize<36) run("Convolve...", "text1=[0.25 0 0 0 0\n0 0.25  0 0 0\n0 0 1 0 0\n0 0 0 -0.25 0\n0 0 0 0 -0.25 ]");
-						else run("Convolve...", "text1=[0.125 0 0 0 0 0 0\n0 0.125 0 0 0 0 0\n0 0 0.125 0 0 0 0\n0 0 0 1 0 0 0\n0 0 0 0 -0.125 0 0 \n0 0 0 0 0 -0.125 0\n0 0 0 0 0 0 -0.125 ]");
-						if (rAlpha>0.33) run("Gaussian Blur...", "sigma=rAlpha");
+						run("Convolve...", "text1=[ " + createConvolverMatrix("recessed",fontLineWidth) + " ]");
+						if (rAlpha>0.33) run("Gaussian Blur...", "sigma="+rAlpha);
 						run("Select None");
 					}
 				}
 			}
 		}
-		tempTitles = newArray("shadow","inner_shadow","label_mask","text_mask","outline_template","outline_text","outline_filled","outline_only_template");
+		tempTitles = newArray("shadow","label_mask","text_mask","outline_template","outline_text","outline_filled","outline_only_template");
 		if (!diagnostic) for(i=0;i<lengthOf(tempTitles);i++) closeImageByTitle(tempTitles[i]);
 	}
 	else {
@@ -831,7 +851,6 @@ macro "Fancy Scale Bar" {
 			selectImage(activeImageID);
 			scaleBarColorHex = getHexColorFromRGBArray(scaleBarColor);
 			setColor(scaleBarColorHex);
-			setFont(fontName,fontSize);
 			if (applyOverlays) finalLabelY -= fontSize/5;
 			for (sl=startSliceNumber; sl<endSlice+1; sl++) {
 				setSlice(sl);
@@ -853,7 +872,7 @@ macro "Fancy Scale Bar" {
 				}
 				else {
 					if(!rotText){
-						writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true);
+						if (!noText) writeLabel7(fontName,fontSize,scaleBarColor,label,finalLabelX,finalLabelY,true);
 						if (sBStyle=="Solid Bar" && selEType!=5) fillRect(selEX, selEY, selLengthInPixels, sbHeight); /* Rectangle drawn to produce thicker bar */
 						else {
 							if (selEType!=5) makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
@@ -1033,12 +1052,42 @@ macro "Fancy Scale Bar" {
 		run("Select None");
 		return overlayCount;
 	}
-	function createShadowDropFromMask7(mask, oShadowDrop, oShadowDisp, oShadowBlur, oShadowDarkness, oStroke) {
+	function createConvolverMatrix(effect,thickness){
+		/* v230413: 1st version PJL  Effects assumed: "Recessed or Raised" */
+		matrixText = "";
+		matrixSize = maxOf(3,(1 + 2*round(thickness/10)));
+		matrixLC = matrixSize -1;
+		matrixCi = matrixSize/2 - 0.5;
+		mFact = 1/(matrixSize-1);
+		for(y=0,c=0;y<matrixSize;y++){
+			for(x=0;x<matrixSize;x++){
+				if(x!=y){
+					matrixText +=  " 0";
+					if (x==matrixLC) matrixText +=  "\n";
+				} 
+				else {
+					if (x==matrixCi) matrixText +=  " 1";
+					else if (effect=="raised"){  /* Otherwise assumed to be 'recessed' */
+						if (x<matrixCi) matrixText +=  " -" + mFact;
+						else matrixText +=  " " + mFact;
+					} 
+					else {
+						if (x>matrixCi) matrixText +=  " -" + mFact;
+						else matrixText +=  " " + mFact;				
+					}
+				}
+			}
+		}
+		matrixText +=  "\n";
+		return matrixText;
+	}
+	function createShadowDropFromMask7Safe(mask, oShadowDrop, oShadowDisp, oShadowBlur, oShadowDarkness, oStroke) {
 		/* Requires previous run of: imageDepth = bitDepth();
 		because this version works with different bitDepths
 		v161115 calls five variables: drop, displacement blur and darkness
 		v180627 adds mask label to variables
-		v230405	resets background color after application	*/
+		v230405	resets background color after application
+		v230418 removed '&'s		*/
 		showStatus("Creating drop shadow for labels . . . ");
 		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
 		getSelectionFromMask(mask);
@@ -1046,16 +1095,16 @@ macro "Fancy Scale Bar" {
 		setSelectionLocation(selMaskX + oShadowDisp, selMaskY + oShadowDrop);
 		orBG = Color.background;
 		Color.setBackground("white");
-		if (oStroke>0) run("Enlarge...", "enlarge=&oStroke pixel"); /* Adjust shadow size so that shadow extends beyond stroke thickness */
+		if (oStroke>0) run("Enlarge...", "enlarge="+oStroke+" pixel"); /* Adjust shadow size so that shadow extends beyond stroke thickness */
 		run("Clear");
 		run("Select None");
 		if (oShadowBlur>0) {
-			run("Gaussian Blur...", "sigma=&oShadowBlur");
-			run("Unsharp Mask...", "radius=&oShadowBlur mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
+			run("Gaussian Blur...", "sigma="+oShadowBlur);
+			run("Unsharp Mask...", "radius="+oShadowBlur+" mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
 		}
 		/* Now make sure shadow or glow does not impact outline */
 		getSelectionFromMask(mask);
-		if (oStroke>0) run("Enlarge...", "enlarge=&oStroke pixel");
+		if (oStroke>0) run("Enlarge...", "enlarge="+oStroke+" pixel");
 		Color.setBackground("black");
 		run("Clear");
 		run("Select None");
@@ -1063,7 +1112,7 @@ macro "Fancy Scale Bar" {
 		if (imageDepth==16 || imageDepth==32) run(imageDepth + "-bit");
 		run("Enhance Contrast...", "saturated=0 normalize");
 		divider = (100 / abs(oShadowDarkness));
-		run("Divide...", "value=&divider");
+		run("Divide...", "value="+divider);
 		Color.setBackground(orBG);
 	}
 	function getColorArrayFromColorName(colorName) {
@@ -1071,7 +1120,7 @@ macro "Fancy Scale Bar" {
 		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
 		   v191211 added Cyan
 		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference v220706 restores missing magenta
-		   REQUIRES restoreExit function.  57 Colors
+		   REQUIRES restoreExit function.  57 Colors v230130 Added more descriptions and modified order
 		*/
 		if (colorName == "white") cA = newArray(255,255,255);
 		else if (colorName == "black") cA = newArray(0,0,0);
@@ -1093,13 +1142,13 @@ macro "Fancy Scale Bar" {
 		else if (colorName == "pink") cA = newArray(255, 192, 203);
 		else if (colorName == "violet") cA = newArray(127,0,255);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);
-		else if (colorName == "garnet") cA = newArray(120,47,64);
-		else if (colorName == "gold") cA = newArray(206,184,136);
+		else if (colorName == "garnet") cA = newArray(120,47,64); /* #782F40 */
+		else if (colorName == "gold") cA = newArray(206,184,136); /* #CEB888 */
 		else if (colorName == "aqua_modern") cA = newArray(75,172,198); /* #4bacc6 AKA "Viking" aqua */
 		else if (colorName == "blue_accent_modern") cA = newArray(79,129,189); /* #4f81bd */
 		else if (colorName == "blue_dark_modern") cA = newArray(31,73,125); /* #1F497D */
+		else if (colorName == "blue_honolulu") cA = newArray(0,118,182); /* Honolulu Blue #30076B6 */
 		else if (colorName == "blue_modern") cA = newArray(58,93,174); /* #3a5dae */
-		else if (colorName == "blue_honolulu") cA = newArray(0,118,182); /* Honolulu Blue #0076B6 */
 		else if (colorName == "gray_modern") cA = newArray(83,86,90); /* bright gray #53565A */
 		else if (colorName == "green_dark_modern") cA = newArray(121,133,65); /* Wasabi #798541 */
 		else if (colorName == "green_modern") cA = newArray(155,187,89); /* #9bbb59 AKA "Chelsea Cucumber" */
@@ -1117,20 +1166,20 @@ macro "Fancy Scale Bar" {
 		/* Fluorescent Colors https://www.w3schools.com/colors/colors_crayola.asp */
 		else if (colorName == "radical_red") cA = newArray(255,53,94);			/* #FF355E */
 		else if (colorName == "wild_watermelon") cA = newArray(253,91,120);		/* #FD5B78 */
+		else if (colorName == "shocking_pink") cA = newArray(255,110,255);		/* #FF6EFF Ultra Pink */
+		else if (colorName == "razzle_dazzle_rose") cA = newArray(238,52,210); 	/* #EE34D2 */
+		else if (colorName == "hot_magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
 		else if (colorName == "outrageous_orange") cA = newArray(255,96,55);	/* #FF6037 */
 		else if (colorName == "supernova_orange") cA = newArray(255,191,63);	/* FFBF3F Supernova Neon Orange*/
-		else if (colorName == "atomic_tangerine") cA = newArray(255,153,102);	/* #FF9966 */
-		else if (colorName == "neon_carrot") cA = newArray(255,153,51);			/* #FF9933 */
 		else if (colorName == "sunglow") cA = newArray(255,204,51); 			/* #FFCC33 */
+		else if (colorName == "neon_carrot") cA = newArray(255,153,51);			/* #FF9933 */
+		else if (colorName == "atomic_tangerine") cA = newArray(255,153,102);	/* #FF9966 */
 		else if (colorName == "laser_lemon") cA = newArray(255,255,102); 		/* #FFFF66 "Unmellow Yellow" */
 		else if (colorName == "electric_lime") cA = newArray(204,255,0); 		/* #CCFF00 */
 		else if (colorName == "screamin'_green") cA = newArray(102,255,102); 	/* #66FF66 */
 		else if (colorName == "magic_mint") cA = newArray(170,240,209); 		/* #AAF0D1 */
 		else if (colorName == "blizzard_blue") cA = newArray(80,191,230); 		/* #50BFE6 Malibu */
 		else if (colorName == "dodger_blue") cA = newArray(9,159,255);			/* #099FFF Dodger Neon Blue */
-		else if (colorName == "shocking_pink") cA = newArray(255,110,255);		/* #FF6EFF Ultra Pink */
-		else if (colorName == "razzle_dazzle_rose") cA = newArray(238,52,210); 	/* #EE34D2 */
-		else if (colorName == "hot_magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
 		else restoreExit("No color match to " + colorName);
 		return cA;
 	}
@@ -1158,19 +1207,19 @@ macro "Fancy Scale Bar" {
 		/*	v180723 first version
 			v180828 Changed order of favorites
 			v190108 Longer list of favorites
+			v230209 Minor optimization
 		*/
 		systemFonts = getFontList();
 		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
 		fontNameChoice = Array.concat(IJFonts,systemFonts);
-		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Noto Sans Black", "Arial Black", "Montserrat Black", "Lato Black", "Roboto Black", "Merriweather Black", "Alegreya Black", "Tahoma Bold", "Calibri Bold", "Helvetica", "SansSerif", "Calibri", "Roboto", "Tahoma", "Times New Roman Bold", "Times Bold", "Goldman Sans Black","Goldman Sans","Serif");
+		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Noto Sans Black", "Arial Black", "Poppins Black", "Montserrat Black", "Lato Black", "Roboto Black", "Merriweather Black", "Alegreya Black", "Tahoma Bold", "Calibri Bold", "Helvetica", "SansSerif", "Calibri", "Roboto", "Tahoma", "Times New Roman Bold", "Times Bold", "Goldman Sans Black","Goldman Sans","Serif");
 		faveFontListCheck = newArray(faveFontList.length);
-		counter = 0;
-		for (i=0; i<faveFontList.length; i++) {
+		for (i=0,counter=0; i<faveFontList.length; i++) {
 			for (j=0; j<fontNameChoice.length; j++) {
 				if (faveFontList[i] == fontNameChoice[j]) {
 					faveFontListCheck[counter] = faveFontList[i];
-					counter +=1;
 					j = fontNameChoice.length;
+					counter++;
 				}
 			}
 		}
@@ -1266,10 +1315,10 @@ macro "Fancy Scale Bar" {
 		}
 	  return index;
 	}
-	function indexOfArrayThatContains(array, value) {
+	function indexOfArrayThatContains(array, value, default) {
 		/* Like indexOfArray but partial matches possible
-			v190423 Only first match returned */
-		indexFound = -1;
+			v190423 Only first match returned, v220801 adds default */
+		indexFound = default;
 		for (i=0; i<lengthOf(array); i++){
 			if (indexOf(array[i], value)>=0){
 				indexFound = i;
@@ -1445,36 +1494,47 @@ macro "Fancy Scale Bar" {
 		v211104: Restricts cleanup to end of string to reduce risk of corrupting path
 		v211112: Tries to fix trapped extension before channel listing. Adds xlsx extension.
 		v220615: Tries to fix the fix for the trapped extensions ...
+		v230504: Protects directory path if included in string. Only removes doubled spaces and lines.
+		v230505: Unwanted dupes replaced by unusefulCombos.
 		*/
+		fS = File.separator;
 		string = "" + string;
-		if (lastIndexOf(string, ".")>0 || lastIndexOf(string, "_lzw")>0) {
-			knownExt = newArray("dsx", "DSX", "tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV","xlsx","XLSX","_"," ");
-			kEL = lengthOf(knownExt);
-			chanLabels = newArray("\(red\)","\(green\)","\(blue\)");
-			unwantedSuffixes = newArray("_lzw"," ","  ", "__","--","_","-");
-			uSL = lengthOf(unwantedSuffixes);
-			for (i=0; i<kEL; i++) {
-				for (j=0; j<3; j++){ /* Looking for channel-label-trapped extensions */
-					ichanLabels = lastIndexOf(string, chanLabels[j]);
-					iExt = lastIndexOf(string, "." + knownExt[i]);
-					if(ichanLabels>0 && iExt>(ichanLabels+lengthOf(chanLabels[j]))){
-						iExt = lastIndexOf(string, "." + knownExt[i]);
-						if (ichanLabels>iExt && iExt>0) string = "" + substring(string, 0, iExt) + "_" + chanLabels[j];
-						ichanLabels = lastIndexOf(string, chanLabels[j]);
-						for (k=0; k<uSL; k++){
-							iExt = lastIndexOf(string, unwantedSuffixes[k]);  /* common ASC suffix */
-							if (ichanLabels>iExt && iExt>0) string = "" + substring(string, 0, iExt) + "_" + chanLabels[j];
-						}
-					}
-				}
-				iExt = lastIndexOf(string, "." + knownExt[i]);
-				if (iExt>=(lengthOf(string)-(lengthOf(knownExt[i])+1)) && iExt>0) string = "" + substring(string, 0, iExt);
+		protectedPathEnd = lastIndexOf(string,fS)+1;
+		if (protectedPathEnd>0){
+			protectedPath = substring(string,0,protectedPathEnd);
+			string = substring(string,protectedPathEnd);
+		}
+		unusefulCombos = newArray("-", "_"," ");
+		for (i=0; i<lengthOf(unusefulCombos); i++){
+			for (j=0; j<lengthOf(unusefulCombos); j++){
+				combo = unusefulCombos[i] + unusefulCombos[j];
+				while (indexOf(string,combo)>=0) string = replace(string,combo,unusefulCombos[i]);
 			}
 		}
-		unwantedSuffixes = newArray("_lzw"," ","  ", "__","--","_","-");
-		for (i=0; i<lengthOf(unwantedSuffixes); i++){
-			sL = lengthOf(string);
-			if (endsWith(string,unwantedSuffixes[i])) string = substring(string,0,sL-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
+		if (lastIndexOf(string, ".")>0 || lastIndexOf(string, "_lzw")>0) {
+			knownExt = newArray("dsx", "DSX", "tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV","xlsx","XLSX");
+			kEL = knownExt.length;
+			chanLabels = newArray("\(red\)","\(green\)","\(blue\)");
+			for (i=0; i<kEL; i++) {
+				kExtn = "." + knownExt[i];
+				for (j=0; j<3; j++){ /* Looking for channel-label-trapped extensions */
+					iChanLabels = lastIndexOf(string, chanLabels[j])-1;
+					if (iChanLabels>0){
+						preChan = substring(string,0,iChanLabels);
+						postChan = substring(string,iChanLabels);
+						while (indexOf(preChan,kExtn)>=0) string = replace(preChan,kExtn,"") + postChan;
+					}
+				}
+				while (endsWith(string,kExtn)) string = "" + substring(string, 0, lastIndexOf(string, kExtn));
+			}
+		}
+		unwantedSuffixes = newArray("_lzw"," ", "_","-");
+		for (i=0; i<unwantedSuffixes.length; i++){
+			while (endsWith(string,unwantedSuffixes[i])) string = substring(string,0,string.length-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
+		}
+		if (protectedPathEnd>0){
+			if(!endsWith(protectedPath,fS)) protectedPath += fS;
+			string = protectedPath + string;
 		}
 		return string;
 	}
@@ -1599,7 +1659,7 @@ v210817 Scale overlays are not removed from original image new scale is being cr
 v210826-8 Added simple text option for black or white backgrounds v210902 bug fix
 v211022 Updated color function choices
 v211025 Updated stripKnownExtensionFromString
-v211104: Updated stripKnownExtensionsFromString function    v211112: Again
+v211104: Updated stripKnownExtensionFromString function    v211112: Again
 v211203: Simple format is now an option in all cases.
 v220304: Simple format now uses chosen colors for more flexibility.
 v220510: Checks to make sure default text color is not the same as the background for simple format f2: updated pad function f3: updated colors

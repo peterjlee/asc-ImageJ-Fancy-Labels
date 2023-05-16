@@ -1,4 +1,4 @@
-macro "Add Slice Label to Each Slice" {
+macro "Fancy Slice Labels" {
 	/* This macro adds multiple lines of text to a copy of the image.
 		Peter J. Lee Applied Superconductivity Center at National High Magnetic Field Laboratory.
 		ANSI encoded for Windows.
@@ -14,8 +14,10 @@ macro "Add Slice Label to Each Slice" {
 		+ v210503 Split menu options so that auto-generation menu is simpler
 		+ v211022 Updated color choices  v220310-11 Added warning if some slices had no label (TIF-lzw does not store labels). f2: updated pad function f3: updated colors
 		+ v220727 Minor format changes f1-f3: updated colors
+		+ v230418-9: Simplified. Replaced inner shadow with raised/recessed. Font autoshrunk per slice if text overflows margins. Centers adjusted per slice.
 	 */
-	macroL = "Fancy_Slice_Labels_v220727-f3.ijm";
+	macroL = "Fancy_Slice_Labels_v230419.ijm";
+	if(nImages<1) exit("This macro \(" + macroL + "\) requires at least one image to be open");
 	requires("1.47r");
 	saveSettings;
 	if (selectionType>=0) {
@@ -36,7 +38,6 @@ macro "Add Slice Label to Each Slice" {
 	run("Appearance...", " "); /* do not use Inverting LUT *
 	/* Check to see if a Ramp legend rather than the image has been selected by accident */
 	if (matches(originalImage, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + originalImage + " ?");
-	setBatchMode(true);
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
 	sH = screenHeight();
 	sW = screenWidth();
@@ -44,9 +45,9 @@ macro "Add Slice Label to Each Slice" {
 	maxMenuSlices = floor((sH-baseMenuHeight)/menuRowHeight);
 	maxLabelString = imageWidth/10; /* Assumes a minimum font character width of 5 */
 	startSliceNumber = getSliceNumber();
-	remSlices = slices-startSliceNumber;
+	remSlices = nSlices-startSliceNumber;
 	allSliceLabels = newArray();
-	for (i=0,emptyLabelN=0,maxString=0; i<slices; i++) {
+	for (i=0,emptyLabelN=0,maxString=0; i<nSlices; i++) {
 		setSlice(i+1);
 		allSliceLabels[i] = getInfo("slice.label");
 		if(allSliceLabels[i]=="") emptyLabelN++;
@@ -70,36 +71,35 @@ macro "Add Slice Label to Each Slice" {
 		else if (convertTo=="RGB Color") run("RGB Color");
 		else restoreExit("Goodbye");
 	}
+	imageDepth = bitDepth();
 	id = getImageID();
 	maxFontW = imageWidth/(1.2*maxLabelString);
 	maxFontH = imageHeight/(1.2*getValue("font.height"));
 	fontSize = floor(minOf(maxFontW, maxFontH)); /* default font size */
 	if (fontSize < 12) fontSize = maxOf(10,fontSize); /* set minimum default font size as 10 */
 	setFont("", fontSize, "bold antialiased");
+	fontHeight = getValue("font.height");
 	lineSpacing = 1.1;
-	outlineStroke = 2; /* default outline stroke: % of font size */
+	outlineStrokePx = maxOf(1,fontHeight/20); /* default outline stroke: % of font size */
 	shadowDrop = 10;  /* default outer shadow drop: % of font size */
-	dIShO = 6; /* default inner shadow drop: % of font size */
 	shadowDisp = shadowDrop;
 	shadowBlur = floor(0.6 * shadowDrop);
 	shadowDarkness = 40;
-	innerShadowDrop = dIShO;
-	innerShadowDisp = dIShO;
-	innerShadowBlur = floor(dIShO/2);
-	innerShadowDarkness = 16;
 	offsetX = round(1 + imageWidth/150); /* default offset of label from edge */
 	offsetY = round(1 + imageHeight/150); /* default offset of label from edge */
 	/* Then Dialog . . . */
 	Dialog.create("Label Format and Edit Options: " +  macroL);
+		Dialog.addNumber("Start slice number:",startSliceNumber,0,4,"#");
+		Dialog.addNumber("End slice number:",nSlices,0,4,"#");
 		if(emptyLabelN>0) Dialog.addMessage("Warning: " + emptyLabelN + " slices had no label",12,"red");
 		if (selectionExists==1) {
-			textLocChoices = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection", "Center of Selection");
-			loc = 6;
+			textLocChoices = newArray("Top Left", "Top Right", "Top Center", "Center", "Bottom Left", "Bottom Center", "Bottom Right", "Center of New Selection", "Center of Selection");
+			iLoc = indexOfArray(textLocChoices, call("ij.Prefs.get", "fancy.sliceLabels.location",textLocChoices[6]),6);
 		} else {
-			textLocChoices = newArray("Top Left", "Top Right", "Center", "Bottom Left", "Bottom Right", "Center of New Selection");
-			loc = 0;
+			textLocChoices = newArray("Top Left", "Top Right", "Top Center", "Center", "Bottom Left", "Bottom Center", "Bottom Right", "Center of New Selection");
+			iLoc = indexOfArray(textLocChoices, call("ij.Prefs.get", "fancy.sliceLabels.location",textLocChoices[0]),0);
 		}
-		Dialog.addChoice("Location of Summary:", textLocChoices, textLocChoices[loc]);
+		Dialog.addChoice("Location of Label:", textLocChoices, textLocChoices[iLoc]);
 		textJustChoices = newArray("auto", "left", "center", "right");
 		if (selectionExists==1) {
 			Dialog.addNumber("Original selection X start = ", orSelEX);
@@ -117,44 +117,86 @@ macro "Add Slice Label to Each Slice" {
 			Dialog.addChoice("Text justification", textJustChoices, textJustChoices[0]);
 		}
 		Dialog.addNumber("Font size:", fontSize);
-		colorChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
+		fancyStyleEffectsOptions = newArray("No shadows", "No outline", "Raised", "Recessed");
+		fancyStyleEffectsDefaults = newArray(false,false,false,false);
+		fancyStyleEffectsPrefs = call("ij.Prefs.get", "fancy.sliceLabels.fancyStyleEffects","not found");
+		if (fancyStyleEffectsPrefs!="not found"){
+			fancyStyleEffects = split(fancyStyleEffectsPrefs, "|");
+			if (fancyStyleEffects.length==fancyStyleEffectsOptions.length) fancyStyleEffectsDefaults = fancyStyleEffects;
+		} 
+		Dialog.addCheckboxGroup(1,fancyStyleEffectsOptions.length,fancyStyleEffectsOptions,fancyStyleEffectsDefaults);
+		grayChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
+		colorChoicesStd = newArray("red", "green", "blue", "cyan", "magenta", "yellow", "pink", "orange", "violet");
+		colorChoicesMod = newArray("garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
+		colorChoicesNeon = newArray("jazzberry_jam", "radical_red", "wild_watermelon", "outrageous_orange", "supernova_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "dodger_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
 		if (imageDepth==24){
-			colorChoicesStd = newArray("red", "green", "blue", "cyan", "magenta", "yellow", "pink", "orange", "violet");
-			colorChoicesMod = newArray("garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
-			colorChoicesNeon = newArray("jazzberry_jam", "radical_red", "wild_watermelon", "outrageous_orange", "supernova_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "dodger_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
-			colorChoices = Array.concat(colorChoices, colorChoicesStd, colorChoicesMod, colorChoicesNeon);
+			colorChoices = Array.concat(grayChoices, colorChoicesStd, colorChoicesMod, colorChoicesNeon);
+			iTC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.sliceLabels.text.color",colorChoices[0]),0);
+			iOC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.sliceLabels.outline.color",colorChoices[1]),1);
+		} 
+		else {
+			colorChoices = grayChoices;
+			iTC = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.sliceLabels.text.gray",grayChoices[0]),0);
+			iOC = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.sliceLabels.outline.gray",grayChoices[1]),1);
 		}
-		Dialog.addChoice("Text color:", colorChoices, colorChoices[0]);
-		fontStyleChoices = newArray("bold", "bold antialiased", "italic", "italic antialiased", "bold italic", "bold italic antialiased", "unstyled");
-		Dialog.addChoice("Font style:", fontStyleChoices, "bold antialiased");
+		Dialog.addChoice("Text color:", colorChoices, colorChoices[iTC]);
 		fontNameChoices = getFontChoiceList();
 		Dialog.addChoice("Font name:", fontNameChoices, fontNameChoices[0]);
-		Dialog.addChoice("Outline (background) color:", colorChoices, "black");
+		Dialog.addChoice("Outline (background) color:", colorChoices, colorChoices[iOC]);
+		Dialog.addNumber("Outline stroke:", outlineStrokePx,0,3,"pixels");
 		Dialog.addCheckbox("Tweak the Formatting? ", false);
 		Dialog.addCheckbox("Destructive overwrite \(ignored if only renaming slices\)? ", false);
 		if(emptyLabelN==0) Dialog.addCheckbox("Auto-generate all labels as a sequence only? Existing labels will not be used", false);
 		else if(emptyLabelN==slices) Dialog.addCheckbox("Auto-generate all labels as a sequence only?", true);
 		else Dialog.addCheckbox("Auto-generate all labels as a sequence only \(no editing options given\)?", false);
+		Dialog.addCheckbox("Diagnostic mode:", false);
 	Dialog.show();
-	textLocChoice = Dialog.getChoice();
-	if (selectionExists==1) {
-		selEX =  Dialog.getNumber(); /* Allows user to tweak pre-selection using dialog boxes */
-		selEY =  Dialog.getNumber();
-		selEWidth =  Dialog.getNumber();
-		selEHeight =  Dialog.getNumber();
-		restoreSelection = Dialog.getCheckbox();
-	}
-	just = Dialog.getChoice();
-	fontSize =  Dialog.getNumber();
-	fontColor = Dialog.getChoice();
-	fontStyle = Dialog.getChoice();
-	fontName = Dialog.getChoice();
-	outlineColor = Dialog.getChoice();
-	tweakFormat = Dialog.getCheckbox();
-	overWrite = Dialog.getCheckbox();
-	autoGenerate = Dialog.getCheckbox();
+		startSliceNumber = Dialog.getNumber();
+		endSliceNumber = Dialog.getNumber();
+		textLocChoice = Dialog.getChoice();
+		call("ij.Prefs.set", "fancy.sliceLabels.location", textLocChoice);
+		if (selectionExists==1) {
+			selEX =  Dialog.getNumber(); /* Allows user to tweak pre-selection using dialog boxes */
+			selEY =  Dialog.getNumber();
+			selEWidth =  Dialog.getNumber();
+			selEHeight =  Dialog.getNumber();
+			restoreSelection = Dialog.getCheckbox();
+		}
+		just = Dialog.getChoice();
+		fontSize =  Dialog.getNumber();
+		/* fancy style effects checkbox group order: "No shadows", "Raised", "Recessed" */
+		fancyStyleEffectsString = "";
+		noShadow = Dialog.getCheckbox();
+		fancyStyleEffectsString += "|" + d2s(noShadow,0);
+		noOutline = Dialog.getCheckbox();
+		fancyStyleEffectsString += "|" + d2s(noOutline,0);
+		raised = Dialog.getCheckbox();
+		fancyStyleEffectsString += "|" + d2s(raised,0);
+		recessed = Dialog.getCheckbox();
+		fancyStyleEffectsString += "|" + d2s(recessed,0);;
+		call("ij.Prefs.set", "fancy.sliceLabels.fancyStyleEffects", fancyStyleEffectsString);
+		/* End of checkbox group */
+		textColor = Dialog.getChoice();
+		if (imageDepth==24) call("ij.Prefs.set", "fancy.sliceLabels.text.color", textColor);
+		else call("ij.Prefs.set", "fancy.sliceLabels.text.gray", textColor);
+		fontName = Dialog.getChoice();
+		call("ij.Prefs.set", "fancy.sliceLabels.fontName", fontName);
+		outlineColor = Dialog.getChoice();
+		if (imageDepth==24) call("ij.Prefs.set", "fancy.sliceLabels.outline.color", outlineColor);
+		else call("ij.Prefs.set", "fancy.sliceLabels.outline.gray", outlineColor);
+		outlineStrokePx = Dialog.getNumber();
+		tweakFormat = Dialog.getCheckbox();
+		overWrite = Dialog.getCheckbox();
+		autoGenerate = Dialog.getCheckbox();
+		diagnostics =  Dialog.getCheckbox();
+	if(!diagnostics) setBatchMode(true);
+	setFont(fontName, fontSize);
+	fontHeight = getValue("font.height");
+	if (noOutline) outlineStrokePx = 0;
+	insideMarginsLR = imageWidth - 2 * offsetX;
+	longestStringWidth = 0; /* reset longest string width for modified versions */
 	if (autoGenerate){
-		Dialog.create("Label Options:");
+		Dialog.create("Label \(Autogenerated\) Options:");
 			Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. if followed by a space.");
 			labelChoices = newArray("Add labels only", "Rename slices only", "Label & rename");
 			// Dialog.addNumber("First slice to label:", getSliceNumber,0,4,""),
@@ -184,8 +226,7 @@ macro "Add Slice Label to Each Slice" {
 			cSep =  Dialog.getString;
 			countPos = Dialog.getRadioButton;
 		sliceTextLabels = newArray();
-		longestStringWidth = 0; /* reset longest string width for modified versions */
-		for (i=0; i<remSlices+1; i++) {
+		for (i=0; i<endSliceNumber; i++) {
 			if (countPos=="None")	sliceTextLabels[i] = prefix + suffix;
 			else {
 				ctr = d2s(startN + i*addN, decP);
@@ -203,11 +244,11 @@ macro "Add Slice Label to Each Slice" {
 			sliceTextLabels[i] = "" + toChar(sliceTextLabels[i]); /* Use degree symbol */
 			sliceTextLabels[i] = "" + cleanLabel(sliceTextLabels[i]);
 			stringLength = getStringWidth(sliceTextLabels[i]);
-			if (stringLength>longestStringWidth) longestStringWidth = stringLength;
+			if (stringLength>longestStringWidth) longestStringWidth = minOf(insideMarginsLR,stringLength);
 		}
 	}
 	else {
-		Dialog.create("Label Options: " + macroL);
+		Dialog.create("Label Text Options: " + macroL);
 			sliceLabelDialogLimit = minOf(maxMenuSlices, remSlices+1);
 			Dialog.addMessage("\"^2\" & \"um\" etc. replaced by " + fromCharCode(178) + " & " + fromCharCode(181) + "m etc. if followed by a space.\nThe number of slices to be labeled is limited to " + maxMenuSlices + " by screen height.\nAdditional slices can be labeled by repeating this macro from first unlabeled slice.");
 			labelChoices = newArray("Add labels only", "Rename slices only", "Label & rename");
@@ -227,9 +268,9 @@ macro "Add Slice Label to Each Slice" {
 				Dialog.addString(" . . . with \(escape regEx characters\):","", minOf(20,maxLabelString));
 			}
 			Dialog.setInsets(5, 0, 10);
-			for (i=0; i<sliceLabelDialogLimit; i++)
+			for (i=0; i<(minOf(endSliceNumber,sliceLabelDialogLimit)); i++)
 				Dialog.addString("Slice No. "+(i+startSliceNumber)+" input label:",allSliceLabels[i+startSliceNumber-1], maxOf(imageWidth/10,maxLabelString));
-			Dialog.show();
+		Dialog.show();
 			labelChoice = Dialog.getChoice();
 			prefix = Dialog.getString;
 			suffix = Dialog.getString;
@@ -246,7 +287,7 @@ macro "Add Slice Label to Each Slice" {
 			}
 			sliceTextLabels = newArray();
 			longestStringWidth = 0; /* reset longest string width for modified versions */
-			for (i=0; i<sliceLabelDialogLimit; i++) {
+			for (i=0; i<(minOf(endSliceNumber,sliceLabelDialogLimit)); i++) {
 				sLabel = Dialog.getString();
 				if (replaceString){
 					sLabel = replace(sLabel, oldString, newString);
@@ -276,54 +317,42 @@ macro "Add Slice Label to Each Slice" {
 	if (labelChoice!="Rename slices only"){
 		if (tweakFormat) {
 			Dialog.create("Advanced Formatting Options");
-			Dialog.addNumber("Outline stroke:", outlineStroke,0,3,"% of font size");
+			Dialog.addNumber("Outline stroke:", outlineStrokePx,0,3,"pixels");
 			Dialog.addChoice("Outline (background) color:", colorChoices, colorChoices[1]);
 			Dialog.addNumber("Shadow Drop: ?", shadowDrop,0,3,"% of font size");
 			Dialog.addNumber("Shadow Displacement Right: ?", shadowDrop,0,3,"% of font size");
 			Dialog.addNumber("Shadow Gaussian blur:", floor(0.4 * shadowDrop),0,3,"% of font size");
 			Dialog.addNumber("Shadow Darkness:", 100,0,3,"%\(darkest = 100%\)");
-			Dialog.addNumber("Inner Shadow Drop: ?", dIShO,0,3,"% of font size");
-			Dialog.addNumber("Inner Displacement Right: ?", dIShO,0,3,"% of font size");
-			Dialog.addNumber("Inner shadow mean blur:",floor(dIShO/2),1,3,"% of font size");
-			Dialog.addNumber("Inner Shadow Darkness:", 20,0,3,"% \(darkest = 100%\)");
 			Dialog.show();
-			outlineStroke = Dialog.getNumber();
+			outlineStrokePx = Dialog.getNumber();
 			outlineColor = Dialog.getChoice();
 			shadowDrop = Dialog.getNumber();
 			shadowDisp = Dialog.getNumber();
 			shadowBlur = Dialog.getNumber();
 			shadowDarkness = Dialog.getNumber();
-			innerShadowDrop = Dialog.getNumber();
-			innerShadowDisp = Dialog.getNumber();
-			innerShadowBlur = Dialog.getNumber();
-			innerShadowDarkness = Dialog.getNumber();
+			if (outlineStrokePx>0) noShadow = false;
 		}
-		fontColorArray = getColorArrayFromColorName(fontColor);
-		Array.getStatistics(fontColorArray,fontIntMean);
+		textColorArray = getColorArrayFromColorName(textColor);
+		Array.getStatistics(textColorArray,fontIntMean);
 		fontInt = floor(fontIntMean);
 		outlineColorArray = getColorArrayFromColorName(outlineColor);
 		Array.getStatistics(outlineColorArray,outlineIntMean);
 		outlineInt = floor(outlineIntMean);
 		negAdj = 0.5;  /* negative offsets appear exaggerated at full displacement */
-		if (shadowDrop<0) shadowDrop *= negAdj;
-		if (shadowDisp<0) shadowDisp *= negAdj;
-		if (shadowBlur<0) shadowBlur *= negAdj;
-		if (innerShadowDrop<0) innerShadowDrop *= negAdj;
-		if (innerShadowDisp<0) innerShadowDisp *= negAdj;
-		if (innerShadowBlur<0) innerShadowBlur *= negAdj;
+		if(!noShadow){
+			if (shadowDrop<0) shadowDrop *= negAdj;
+			if (shadowDisp<0) shadowDisp *= negAdj;
+			if (shadowBlur<0) shadowBlur *= negAdj;
+		}
 		fontFactor = fontSize/100;
-		if (outlineStroke!=0) outlineStroke = maxOf(1, round(fontFactor * outlineStroke)); /* if some outline is desired set to at least one pixel */
-		shadowDrop = round(fontFactor * shadowDrop);
-		shadowDisp = round(fontFactor * shadowDisp);
-		shadowBlur = round(fontFactor * shadowBlur);
-		innerShadowDrop = floor(fontFactor * innerShadowDrop);
-		innerShadowDisp = floor(fontFactor * innerShadowDisp);
-		innerShadowBlur = floor(fontFactor * innerShadowBlur);
-		if (offsetX<(shadowDisp+shadowBlur+1)) offsetX = (shadowDisp+shadowBlur+1);  /* make sure shadow does not run off edge of image */
-		if (offsetY<(shadowDrop+shadowBlur+1)) offsetY = (shadowDrop+shadowBlur+1);
-		if (fontStyle=="unstyled") fontStyle="";
-	/*  */
-		setFont(fontName, fontSize, fontStyle);
+		if (outlineStrokePx!=0) outlineStrokePx = maxOf(1, round(fontFactor * outlineStrokePx)); /* if some outline is desired set to at least one pixel */
+		if(!noShadow){
+			shadowDrop = round(fontFactor * shadowDrop);
+			shadowDisp = round(fontFactor * shadowDisp);
+			shadowBlur = round(fontFactor * shadowBlur);
+			if (offsetX<(shadowDisp+shadowBlur+1)) offsetX = (shadowDisp+shadowBlur+1);  /* make sure shadow does not run off edge of image */
+			if (offsetY<(shadowDrop+shadowBlur+1)) offsetY = (shadowDrop+shadowBlur+1);
+		}
 		if (textLocChoice == "Top Left") {
 			selEX = offsetX;
 			selEY = offsetY;
@@ -332,18 +361,26 @@ macro "Add Slice Label to Each Slice" {
 			selEX = imageWidth - longestStringWidth - offsetX;
 			selEY = offsetY;
 			if (just=="auto") just = "right";
+		} else if (textLocChoice == "Top Center") {
+			selEX = round((imageWidth - longestStringWidth)/2);
+			selEY = offsetY;
+			if (just=="auto") just = "center";
 		} else if (textLocChoice == "Center") {
 			selEX = round((imageWidth - longestStringWidth)/2);
-			selEY = round(imageHeight/2 + fontSize);
+			selEY = round(imageHeight/2 + fontHeight);
 			if (just=="auto") just = "center";
 		} else if (textLocChoice == "Bottom Left") {
 			selEX = offsetX;
-			selEY = imageHeight - offsetY + fontSize;
+			selEY = imageHeight - offsetY;
 			if (just=="auto") just = "left";
 		} else if (textLocChoice == "Bottom Right") {
 			selEX = imageWidth - longestStringWidth - offsetX;
-			selEY = imageHeight - offsetY + fontSize;
+			selEY = imageHeight - offsetY;
 			if (just=="auto") just = "right";
+		} else if (textLocChoice == "Bottom Center") {
+			selEX = round((imageWidth - longestStringWidth)/2);
+			selEY = imageHeight - offsetY;
+			if (just=="auto") just = "center";
 		} else if (textLocChoice == "Center of New Selection"){
 			if (is("Batch Mode")==true) setBatchMode(false); /* Does not accept interaction while batch mode is on */
 			setTool("rectangle");
@@ -357,7 +394,7 @@ macro "Add Slice Label to Each Slice" {
 		}
 		if (endsWith(textLocChoice, "election")) {
 			shrinkX = minOf(1, selEWidth/longestStringWidth);
-			shrinkY = minOf(1, selEHeight/fontSize);
+			shrinkY = minOf(1, selEHeight/fontHeight);
 			shrinkF = minOf(shrinkX, shrinkY);
 			shrunkFont = shrinkF * fontSize;
 			if (shrinkF < 1) {
@@ -373,23 +410,23 @@ macro "Add Slice Label to Each Slice" {
 			if (reduceFontSize == true) {
 				fontSize = shrunkFont;
 				setFont("",shrunkFont,"");
+				fontHeight = getValue("font.height");
 				linesSpace = shrinkF * linesSpace;
 				longestStringWidth = shrinkF * longestStringWidth;
 				fontFactor = fontSize/100;
-				if (outlineStroke>1) outlineStroke = maxOf(1,round(fontFactor * outlineStroke));
-				else outlineStroke = round(fontFactor * outlineStroke);
-				if (shadowDrop>1) shadowDrop = maxOf(1,round(fontFactor * shadowDrop));
-				else shadowDrop = round(fontFactor * shadowDrop);
-				if (shadowDisp>1) shadowDisp = maxOf(1,round(fontFactor * shadowDisp));
-				else shadowDisp = round(fontFactor * shadowDisp);
-				if (shadowBlur>1) shadowBlur = maxOf(1,round(fontFactor * shadowBlur));
-				else shadowBlur = round(fontFactor * shadowBlur);
-				innerShadowDrop = floor(fontFactor * innerShadowDrop);
-				innerShadowDisp = floor(fontFactor * innerShadowDisp);
-				innerShadowBlur = floor(fontFactor * innerShadowBlur);
+				if (outlineStrokePx>1) outlineStrokePx = maxOf(1,round(fontFactor * outlineStrokePx));
+				else if (outlineStrokePx>0) outlineStrokePx = round(fontFactor * outlineStrokePx);
+				if(!noShadow){
+					if (shadowDrop>1) shadowDrop = maxOf(1,round(fontFactor * shadowDrop));
+					else shadowDrop = round(fontFactor * shadowDrop);
+					if (shadowDisp>1) shadowDisp = maxOf(1,round(fontFactor * shadowDisp));
+					else shadowDisp = round(fontFactor * shadowDisp);
+					if (shadowBlur>1) shadowBlur = maxOf(1,round(fontFactor * shadowBlur));
+					else shadowBlur = round(fontFactor * shadowBlur);
+				}
 			}
-			selEX = selEX + round((selEWidth/2) - longestStringWidth/2);
-			selEY = selEY + round((selEHeight/2) + fontSize);
+			selEX += round((selEWidth/2) - longestStringWidth/2);
+			selEY += round((selEHeight/2) + fontHeight);
 			if (just=="auto") {
 				if (selEX<imageWidth*0.4) just = "left";
 				else if (selEX>imageWidth*0.6) just = "right";
@@ -397,35 +434,42 @@ macro "Add Slice Label to Each Slice" {
 			}
 		}
 		run("Select None");
-		if (selEY<=1.5*fontSize)
-			selEY += fontSize;
-		if (selEX<offsetX) selEX = offsetX;
+		if (selEY<=1.5*fontHeight)
+			selEY += fontHeight;
+		selEX = maxOf(selEX,offsetX);
 		endX = selEX + longestStringWidth;
 		if ((endX+offsetX)>imageWidth) selEX = imageWidth - longestStringWidth - offsetX;
-		textLabelX = selEX;
-		textLabelY = selEY;
-		setColorFromColorName("white");
 		roiManager("show none");
-		// run("Flatten"); /* changes bit depth */
 		if (!overWrite) {
-			if (slices==1) run("Duplicate...", "title=" + getTitle() + "+text");
+			if (nSlices==1) run("Duplicate...", "title=" + getTitle() + "+text");
 			else run("Duplicate...", "title=" + getTitle() + "+text duplicate");
 		}
 		workingImage = getTitle();
 		workingImageName = getInfo("window.title");
+		outlineColorRGBs = getColorArrayFromColorName(outlineColor);
+		textColorRGBs = getColorArrayFromColorName(textColor);
 		for (i=0; i<lengthOf(sliceTextLabels); i++) {
+			stringWidth = getStringWidth(sliceTextLabels[i]);
+			overRun = stringWidth/insideMarginsLR;
+			if (overRun>1) fontSize /= overRun;
+			stringWidth = getStringWidth(sliceTextLabels[i]);
+			textLabelX = selEX;
+			textLabelY = selEY;
 			setSlice(startSliceNumber + i);
 			if (sliceTextLabels[i]!="") {
 				/* Create Label Mask */
 				newImage("label_mask", "8-bit black", imageWidth, imageHeight, 1);
 				roiManager("deselect");
 				run("Select None");
-				setFont(fontName,fontSize, fontStyle);
+				// setFont(fontName,fontSize);
+				// fontHeight = getValue("font.height");
 				textLabelLineY = textLabelY;
-				setColor("white");
 				if (sliceTextLabels[i]!="-blank-") {
-					if (just=="right") textLabelX += longestStringWidth - getStringWidth(sliceTextLabels[i]);
+					if (just=="right") textLabelX += longestStringWidth - stringWidth;
 					else if (just!="left") textLabelX += (longestStringWidth-getStringWidth(sliceTextLabels[i]))/2;
+					if (indexOf(textLocChoice,"Center")>0) selEX = textLabelX = round((imageWidth - stringWidth)/2);
+					else if (indexOf(textLocChoice,"Left")>0) textLabelX = offsetX;
+					else if (indexOf(textLocChoice,"Right")>0 && (just=="right" || just=="auto")) textLabelX = imageWidth - (stringWidth + offsetX);
 					writeLabel7(fontName,fontSize,"white",sliceTextLabels[i],textLabelX,textLabelLineY,false); 
 					// drawString(sliceTextLabels[i], textLabelX, textLabelLineY);
 				}
@@ -436,28 +480,23 @@ macro "Add Slice Label to Each Slice" {
 				run("Select None");
 				// selectWindow("label_mask");
 				/* Create drop shadow if desired */
-				if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0) {
-					showStatus("Creating drop shadow for labels . . . ");
-					createShadowDropFromMask7("label_mask", shadowDrop, shadowDisp, shadowBlur, shadowDarkness, outlineStroke);
+				if (!noShadow){
+					if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0) {
+						showStatus("Creating drop shadow for labels . . . ");
+						createShadowDropFromMask7Safe("label_mask", shadowDrop, shadowDisp, shadowBlur, shadowDarkness, outlineStrokePx);
+						if (isOpen("shadow") && (shadowDarkness>0))
+						imageCalculator("Subtract", workingImage,"shadow");
+						else if (isOpen("shadow") && (shadowDarkness<0))
+						imageCalculator("Add", workingImage,"shadow");
+						run("Select None");
+					}
 				}
-				/*	Create inner shadow if desired */
-				if (innerShadowDrop!=0 || innerShadowDisp!=0 || innerShadowBlur!=0) {
-					showStatus("Creating inner shadow for labels . . . ");
-					createInnerShadowFromMask6("label_mask",innerShadowDrop, innerShadowDisp, innerShadowBlur, innerShadowDarkness);
-				}
-				if (isOpen("shadow") && (shadowDarkness>0))
-				imageCalculator("Subtract", workingImage,"shadow");
-				else if (isOpen("shadow") && (shadowDarkness<0))
-					imageCalculator("Add", workingImage,"shadow");
-				run("Select None");
 				/* Create outline around text */
-				if (outlineStroke>0){
+				if (outlineStrokePx>0){
 					selectWindow(workingImage);
 					getSelectionFromMask("label_mask");
-					getSelectionBounds(maskX, maskY, null, null);
-					run("Enlarge...", "enlarge=&outlineStroke pixel");
-					setBackgroundFromColorName(outlineColor);
-					run("Clear", "slice");
+					run("Enlarge...", "enlarge=&outlineStrokePx pixel");
+					safeColornameFillClear(outlineColor);
 					run("Enlarge...", "enlarge=1 pixel");
 					run("Gaussian Blur...", "sigma=0.85");
 					run("Convolve...", "text1=[-0.0556 -0.0556 -0.0556 \n-0.0556 1.4448  -0.0556 \n-0.0556 -0.0556 -0.0556]"); /* moderate sharpen */
@@ -466,24 +505,49 @@ macro "Add Slice Label to Each Slice" {
 					/* Create text */
 				if (sliceTextLabels[i]=="-blank-"){
 					getSelectionFromMask("label_mask");
-					setBackgroundFromColorName(outlineColor);
-					run("Clear", "slice");
+					safeColornameFillClear(textColor);
 					run("Select None");
 				}
-				else writeLabel7(fontName,fontSize,fontColor,sliceTextLabels[i],textLabelX,textLabelLineY,true); 			/* Now restore antialiased text */
+				else writeLabel7(fontName,fontSize,textColor,sliceTextLabels[i],textLabelX,textLabelLineY,true); 			/* Now restore antialiased text */
+				// writeLabel7(fontName,fontSize,textColor,sliceTextLabels[i],textLabelX,textLabelLineY,true); 			/* Now restore antialiased text */
 				getSelectionFromMask("label_mask");
 				run("Enlarge...", "enlarge=1 pixel");
 				run("Gaussian Blur...", "sigma=0.75");
 				run("Unsharp Mask...", "radius=1 mask=0.75");
-				// run("Convolve...", "text1=[-0.0556 -0.0556 -0.0556 \n-0.0556 1.4448  -0.0556 \n-0.0556 -0.0556 -0.0556]"); /* moderate sharpen */
-				run("Select None");
-				/* Create inner shadow or glow if requested */
-				if (isOpen("inner_shadow") && (innerShadowDarkness>0))
-					imageCalculator("Subtract", workingImage,"inner_shadow");
-				else if (isOpen("inner_shadow") && (innerShadowDarkness<0))
-					imageCalculator("Add", workingImage,"inner_shadow");
+				if (raised || recessed){
+					outlineRGBs = getColorArrayFromColorName(outlineColor);
+					Array.getStatistics(outlineRGBs, null, null, outlineColorMean, null);
+					textRGBs = getColorArrayFromColorName(textColor);
+					Array.getStatistics(textRGBs, null, null, textColorMean, null);
+					if (outlineColorMean>textColorMean){
+						if (raised && !recessed){
+							raised = false;
+							recessed = true;
+						}
+						else if (!raised && recessed){
+							raised = true;
+							recessed = false;
+						}
+					}
+					fontLineWidth = getStringWidth("!");
+					rAlpha = fontLineWidth/40;
+					if(raised) {
+						getSelectionFromMask("label_mask");
+						if(!noOutline) run("Enlarge...", "enlarge=1 pixel");
+						run("Convolve...", "text1=[ " + createConvolverMatrix("raised",fontLineWidth) + " ]");
+						if (rAlpha>0.33) run("Gaussian Blur...", "sigma=&rAlpha");
+						run("Select None");
+					}
+					if(recessed) {
+						getSelectionFromMask("label_mask");
+						if(!noOutline && !raised) run("Enlarge...", "enlarge=1 pixel");
+						run("Enlarge...", "enlarge=1 pixel");
+						run("Convolve...", "text1=[ " + createConvolverMatrix("recessed",fontLineWidth) + " ]");
+						if (rAlpha>0.33) run("Gaussian Blur...", "sigma=rAlpha");
+						run("Select None");
+					}
+				}
 				closeImageByTitle("shadow");
-				closeImageByTitle("inner_shadow");
 				closeImageByTitle("label_mask");
 			}
 		}
@@ -497,13 +561,6 @@ macro "Add Slice Label to Each Slice" {
 	}
 	restoreSettings;
 	setBatchMode("exit & display");
-	// zFH = sH/imageHeight;
-	// zFW = sW/imageWidth;
-	// if (zFH>1.2 && zFW>1.2) run("View 100%");
-	// else {
-		// zoomOut = 100*minOf(zFH,zFW);
-		// run("Set... ", "zoom=&zoomOut x=20 y=20");
-	// }
 	if (endsWith(textLocChoice, "election") && (restoreSelection==true)) makeRectangle(orSelEX, orSelEY, orSelEWidth, orSelEHeight);
 	else run("Select None");
 	setSlice(startSliceNumber);
@@ -550,63 +607,68 @@ macro "Add Slice Label to Each Slice" {
 		}
 		if (isOpen(oIID)) selectImage(oIID);
 	}
-	function createInnerShadowFromMask6(mask,iShadowDrop, iShadowDisp, iShadowBlur, iShadowDarkness) {
-		/* Requires previous run of: imageDepth = bitDepth();
-		because this version works with different bitDepths
-		v161115 calls four variables: drop, displacement blur and darkness
-		v180627 and calls mask label */
-		showStatus("Creating inner shadow for labels . . . ");
-		newImage("inner_shadow", "8-bit white", imageWidth, imageHeight, 1);
-		getSelectionFromMask(mask);
-		setBackgroundColor(0,0,0);
-		run("Clear Outside");
-		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
-		setSelectionLocation(selMaskX-iShadowDisp, selMaskY-iShadowDrop);
-		setBackgroundColor(0,0,0);
-		run("Clear Outside");
-		getSelectionFromMask(mask);
-		expansion = abs(iShadowDisp) + abs(iShadowDrop) + abs(iShadowBlur);
-		if (expansion>0) run("Enlarge...", "enlarge=&expansion pixel");
-		if (iShadowBlur>0) run("Gaussian Blur...", "sigma=&iShadowBlur");
-		run("Unsharp Mask...", "radius=0.5 mask=0.2"); /* A tweak to sharpen the effect for small font sizes */
-		imageCalculator("Max","inner_shadow",mask);
-		run("Select None");
-		/* The following are needed for different bit depths */
-		if (imageDepth==16 || imageDepth==32) run(imageDepth + "-bit");
-		run("Enhance Contrast...", "saturated=0 normalize");
-		run("Invert");  /* Create an image that can be subtracted - this works better for color than Min */
-		divider = (100 / abs(iShadowDarkness));
-		run("Divide...", "value=&divider");
+	function createConvolverMatrix(effect,thickness){
+		/* v230413: 1st version PJL  Effects assumed: "Recessed or Raised" */
+		matrixText = "";
+		matrixSize = maxOf(3,(1 + 2*round(thickness/10)));
+		matrixLC = matrixSize -1;
+		matrixCi = matrixSize/2 - 0.5;
+		mFact = 1/(matrixSize-1);
+		for(y=0,c=0;y<matrixSize;y++){
+			for(x=0;x<matrixSize;x++){
+				if(x!=y){
+					matrixText +=  " 0";
+					if (x==matrixLC) matrixText +=  "\n";
+				} 
+				else {
+					if (x==matrixCi) matrixText +=  " 1";
+					else if (effect=="raised"){  /* Otherwise assumed to be 'recessed' */
+						if (x<matrixCi) matrixText +=  " -" + mFact;
+						else matrixText +=  " " + mFact;
+					} 
+					else {
+						if (x>matrixCi) matrixText +=  " -" + mFact;
+						else matrixText +=  " " + mFact;				
+					}
+				}
+			}
+		}
+		matrixText +=  "\n";
+		return matrixText;
 	}
-	function createShadowDropFromMask7(mask, oShadowDrop, oShadowDisp, oShadowBlur, oShadowDarkness, oStroke) {
+	function createShadowDropFromMask7Safe(mask, oShadowDrop, oShadowDisp, oShadowBlur, oShadowDarkness, oStroke) {
 		/* Requires previous run of: imageDepth = bitDepth();
 		because this version works with different bitDepths
 		v161115 calls five variables: drop, displacement blur and darkness
-		v180627 adds mask label to variables	*/
+		v180627 adds mask label to variables
+		v230405	resets background color after application
+		v230418 removed '&'s		*/
 		showStatus("Creating drop shadow for labels . . . ");
 		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
 		getSelectionFromMask(mask);
 		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
 		setSelectionLocation(selMaskX + oShadowDisp, selMaskY + oShadowDrop);
-		setBackgroundColor(255,255,255);
-		if (oStroke>0) run("Enlarge...", "enlarge=&oStroke pixel"); /* Adjust shadow size so that shadow extends beyond stroke thickness */
+		orBG = Color.background;
+		Color.setBackground("white");
+		if (oStroke>0) run("Enlarge...", "enlarge="+oStroke+" pixel"); /* Adjust shadow size so that shadow extends beyond stroke thickness */
 		run("Clear");
 		run("Select None");
 		if (oShadowBlur>0) {
-			run("Gaussian Blur...", "sigma=&oShadowBlur");
-			run("Unsharp Mask...", "radius=&oShadowBlur mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
+			run("Gaussian Blur...", "sigma="+oShadowBlur);
+			run("Unsharp Mask...", "radius="+oShadowBlur+" mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
 		}
 		/* Now make sure shadow or glow does not impact outline */
 		getSelectionFromMask(mask);
-		if (oStroke>0) run("Enlarge...", "enlarge=&oStroke pixel");
-		setBackgroundColor(0,0,0);
+		if (oStroke>0) run("Enlarge...", "enlarge="+oStroke+" pixel");
+		Color.setBackground("black");
 		run("Clear");
 		run("Select None");
 		/* The following are needed for different bit depths */
 		if (imageDepth==16 || imageDepth==32) run(imageDepth + "-bit");
 		run("Enhance Contrast...", "saturated=0 normalize");
 		divider = (100 / abs(oShadowDarkness));
-		run("Divide...", "value=&divider");
+		run("Divide...", "value="+divider);
+		Color.setBackground(orBG);
 	}
 	function getColorArrayFromColorName(colorName) {
 		/* v180828 added Fluorescent Colors
@@ -700,19 +762,19 @@ macro "Add Slice Label to Each Slice" {
 		/*	v180723 first version
 			v180828 Changed order of favorites
 			v190108 Longer list of favorites
+			v230209 Minor optimization
 		*/
 		systemFonts = getFontList();
 		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
 		fontNameChoice = Array.concat(IJFonts,systemFonts);
-		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Noto Sans Black", "Arial Black", "Montserrat Black", "Lato Black", "Roboto Black", "Merriweather Black", "Alegreya Black", "Tahoma Bold", "Calibri Bold", "Helvetica", "SansSerif", "Calibri", "Roboto", "Tahoma", "Times New Roman Bold", "Times Bold", "Serif");
+		faveFontList = newArray("Your favorite fonts here", "Open Sans ExtraBold", "Fira Sans ExtraBold", "Noto Sans Black", "Arial Black", "Poppins Black", "Montserrat Black", "Lato Black", "Roboto Black", "Merriweather Black", "Alegreya Black", "Tahoma Bold", "Calibri Bold", "Helvetica", "SansSerif", "Calibri", "Roboto", "Tahoma", "Times New Roman Bold", "Times Bold", "Goldman Sans Black","Goldman Sans","Serif");
 		faveFontListCheck = newArray(faveFontList.length);
-		counter = 0;
-		for (i=0; i<faveFontList.length; i++) {
+		for (i=0,counter=0; i<faveFontList.length; i++) {
 			for (j=0; j<fontNameChoice.length; j++) {
 				if (faveFontList[i] == fontNameChoice[j]) {
 					faveFontListCheck[counter] = faveFontList[i];
-					counter +=1;
 					j = fontNameChoice.length;
+					counter++;
 				}
 			}
 		}
@@ -730,6 +792,28 @@ macro "Add Slice Label to Each Slice" {
 		selectImage(tempID);
 		run("Restore Selection");
 		if (!batchMode) setBatchMode(false); /* Return to original batch mode setting */
+	}
+	function indexOfArray(array, value, default) {
+		/* v190423 Adds "default" parameter (use -1 for backwards compatibility). Returns only first found value */
+		index = default;
+		for (i=0; i<lengthOf(array); i++){
+			if (array[i]==value) {
+				index = i;
+				i = lengthOf(array);
+			}
+		}
+	  return index;
+	}
+	function safeColornameFillClear(colorName) {
+	/* Requires function getColorArrayFromColorName
+		v230418 1st version pjl */
+		if(selectionType>=0){
+			orBGC = getValue("color.background");
+			colorArray = getColorArrayFromColorName(colorName);
+			setBackgroundColor(colorArray[0], colorArray[1], colorArray[2]);
+			run("Clear", "slice");
+			setBackgroundColor(orBGC);
+		}
 	}
 	function toChar(string) {
 		/* v180612 first version

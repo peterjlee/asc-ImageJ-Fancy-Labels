@@ -12,8 +12,9 @@ macro "Fancy Scale Bar" {
 	v230411: Allows non-square pixels (angles are calculated using true pixel dimensions). Does not override saved default colors based on backgrounds when "Under" locations were last-used.
 	v230413: Recessed and Raised effects now use expanding matrices. Font styles removed as they seem to have no impact. Bar thickness now based on '!' character width. 'No-text' option working again.
 	v230417-9: Restored missing line length line for distance labels, renamed to be obvious that it is a length in pixels. Location of distance labels still inconsistent though.  f1: updated stripKnownExtensionFromString function.
+	v230517: Removed line length correction factor that was not needed with getStringWidth.
 */
-	macroL = "Fancy_Scale_Bar_v230419-f1.ijm";
+	macroL = "Fancy_Scale_Bar_v230517.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -353,23 +354,19 @@ macro "Fancy Scale Bar" {
 	if (selEType==5 && textLabel==""){
 		if (angleSeparator!="No angle label") label += angleSeparator + " " + angleLabel + fromCharCode(0x00B0);
 	}
-	lLF = 1;
-	if (endsWith(fontName,"Black") || endsWith(fontName,"ExtraBold")){
-		if (selectedUnit.length>2) lLF = 1 + 0.02 * (selectedUnit.length-2); /* label length correction factor */
-	}
-	labelL = lLF * getStringWidth(label);
+	labelL = getStringWidth(label);
 	labelSemiL = labelL/2;
 	if (!noText){
-		stringOF = 1.1 * lLF * labelL/selLengthInPixels;
+		stringOF = 1.1 * labelL/selLengthInPixels;
 		if (!startsWith(selPos,"Under") && stringOF > 1) {
 			shrinkFactor = getNumber("Initial label is " + stringOF + "x scale bar \(+10% margin\); shrink font by x", 1/stringOF);
 			fontSize *= shrinkFactor;
 			setFont(fontName,fontSize);
-			labelL = lLF * getStringWidth(label);
+			labelL = getStringWidth(label);
 			labelSemiL = labelL/2;
 		}
 		else if (startsWith(selPos,"Under")) {
-			stringFL = (1.1 * lLF * (labelL + selLengthInPixels) + selOffsetX)/imageWidth;
+			stringFL = (1.1 * (labelL + selLengthInPixels) + selOffsetX)/imageWidth;
 			if (stringFL > 1) exit("Combined scale width and text are too long for the 'Under' option");
 		}
 	}
@@ -579,7 +576,7 @@ macro "Fancy Scale Bar" {
 	else if (selEType!=5){
 		selEX = maxOf(minOf(selEX,maxSelEX),selOffsetX);
 		/* stop text overrun */
-		lWidth = lLF * getStringWidth(label);
+		lWidth = getStringWidth(label);
 		stringOver = (lWidth-selLengthInPixels*0.8);
 		endPx = selEX+lWidth;
 		oRun = endPx - imageWidth + selOffsetX;
@@ -588,7 +585,7 @@ macro "Fancy Scale Bar" {
 		if (selEY<=1.5*fontHeight)
 				textYcoord = selEY + sbHeight + fontHeight;
 		else textYcoord = selEY - sbHeight;
-		textXOffset = round((selLengthInPixels - lLF * getStringWidth(label))/2);
+		textXOffset = round((selLengthInPixels - getStringWidth(label))/2);
 		finalLabelX = selEX + textXOffset;
 		finalLabelY = textYcoord;
 	}

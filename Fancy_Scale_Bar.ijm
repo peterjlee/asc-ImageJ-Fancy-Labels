@@ -13,8 +13,9 @@ macro "Fancy Scale Bar" {
 	v230413: Recessed and Raised effects now use expanding matrices. Font styles removed as they seem to have no impact. Bar thickness now based on '!' character width. 'No-text' option working again.
 	v230417-9: Restored missing line length line for distance labels, renamed to be obvious that it is a length in pixels. Location of distance labels still inconsistent though.  f1: updated stripKnownExtensionFromString function.
 	v230517: Removed line length correction factor that was not needed with getStringWidth.
+	v230518: Fixed non-binary mask issue.
 */
-	macroL = "Fancy_Scale_Bar_v230517.ijm";
+	macroL = "Fancy_Scale_Bar_v230518.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -622,6 +623,11 @@ macro "Fancy Scale Bar" {
 			tempID = getImageID;
 			newImage("text_mask", "8-bit black", imageWidth, imageHeight, 1);
 			writeLabel7(fontName, fontSize, "white", label,finalLabelX,finalLabelY,false);
+			if(!is("binary")){
+				setThreshold(0, 128);
+				setOption("BlackBackground", false);
+				run("Convert to Mask");
+			}
 			if(rotText){
 				getSelectionFromMask("text_mask"); 
 				run("Rotate...", "  angle="+lineAngle);
@@ -659,6 +665,7 @@ macro "Fancy Scale Bar" {
 		/* Now create outline around text in case of overlap */
 		if (!noText){
 			newImage("outline_text", "8-bit black", imageWidth, imageHeight, 1);
+			// if (!is("binary")) run("Convert to Mask");
 			getSelectionFromMask("text_mask");
 			safeColornameFill("white");
 			run("Enlarge...", "enlarge="+outlineStroke+" pixel");

@@ -8,9 +8,9 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	v200706: changed variable names to match v200706 version of Fancy Scale Bar macro. v210521 whoops should not have changed imageDepth name :-$
 	v211022: Updated color choices
 	v211025: Updated multiple functions
-	v211104: Updated stripKnownExtensionsFromString function    v211112+v220616: Again  f1-5 updated functions f7-9: updated colors
+	v211104: Updated stripKnownExtensionFromString function    v211112+v220616+230505+060723: Again  f1-5 updated functions f7-9: updated colors f10 updated checkForPlugin function f12 updated checkForUnits function.
 */
-	macroL = "Fast'nFancy_Scale_Bar_Rerun_v211112-f9.ijm";
+	macroL = "Fast'nFancy_Scale_Bar_Rerun_v211112-f13.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -313,29 +313,40 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	function checkForPlugin(pluginName) {
 		/* v161102 changed to true-false
 			v180831 some cleanup
-			v210429 Expandable array version */
-		var pluginCheck = false;
-		if (getDirectory("plugins") == "") restoreExit("Failure to find any plugins!");
-		else pluginDir = getDirectory("plugins");
-		if (!endsWith(pluginName, ".jar")) pluginName = pluginName + ".jar";
-		if (File.exists(pluginDir + pluginName)) {
-				pluginCheck = true;
-				showStatus(pluginName + "found in: "  + pluginDir);
-		}
+			v210429 Expandable array version
+			v220510 Looks for both class and jar if no extension is given
+			v220818 Mystery issue fixed, no longer requires restoreExit	*/
+		pluginCheck = false;
+		if (getDirectory("plugins") == "") print("Failure to find any plugins!");
 		else {
-			pluginList = getFileList(pluginDir);
-			subFolderList = newArray;
-			for (i=0,subFolderCount=0; i<lengthOf(pluginList); i++) {
-				if (endsWith(pluginList[i], "/")) {
-					subFolderList[subFolderCount] = pluginList[i];
-					subFolderCount++;
-				}
-			}
-			for (i=0; i<lengthOf(subFolderList); i++) {
-				if (File.exists(pluginDir + subFolderList[i] +  "\\" + pluginName)) {
+			pluginDir = getDirectory("plugins");
+			if (lastIndexOf(pluginName,".")==pluginName.length-1) pluginName = substring(pluginName,0,pluginName.length-1);
+			pExts = newArray(".jar",".class");
+			knownExt = false;
+			for (j=0; j<lengthOf(pExts); j++) if(endsWith(pluginName,pExts[j])) knownExt = true;
+			pluginNameO = pluginName;
+			for (j=0; j<lengthOf(pExts) && !pluginCheck; j++){
+				if (!knownExt) pluginName = pluginName + pExts[j];
+				if (File.exists(pluginDir + pluginName)) {
 					pluginCheck = true;
-					showStatus(pluginName + " found in: " + pluginDir + subFolderList[i]);
-					i = lengthOf(subFolderList);
+					showStatus(pluginName + "found in: "  + pluginDir);
+				}
+				else {
+					pluginList = getFileList(pluginDir);
+					subFolderList = newArray;
+					for (i=0,subFolderCount=0; i<lengthOf(pluginList); i++) {
+						if (endsWith(pluginList[i], "/")) {
+							subFolderList[subFolderCount] = pluginList[i];
+							subFolderCount++;
+						}
+					}
+					for (i=0; i<lengthOf(subFolderList); i++) {
+						if (File.exists(pluginDir + subFolderList[i] +  "\\" + pluginName)) {
+							pluginCheck = true;
+							showStatus(pluginName + " found in: " + pluginDir + subFolderList[i]);
+							i = lengthOf(subFolderList);
+						}
+					}
 				}
 			}
 		}
@@ -344,45 +355,45 @@ macro "Fast'nFancy Scale Bar Rerun" {
 	function checkForUnits() {  /* With CZSEM check Version
 		/* v161108 (adds inches to possible reasons for checking calibration)
 			This version requires these functions:
-			checkForPlugin, setScaleFromCZSemHeader.
-			v180820 Checks for CZ header before offering to use it. Tweaked dialog messages.
-			v180921 Fixed error in 2nd dialog.
-			v200925 Checks also for unit = pixels
+			***** checkForPlugin, setScaleFromCZSemHeader, restoreExit *****
+			NOTE: restoreExit REQUIRES previous run of saveSettings
+			v180820: Checks for CZ header before offering to use it.
+			v200508: Simplified
+			v200925: Checks also for unit = pixels
+			v230524: Added options for X vs Y scales.
 		*/
+		functionL = "checkForUnits_v230524";
 		getPixelSize(unit, pixelWidth, pixelHeight);
 		if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches" || unit=="pixels"){
-			Dialog.create("Scale issues");
-			Dialog.addMessage("Unit asymmetry, pixel units or dpi remnants.\nPixel width = " + pixelWidth + " \nPixel height = " + pixelHeight + "\nUnit = " + unit);
-			if (matches(getInfo("image.filename"),".*[tT][iI][fF].*") && (checkForPlugin("tiff_tags.jar"))) {
-				tag = call("TIFF_Tags.getTag", getDirectory("image")+getTitle, 34118);
-				if (indexOf(tag, "Image Pixel Size = ")>0) {
-					Dialog.addCheckbox("Do you want to try and import scale from the CZ SEM tag?", true);
-					Dialog.show();
-					setCZScale = Dialog.getCheckbox;
-					if (setCZScale) { /* Based on the macro here: https://rsb.info.nih.gov/ij/macros/SetScaleFromTiffTag.txt */
-						setScaleFromCZSemHeader();
-						getPixelSize(unit, pixelWidth, pixelHeight);
-						if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches") setCZScale=false;
-					}
-					if(!setCZScale) {
-						Dialog.create("Manually set scale");
-						Dialog.addCheckbox("pixelWidth = " + pixelWidth + ": Do you want to define units for this image?", true);
-						Dialog.show();
-						setScale = Dialog.getCheckbox;
-						if (setScale)
-						run("Set Scale...");
-					}
+			rescaleChoices = newArray("Define new units for this image", "Make no changes", "Exit this macro");
+			if (pixelWidth!=pixelHeight) rescaleChoices = Array.concat("Set height scale to width scale", "Set width scale to height scale",rescaleChoices);
+			Dialog.create("Suspicious Units: " + functionL);
+				tiff = matches(getInfo("image.filename"),".*[tT][iI][fF].*");
+				if (matches(getInfo("image.filename"),".*[tT][iI][fF].*") && (checkForPlugin("tiff_tags.jar"))) {
+					tag = call("TIFF_Tags.getTag", getDirectory("image")+getTitle, 34118);
+					if (indexOf(tag, "Image Pixel Size = ")>0) rescaleChoices = Array.concat(rescaleChoices,"Set Scale from CZSEM header");
 				}
-			}
-			else if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches" || unit=="pixels"){
-				setScale = false;
-				Dialog.create("Still no standard units");
-				Dialog.addMessage("Pixel width = "+pixelWidth+"\nPixel height = "+pixelHeight+"\nUnit = "+unit);
-				Dialog.addCheckbox("Unit asymmetry, pixel units or dpi remnants; do you want to define units for this image?", true);
-				Dialog.show();
-				setScale = Dialog.getCheckbox;
-				if (setScale)
+				else tag = "";
+				rescaleDialogLabel = "pixelHeight = "+pixelHeight+", pixelWidth = "+pixelWidth+", unit = "+unit+": what would you like to do?";
+				Dialog.addRadioButtonGroup(rescaleDialogLabel, rescaleChoices, rescaleChoices.length, 1, rescaleChoices[0]) ;
+			Dialog.show();
+				rescaleChoice = Dialog.getRadioButton;
+			if (rescaleChoice=="Define new units for this image") run("Set Scale...");
+			else if (rescaleChoice=="Exit this macro") restoreExit("Goodbye");
+			else if (rescaleChoice=="Set height scale to width scale") run("Set Scale...", "distance="+1/pixelWidth+" known=1 pixel=1 unit=&unit");
+			else if (rescaleChoice=="Set width scale to height scale") run("Set Scale...", "distance="+1/pixelHeight+" known=1 pixel=1 unit=&unit");
+			else if (rescaleChoice=="Set Scale from CZSEM header"){
+				setScaleFromCZSemHeader();
+				getPixelSize(unit, pixelWidth, pixelHeight);
+				if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches") setCZScale=false;
+				if(!setCZScale) {
+					Dialog.create("Still no standard units");
+						Dialog.addCheckbox("pixelWidth = " + pixelWidth + ": Do you want to define units for this image?", true);
+					Dialog.show();
+						setScale = Dialog.getCheckbox;
+					if (setScale)
 					run("Set Scale...");
+				}
 			}
 		}
 	}
@@ -501,7 +512,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 		else if (colorName == "blue_accent_modern") cA = newArray(79,129,189); /* #4f81bd */
 		else if (colorName == "blue_dark_modern") cA = newArray(31,73,125); /* #1F497D */
 		else if (colorName == "blue_modern") cA = newArray(58,93,174); /* #3a5dae */
-		else if (colorName == "blue_honolulu") cA = newArray(0,118,182); /* Honolulu Blue #30076B6 */
+		else if (colorName == "blue_honolulu") cA = newArray(0,118,182); /* Honolulu Blue #006db0 */
 		else if (colorName == "gray_modern") cA = newArray(83,86,90); /* bright gray #53565A */
 		else if (colorName == "green_dark_modern") cA = newArray(121,133,65); /* Wasabi #798541 */
 		else if (colorName == "green_modern") cA = newArray(155,187,89); /* #9bbb59 AKA "Chelsea Cucumber" */
@@ -544,7 +555,7 @@ macro "Fast'nFancy Scale Bar Rerun" {
 		colorArray = getColorArrayFromColorName(colorName);
 		setBackgroundColor(colorArray[0], colorArray[1], colorArray[2]);
 	}
-	/* Hex conversion below adapted from T.Ferreira, 20010.01 http://imagejdocu.tudor.lu/doku.php?id=macro:rgbtohex */
+	/* Hex conversion below adapted from T.Ferreira, 20010.01 https://imagej.net/doku.php?id=macro:rgbtohex */
 	function pad(n) {
 	  /* This version by Tiago Ferreira 6/6/2022 eliminates the toString macro function */
 	  if (lengthOf(n)==1) n= "0"+n; return n;
@@ -693,36 +704,51 @@ macro "Fast'nFancy Scale Bar Rerun" {
 		v211104: Restricts cleanup to end of string to reduce risk of corrupting path
 		v211112: Tries to fix trapped extension before channel listing. Adds xlsx extension.
 		v220615: Tries to fix the fix for the trapped extensions ...
+		v230504: Protects directory path if included in string. Only removes doubled spaces and lines.
+		v230505: Unwanted dupes replaced by unusefulCombos.
+		v230607: Quick fix for infinite loop on one of while statements.
 		*/
+		fS = File.separator;
 		string = "" + string;
+		protectedPathEnd = lastIndexOf(string,fS)+1;
+		if (protectedPathEnd>0){
+			protectedPath = substring(string,0,protectedPathEnd);
+			string = substring(string,protectedPathEnd);
+		}
+		unusefulCombos = newArray("-", "_"," ");
+		for (i=0; i<lengthOf(unusefulCombos); i++){
+			for (j=0; j<lengthOf(unusefulCombos); j++){
+				combo = unusefulCombos[i] + unusefulCombos[j];
+				while (indexOf(string,combo)>=0) string = replace(string,combo,unusefulCombos[i]);
+			}
+		}
 		if (lastIndexOf(string, ".")>0 || lastIndexOf(string, "_lzw")>0) {
-			knownExt = newArray("dsx", "DSX", "tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV","xlsx","XLSX","_"," ");
-			kEL = lengthOf(knownExt);
+			knownExt = newArray("dsx", "DSX", "tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV","xlsx","XLSX");
+			kEL = knownExt.length;
 			chanLabels = newArray("\(red\)","\(green\)","\(blue\)");
-			unwantedSuffixes = newArray("_lzw"," ","  ", "__","--","_","-");
-			uSL = lengthOf(unwantedSuffixes);
-			for (i=0; i<kEL; i++) {
+			for (i=0,k=0; i<kEL; i++) {
+				kExtn = "." + knownExt[i];
 				for (j=0; j<3; j++){ /* Looking for channel-label-trapped extensions */
-					ichanLabels = lastIndexOf(string, chanLabels[j]);
-					iExt = lastIndexOf(string, "." + knownExt[i]);
-					if(ichanLabels>0 && iExt>(ichanLabels+lengthOf(chanLabels[j]))){
-						iExt = lastIndexOf(string, "." + knownExt[i]);
-						if (ichanLabels>iExt && iExt>0) string = "" + substring(string, 0, iExt) + "_" + chanLabels[j];
-						ichanLabels = lastIndexOf(string, chanLabels[j]);
-						for (k=0; k<uSL; k++){
-							iExt = lastIndexOf(string, unwantedSuffixes[k]);  /* common ASC suffix */
-							if (ichanLabels>iExt && iExt>0) string = "" + substring(string, 0, iExt) + "_" + chanLabels[j];
+					iChanLabels = lastIndexOf(string, chanLabels[j])-1;
+					if (iChanLabels>0){
+						preChan = substring(string,0,iChanLabels);
+						postChan = substring(string,iChanLabels);
+						while (indexOf(preChan,kExtn)>=0 && k<10){  /* k counter quick fix for infinite loop */
+							string = replace(preChan,kExtn,"") + postChan;
+							k++;
 						}
 					}
 				}
-				iExt = lastIndexOf(string, "." + knownExt[i]);
-				if (iExt>=(lengthOf(string)-(lengthOf(knownExt[i])+1)) && iExt>0) string = "" + substring(string, 0, iExt);
+				while (endsWith(string,kExtn)) string = "" + substring(string, 0, lastIndexOf(string, kExtn));
 			}
 		}
-		unwantedSuffixes = newArray("_lzw"," ","  ", "__","--","_","-");
-		for (i=0; i<lengthOf(unwantedSuffixes); i++){
-			sL = lengthOf(string);
-			if (endsWith(string,unwantedSuffixes[i])) string = substring(string,0,sL-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
+		unwantedSuffixes = newArray("_lzw"," ", "_","-");
+		for (i=0; i<unwantedSuffixes.length; i++){
+			while (endsWith(string,unwantedSuffixes[i])) string = substring(string,0,string.length-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
+		}
+		if (protectedPathEnd>0){
+			if(!endsWith(protectedPath,fS)) protectedPath += fS;
+			string = protectedPath + string;
 		}
 		return string;
 	}

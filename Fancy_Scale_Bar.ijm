@@ -13,9 +13,9 @@ macro "Fancy Scale Bar" {
 	v230413: Recessed and Raised effects now use expanding matrices. Font styles removed as they seem to have no impact. Bar thickness now based on '!' character width. 'No-text' option working again.
 	v230417-9: Restored missing line length line for distance labels, renamed to be obvious that it is a length in pixels. Location of distance labels still inconsistent though.  f1: updated stripKnownExtensionFromString function.
 	v230517: Removed line length correction factor that was not needed with getStringWidth.
-	v230518: Fixed non-binary mask issue.
+	v230518: Fixed non-binary mask issue. F1: updated checkForUnits function f2: updated function stripKnownExtensionFromString
 */
-	macroL = "Fancy_Scale_Bar_v230518.ijm";
+	macroL = "Fancy_Scale_Bar_v230518-f2.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -965,36 +965,42 @@ macro "Fancy Scale Bar" {
 	function checkForUnits() {  /* With CZSEM check Version
 		/* v161108 (adds inches to possible reasons for checking calibration)
 			This version requires these functions:
-			checkForPlugin, setScaleFromCZSemHeader.
-			v180820 Checks for CZ header before offering to use it.
-			v200508 Simplified (and works?)
-			v200925 Checks also for unit = pixels
+			***** checkForPlugin, setScaleFromCZSemHeader, restoreExit *****
+			NOTE: restoreExit REQUIRES previous run of saveSettings
+			v180820: Checks for CZ header before offering to use it.
+			v200508: Simplified
+			v200925: Checks also for unit = pixels
+			v230524: Added options for X vs Y scales.
 		*/
+		functionL = "checkForUnits_v230524";
 		getPixelSize(unit, pixelWidth, pixelHeight);
 		if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches" || unit=="pixels"){
-			Dialog.create("Suspicious Units");
-			rescaleChoices = newArray("Define new units for this image", "Use current scale", "Exit this macro");
-			tiff = matches(getInfo("image.filename"),".*[tT][iI][fF].*");
-			if (matches(getInfo("image.filename"),".*[tT][iI][fF].*") && (checkForPlugin("tiff_tags.jar"))) {
-				tag = call("TIFF_Tags.getTag", getDirectory("image")+getTitle, 34118);
-				if (indexOf(tag, "Image Pixel Size = ")>0) rescaleChoices = Array.concat(rescaleChoices,"Set Scale from CZSEM header");
-			}
-			else tag = "";
-			rescaleDialogLabel = "pixelHeight = "+pixelHeight+", pixelWidth = "+pixelWidth+", unit = "+unit+": what would you like to do?";
-			Dialog.addRadioButtonGroup(rescaleDialogLabel, rescaleChoices, 3, 1, rescaleChoices[0]) ;
+			rescaleChoices = newArray("Define new units for this image", "Make no changes", "Exit this macro");
+			if (pixelWidth!=pixelHeight) rescaleChoices = Array.concat("Set height scale to width scale", "Set width scale to height scale",rescaleChoices);
+			Dialog.create("Suspicious Units: " + functionL);
+				tiff = matches(getInfo("image.filename"),".*[tT][iI][fF].*");
+				if (matches(getInfo("image.filename"),".*[tT][iI][fF].*") && (checkForPlugin("tiff_tags.jar"))) {
+					tag = call("TIFF_Tags.getTag", getDirectory("image")+getTitle, 34118);
+					if (indexOf(tag, "Image Pixel Size = ")>0) rescaleChoices = Array.concat(rescaleChoices,"Set Scale from CZSEM header");
+				}
+				else tag = "";
+				rescaleDialogLabel = "pixelHeight = "+pixelHeight+", pixelWidth = "+pixelWidth+", unit = "+unit+": what would you like to do?";
+				Dialog.addRadioButtonGroup(rescaleDialogLabel, rescaleChoices, rescaleChoices.length, 1, rescaleChoices[0]) ;
 			Dialog.show();
-			rescaleChoice = Dialog.getRadioButton;
+				rescaleChoice = Dialog.getRadioButton;
 			if (rescaleChoice=="Define new units for this image") run("Set Scale...");
 			else if (rescaleChoice=="Exit this macro") restoreExit("Goodbye");
+			else if (rescaleChoice=="Set height scale to width scale") run("Set Scale...", "distance="+1/pixelWidth+" known=1 pixel=1 unit=&unit");
+			else if (rescaleChoice=="Set width scale to height scale") run("Set Scale...", "distance="+1/pixelHeight+" known=1 pixel=1 unit=&unit");
 			else if (rescaleChoice=="Set Scale from CZSEM header"){
 				setScaleFromCZSemHeader();
 				getPixelSize(unit, pixelWidth, pixelHeight);
 				if (pixelWidth!=pixelHeight || pixelWidth==1 || unit=="" || unit=="inches") setCZScale=false;
 				if(!setCZScale) {
 					Dialog.create("Still no standard units");
-					Dialog.addCheckbox("pixelWidth = " + pixelWidth + ": Do you want to define units for this image?", true);
+						Dialog.addCheckbox("pixelWidth = " + pixelWidth + ": Do you want to define units for this image?", true);
 					Dialog.show();
-					setScale = Dialog.getCheckbox;
+						setScale = Dialog.getCheckbox;
 					if (setScale)
 					run("Set Scale...");
 				}
@@ -1151,7 +1157,7 @@ macro "Fancy Scale Bar" {
 		else if (colorName == "aqua_modern") cA = newArray(75,172,198); /* #4bacc6 AKA "Viking" aqua */
 		else if (colorName == "blue_accent_modern") cA = newArray(79,129,189); /* #4f81bd */
 		else if (colorName == "blue_dark_modern") cA = newArray(31,73,125); /* #1F497D */
-		else if (colorName == "blue_honolulu") cA = newArray(0,118,182); /* Honolulu Blue #30076B6 */
+		else if (colorName == "blue_honolulu") cA = newArray(0,118,182); /* Honolulu Blue #006db0 */
 		else if (colorName == "blue_modern") cA = newArray(58,93,174); /* #3a5dae */
 		else if (colorName == "gray_modern") cA = newArray(83,86,90); /* bright gray #53565A */
 		else if (colorName == "green_dark_modern") cA = newArray(121,133,65); /* Wasabi #798541 */
@@ -1500,6 +1506,7 @@ macro "Fancy Scale Bar" {
 		v220615: Tries to fix the fix for the trapped extensions ...
 		v230504: Protects directory path if included in string. Only removes doubled spaces and lines.
 		v230505: Unwanted dupes replaced by unusefulCombos.
+		v230607: Quick fix for infinite loop on one of while statements.
 		*/
 		fS = File.separator;
 		string = "" + string;
@@ -1519,14 +1526,17 @@ macro "Fancy Scale Bar" {
 			knownExt = newArray("dsx", "DSX", "tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV","xlsx","XLSX");
 			kEL = knownExt.length;
 			chanLabels = newArray("\(red\)","\(green\)","\(blue\)");
-			for (i=0; i<kEL; i++) {
+			for (i=0,k=0; i<kEL; i++) {
 				kExtn = "." + knownExt[i];
 				for (j=0; j<3; j++){ /* Looking for channel-label-trapped extensions */
 					iChanLabels = lastIndexOf(string, chanLabels[j])-1;
 					if (iChanLabels>0){
 						preChan = substring(string,0,iChanLabels);
 						postChan = substring(string,iChanLabels);
-						while (indexOf(preChan,kExtn)>=0) string = replace(preChan,kExtn,"") + postChan;
+						while (indexOf(preChan,kExtn)>=0 && k<10){  /* k counter quick fix for infinite loop */
+							string = replace(preChan,kExtn,"") + postChan;
+							k++;
+						}
 					}
 				}
 				while (endsWith(string,kExtn)) string = "" + substring(string, 0, lastIndexOf(string, kExtn));

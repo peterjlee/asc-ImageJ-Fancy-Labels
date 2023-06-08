@@ -4,9 +4,9 @@ macro "Fancy Border" {
 	+ v200706 Changed imageDepth variable name added macro label.
 	+ v211022 Updated color choices
 	+ v211025 Updated stripKnownExtensionFromString
-	+ v211104: Updated stripKnownExtensionsFromString function    211112, 220616, 220816: Again  f5: updated pad function f6-8: updated colors
+	+ v211104: Updated stripKnownExtensionFromString function    211112, 220616, 220816, 230505(f10) 060723: Again  f5: updated pad function f6-9: updated colors
 */
-	macroL = "Fancy_Border_v211112-f8.ijm";
+	macroL = "Fancy_Border_v211112-f11.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	selEType = selectionType;  /* Returns the selection type, where 0=rectangle, 1=oval, 2=polygon, 3=freehand, 4=traced, 5=straight line, 6=segmented line, 7=freehand line, 8=angle, 9=composite and 10=point.*/
@@ -28,7 +28,7 @@ macro "Fancy Border" {
 	remSlices = slices-startSliceNumber;
 	dBrderThick = maxOf(round((imageWidth+imageHeight)/1000),1);
 	colorChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
-	colorChoicesStd = newArray("red", "green", "blue", "cyan", "magenta", "yellow", "pink", "orange", "violet", "violet");
+	colorChoicesStd = newArray("red", "green", "blue", "cyan", "magenta", "yellow", "pink", "orange", "violet");
 	colorChoicesMod = newArray("garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
 	colorChoicesNeon = newArray("jazzberry_jam", "radical_red", "wild_watermelon", "outrageous_orange", "supernova_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "dodger_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
 	if (imageDepth==24) colorChoices = Array.concat(colorChoices,colorChoicesStd,colorChoicesMod,colorChoicesNeon);
@@ -184,7 +184,7 @@ macro "Fancy Border" {
 		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
 		   v191211 added Cyan
 		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference v220706 restores missing magenta
-		   REQUIRES restoreExit function.  57 Colors
+		   REQUIRES restoreExit function.  57 Colors v230130 Added more descriptions and modified order
 		*/
 		if (colorName == "white") cA = newArray(255,255,255);
 		else if (colorName == "black") cA = newArray(0,0,0);
@@ -206,13 +206,13 @@ macro "Fancy Border" {
 		else if (colorName == "pink") cA = newArray(255, 192, 203);
 		else if (colorName == "violet") cA = newArray(127,0,255);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);
-		else if (colorName == "garnet") cA = newArray(120,47,64);
-		else if (colorName == "gold") cA = newArray(206,184,136);
+		else if (colorName == "garnet") cA = newArray(120,47,64); /* #782F40 */
+		else if (colorName == "gold") cA = newArray(206,184,136); /* #CEB888 */
 		else if (colorName == "aqua_modern") cA = newArray(75,172,198); /* #4bacc6 AKA "Viking" aqua */
 		else if (colorName == "blue_accent_modern") cA = newArray(79,129,189); /* #4f81bd */
 		else if (colorName == "blue_dark_modern") cA = newArray(31,73,125); /* #1F497D */
+		else if (colorName == "blue_honolulu") cA = newArray(0,118,182); /* Honolulu Blue #006db0 */
 		else if (colorName == "blue_modern") cA = newArray(58,93,174); /* #3a5dae */
-		else if (colorName == "blue_honolulu") cA = newArray(0,118,182); /* Honolulu Blue #30076B6 */
 		else if (colorName == "gray_modern") cA = newArray(83,86,90); /* bright gray #53565A */
 		else if (colorName == "green_dark_modern") cA = newArray(121,133,65); /* Wasabi #798541 */
 		else if (colorName == "green_modern") cA = newArray(155,187,89); /* #9bbb59 AKA "Chelsea Cucumber" */
@@ -230,20 +230,20 @@ macro "Fancy Border" {
 		/* Fluorescent Colors https://www.w3schools.com/colors/colors_crayola.asp */
 		else if (colorName == "radical_red") cA = newArray(255,53,94);			/* #FF355E */
 		else if (colorName == "wild_watermelon") cA = newArray(253,91,120);		/* #FD5B78 */
+		else if (colorName == "shocking_pink") cA = newArray(255,110,255);		/* #FF6EFF Ultra Pink */
+		else if (colorName == "razzle_dazzle_rose") cA = newArray(238,52,210); 	/* #EE34D2 */
+		else if (colorName == "hot_magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
 		else if (colorName == "outrageous_orange") cA = newArray(255,96,55);	/* #FF6037 */
 		else if (colorName == "supernova_orange") cA = newArray(255,191,63);	/* FFBF3F Supernova Neon Orange*/
-		else if (colorName == "atomic_tangerine") cA = newArray(255,153,102);	/* #FF9966 */
-		else if (colorName == "neon_carrot") cA = newArray(255,153,51);			/* #FF9933 */
 		else if (colorName == "sunglow") cA = newArray(255,204,51); 			/* #FFCC33 */
+		else if (colorName == "neon_carrot") cA = newArray(255,153,51);			/* #FF9933 */
+		else if (colorName == "atomic_tangerine") cA = newArray(255,153,102);	/* #FF9966 */
 		else if (colorName == "laser_lemon") cA = newArray(255,255,102); 		/* #FFFF66 "Unmellow Yellow" */
 		else if (colorName == "electric_lime") cA = newArray(204,255,0); 		/* #CCFF00 */
 		else if (colorName == "screamin'_green") cA = newArray(102,255,102); 	/* #66FF66 */
 		else if (colorName == "magic_mint") cA = newArray(170,240,209); 		/* #AAF0D1 */
 		else if (colorName == "blizzard_blue") cA = newArray(80,191,230); 		/* #50BFE6 Malibu */
 		else if (colorName == "dodger_blue") cA = newArray(9,159,255);			/* #099FFF Dodger Neon Blue */
-		else if (colorName == "shocking_pink") cA = newArray(255,110,255);		/* #FF6EFF Ultra Pink */
-		else if (colorName == "razzle_dazzle_rose") cA = newArray(238,52,210); 	/* #EE34D2 */
-		else if (colorName == "hot_magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
 		else restoreExit("No color match to " + colorName);
 		return cA;
 	}
@@ -251,7 +251,7 @@ macro "Fancy Border" {
 		colorArray = getColorArrayFromColorName(colorName);
 		setBackgroundColor(colorArray[0], colorArray[1], colorArray[2]);
 	}
-	/* Hex conversion below adapted from T.Ferreira, 20010.01 http://imagejdocu.tudor.lu/doku.php?id=macro:rgbtohex */
+	/* Hex conversion below adapted from T.Ferreira, 20010.01 https://imagej.net/doku.php?id=macro:rgbtohex */
 	function pad(n) {
 	  /* This version by Tiago Ferreira 6/6/2022 eliminates the toString macro function */
 	  if (lengthOf(n)==1) n= "0"+n; return n;
@@ -301,36 +301,51 @@ macro "Fancy Border" {
 		v211104: Restricts cleanup to end of string to reduce risk of corrupting path
 		v211112: Tries to fix trapped extension before channel listing. Adds xlsx extension.
 		v220615: Tries to fix the fix for the trapped extensions ...
+		v230504: Protects directory path if included in string. Only removes doubled spaces and lines.
+		v230505: Unwanted dupes replaced by unusefulCombos.
+		v230607: Quick fix for infinite loop on one of while statements.
 		*/
+		fS = File.separator;
 		string = "" + string;
+		protectedPathEnd = lastIndexOf(string,fS)+1;
+		if (protectedPathEnd>0){
+			protectedPath = substring(string,0,protectedPathEnd);
+			string = substring(string,protectedPathEnd);
+		}
+		unusefulCombos = newArray("-", "_"," ");
+		for (i=0; i<lengthOf(unusefulCombos); i++){
+			for (j=0; j<lengthOf(unusefulCombos); j++){
+				combo = unusefulCombos[i] + unusefulCombos[j];
+				while (indexOf(string,combo)>=0) string = replace(string,combo,unusefulCombos[i]);
+			}
+		}
 		if (lastIndexOf(string, ".")>0 || lastIndexOf(string, "_lzw")>0) {
-			knownExt = newArray("dsx", "DSX", "tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV","xlsx","XLSX","_"," ");
-			kEL = lengthOf(knownExt);
+			knownExt = newArray("dsx", "DSX", "tif", "tiff", "TIF", "TIFF", "png", "PNG", "GIF", "gif", "jpg", "JPG", "jpeg", "JPEG", "jp2", "JP2", "txt", "TXT", "csv", "CSV","xlsx","XLSX");
+			kEL = knownExt.length;
 			chanLabels = newArray("\(red\)","\(green\)","\(blue\)");
-			unwantedSuffixes = newArray("_lzw"," ","  ", "__","--","_","-");
-			uSL = lengthOf(unwantedSuffixes);
-			for (i=0; i<kEL; i++) {
+			for (i=0,k=0; i<kEL; i++) {
+				kExtn = "." + knownExt[i];
 				for (j=0; j<3; j++){ /* Looking for channel-label-trapped extensions */
-					ichanLabels = lastIndexOf(string, chanLabels[j]);
-					iExt = lastIndexOf(string, "." + knownExt[i]);
-					if(ichanLabels>0 && iExt>(ichanLabels+lengthOf(chanLabels[j]))){
-						iExt = lastIndexOf(string, "." + knownExt[i]);
-						if (ichanLabels>iExt && iExt>0) string = "" + substring(string, 0, iExt) + "_" + chanLabels[j];
-						ichanLabels = lastIndexOf(string, chanLabels[j]);
-						for (k=0; k<uSL; k++){
-							iExt = lastIndexOf(string, unwantedSuffixes[k]);  /* common ASC suffix */
-							if (ichanLabels>iExt && iExt>0) string = "" + substring(string, 0, iExt) + "_" + chanLabels[j];
+					iChanLabels = lastIndexOf(string, chanLabels[j])-1;
+					if (iChanLabels>0){
+						preChan = substring(string,0,iChanLabels);
+						postChan = substring(string,iChanLabels);
+						while (indexOf(preChan,kExtn)>=0 && k<10){  /* k counter quick fix for infinite loop */
+							string = replace(preChan,kExtn,"") + postChan;
+							k++;
 						}
 					}
 				}
-				iExt = lastIndexOf(string, "." + knownExt[i]);
-				if (iExt>=(lengthOf(string)-(lengthOf(knownExt[i])+1)) && iExt>0) string = "" + substring(string, 0, iExt);
+				while (endsWith(string,kExtn)) string = "" + substring(string, 0, lastIndexOf(string, kExtn));
 			}
 		}
-		unwantedSuffixes = newArray("_lzw"," ","  ", "__","--","_","-");
-		for (i=0; i<lengthOf(unwantedSuffixes); i++){
-			sL = lengthOf(string);
-			if (endsWith(string,unwantedSuffixes[i])) string = substring(string,0,sL-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
+		unwantedSuffixes = newArray("_lzw"," ", "_","-");
+		for (i=0; i<unwantedSuffixes.length; i++){
+			while (endsWith(string,unwantedSuffixes[i])) string = substring(string,0,string.length-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
+		}
+		if (protectedPathEnd>0){
+			if(!endsWith(protectedPath,fS)) protectedPath += fS;
+			string = protectedPath + string;
 		}
 		return string;
 	}

@@ -4,8 +4,9 @@ macro "Fancy Scale Bar" {
 	v161008-v230804:  Listed at end.
 	v230808: Sensible scales function replaces sensible units for more sensible scales.
 	v230809: Renames image if not new but expanded. Removes left-right margin tweak for 'under' option. v230810: Minor change to text and default options.
+	v230902: Fix for preferences out of range issue
 */
-	macroL = "Fancy_Scale_Bar_v230810.ijm";
+	macroL = "Fancy_Scale_Bar_v230902.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -193,13 +194,13 @@ macro "Fancy Scale Bar" {
 		}
 		/* Recall non-BW colors */
 		if (imageDepth==24){
-			iTCS = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.scale.font.color",colorChoices[iTC]),iTC);
-			iBCS = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.scale.outline.color",colorChoices[iBC]),iBC);
+			iTCS = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.scale.font.color",colorChoices[minOf(colorChoices.length-1,iTC)]), minOf(colorChoices.length-1,iTC));
+			iBCS = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.scale.outline.color",colorChoices[minOf(colorChoices.length-1,iBC)]), minOf(colorChoices.length-1,iBC));
 			if (iTCS>1) iTC = iTCS;
 			if (iBCS>1) iBC = iBCS;
 		}
-		iTCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.font.gray",grayChoices[iTC]),iTC);
-		iBCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.outline.gray",grayChoices[iBC]),iBC);
+		iTCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.font.gray",grayChoices[minOf(grayChoices.length-1,iTC)]), minOf(grayChoices.length-1,iTC));
+		iBCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.outline.gray",grayChoices[minOf(grayChoices.length-1,iBC)]), minOf(grayChoices.length-1,iBC));
 		if (iTCg<2) iTCg = iTC;
 		if (iBCg<2) iBCg = iBC;
 		/* Reverse Black/white if it looks like it will not work with background intensity

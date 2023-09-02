@@ -3,10 +3,9 @@ macro "Fancy Scale Bar" {
 	Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects.
 	v161008-v230804:  Listed at end.
 	v230808: Sensible scales function replaces sensible units for more sensible scales.
-	v230809: Renames image if not new but expanded. Removes left-right margin tweak for 'under' option. v230810: Minor change to text and default options.
-	v230902: Fix for preferences out of range issue
+	v230809: Renames image if not new but expanded. Removes left-right margin tweak for 'under' option. v230810: Minor change to text and default options. F1: updates indexOf functions.
 */
-	macroL = "Fancy_Scale_Bar_v230902.ijm";
+	macroL = "Fancy_Scale_Bar_v230810-f1.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -194,13 +193,13 @@ macro "Fancy Scale Bar" {
 		}
 		/* Recall non-BW colors */
 		if (imageDepth==24){
-			iTCS = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.scale.font.color",colorChoices[minOf(colorChoices.length-1,iTC)]), minOf(colorChoices.length-1,iTC));
-			iBCS = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.scale.outline.color",colorChoices[minOf(colorChoices.length-1,iBC)]), minOf(colorChoices.length-1,iBC));
+			iTCS = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.scale.font.color",colorChoices[iTC]),iTC);
+			iBCS = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.scale.outline.color",colorChoices[iBC]),iBC);
 			if (iTCS>1) iTC = iTCS;
 			if (iBCS>1) iBC = iBCS;
 		}
-		iTCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.font.gray",grayChoices[minOf(grayChoices.length-1,iTC)]), minOf(grayChoices.length-1,iTC));
-		iBCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.outline.gray",grayChoices[minOf(grayChoices.length-1,iBC)]), minOf(grayChoices.length-1,iBC));
+		iTCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.font.gray",grayChoices[iTC]),iTC);
+		iBCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.outline.gray",grayChoices[iBC]),iBC);
 		if (iTCg<2) iTCg = iTC;
 		if (iBCg<2) iBCg = iBC;
 		/* Reverse Black/white if it looks like it will not work with background intensity
@@ -1511,8 +1510,9 @@ macro "Fancy Scale Bar" {
 		return medianVals;
 	}
 	function indexOfArray(array, value, default) {
-		/* v190423 Adds "default" parameter (use -1 for backwards compatibility). Returns only first found value */
-		index = default;
+		/* v190423 Adds "default" parameter (use -1 for backwards compatibility). Returns only first found value
+			v230902 Limits default value to array size */
+		index = minOf(lengthOf(array) - 1, default);
 		for (i=0; i<lengthOf(array); i++){
 			if (array[i]==value) {
 				index = i;
@@ -1523,8 +1523,9 @@ macro "Fancy Scale Bar" {
 	}
 	function indexOfArrayThatContains(array, value, default) {
 		/* Like indexOfArray but partial matches possible
-			v190423 Only first match returned, v220801 adds default */
-		indexFound = default;
+			v190423 Only first match returned, v220801 adds default.
+			v230902 Limits default value to array size */
+		indexFound = minOf(lengthOf(array) - 1, default);
 		for (i=0; i<lengthOf(array); i++){
 			if (indexOf(array[i], value)>=0){
 				indexFound = i;

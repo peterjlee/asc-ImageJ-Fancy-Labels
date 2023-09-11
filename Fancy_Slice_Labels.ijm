@@ -739,7 +739,7 @@ macro "Fancy Slice Labels" {
 		return cA;
 	}
 	/* Hex conversion below adapted from T.Ferreira, 20010.01 https://imagej.net/doku.php?id=macro:rgbtohex */
-	function getHexColorFromRGBArray(colorNameString) {
+	function getHexColorFromColorName(colorNameString) {
 		colorArray = getColorArrayFromColorName(colorNameString);
 		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);
 		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);

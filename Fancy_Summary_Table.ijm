@@ -438,7 +438,7 @@ macro "Add Summary Table to Copy of Image"{
 		else restoreExit("No color match to " + colorName);
 		return cA;
 	}
-	function getHexColorFromRGBArray(colorNameString) {
+	function getHexColorFromColorName(colorNameString) {
 		colorArray = getColorArrayFromColorName(colorNameString);
 		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);
 		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);

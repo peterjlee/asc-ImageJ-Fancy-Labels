@@ -70,11 +70,11 @@ macro "Fancy Border" {
 	call("ij.Prefs.set", "fancy.borderLocations", fancyBorderLocations);
 	 /* save last used settings in user in preferences */
 	call("ij.Prefs.set", "fancy.innerBorderColor", innerBorderColor);
-	innerBorderColorHex = getHexColorFromRGBArray(innerBorderColor);
+	innerBorderColorHex = getHexColorFromColorName(innerBorderColor);
 	call("ij.Prefs.set", "fancy.outerBorderColor", outerBorderColor);
-	outerBorderColorHex = getHexColorFromRGBArray(outerBorderColor);
+	outerBorderColorHex = getHexColorFromColorName(outerBorderColor);
 	call("ij.Prefs.set", "fancy.centerBorderColor", centerBorderColor);
-	centerBorderColorHex = getHexColorFromRGBArray(centerBorderColor);
+	centerBorderColorHex = getHexColorFromColorName(centerBorderColor);
 	expSelI = -round(innerBorderThickness/2);
 	expSelO = round(outerBorderThickness/2);
 	/* If Overlay chosen add fancy border as overlay */
@@ -257,7 +257,7 @@ macro "Fancy Border" {
 	  if (lengthOf(n)==1) n= "0"+n; return n;
 	  if (lengthOf(""+n)==1) n= "0"+n; return n;
 	}
-	function getHexColorFromRGBArray(colorNameString) {
+	function getHexColorFromColorName(colorNameString) {
 		colorArray = getColorArrayFromColorName(colorNameString);
 		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);
 		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);

@@ -438,8 +438,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	run("Convert to Mask"); /* AKA Make Binary" */
 	if (endsWith(overWrite,"verlays")) {
 		selectWindow(originalImage);
-		fontColorHex = getHexColorFromRGBArray(fontColor);
-		outlineColorHex = getHexColorFromRGBArray(outlineColor);
+		fontColorHex = getHexColorFromColorName(fontColor);
+		outlineColorHex = getHexColorFromColorName(outlineColor);
 		run("Select None");
 		getSelectionFromMask("label_mask");
 		if (textRot!=0) run("Rotate...", "  angle=&textRot");
@@ -812,7 +812,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		else restoreExit("No color match to " + colorName);
 		return cA;
 	}
-	function getHexColorFromRGBArray(colorNameString) {
+	function getHexColorFromColorName(colorNameString) {
 		colorArray = getColorArrayFromColorName(colorNameString);
 		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);
 		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);

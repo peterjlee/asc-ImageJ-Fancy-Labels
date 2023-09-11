@@ -3,9 +3,10 @@ macro "Fancy Scale Bar" {
 	Grotesquely modified by Peter J. Lee NHMFL to produce shadow and outline effects.
 	v161008-v230804:  Listed at end.
 	v230808: Sensible scales function replaces sensible units for more sensible scales.
-	v230809: Renames image if not new but expanded. Removes left-right margin tweak for 'under' option. v230810: Minor change to text and default options. F1: updates indexOf functions.
+	v230809: Renames image if not new but expanded. Removes left-right margin tweak for 'under' option. v230810: Minor change to text and default options. F1: updates indexOf functions. F2: getColorArrayFromColorName_v230908.
+	v230911: Fix for color prefs index issue. b: Fix for missing new selection coordinates.
 */
-	macroL = "Fancy_Scale_Bar_v230810-f1.ijm";
+	macroL = "Fancy_Scale_Bar_v230911b.ijm";
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -46,7 +47,7 @@ macro "Fancy Scale Bar" {
 	overlayN = Overlay.size;
 	if (imageDepth==16) bgIpc = round(bgI*100/65536);
 	else bgIpc = round(bgI*100/255);
-	if (stdInt<5 && (meanInt>205 || meanInt<50)) fancyStyle = "No fancy formatting";
+	if ((stdInt<5 && (meanInt>205 || meanInt<50)) || bgIpc>95 || bgIpc<5) fancyStyle = "No fancy formatting";
 	else fancyStyle = "Standard for busy images";
 	/* End simple text default options */
 	startSliceNumber = getSliceNumber();
@@ -126,6 +127,7 @@ macro "Fancy Scale Bar" {
 	infoFontSize = 12;
 	degChar = fromCharCode(0x00B0);
 	divChar = fromCharCode(0x00F7);
+	plusminus = fromCharCode(0x00B1);
 	modeStr = "scale bar";
 	if (selEType>=0) {
 		if (selEType!=5){
@@ -173,33 +175,29 @@ macro "Fancy Scale Bar" {
 		colorChoices = Array.concat(grayChoices, colorChoicesStd, colorChoicesMod, colorChoicesNeon);
 		if (startsWith(fancyStyle,"No")){
 			if ((bgIpc>50 && !startsWith(locChoices[iLoc],"Under")) || (bgIpc<50 && startsWith(locChoices[iLoc],"Under"))){
-				iTC = 1;
-				iBC = 0;
+				iTC = 1; iBC = 0; iTCg = 1; iBCg = 0;
 			}
 			else {
-				iTC = 0;
-				iBC = 1;
+				iTC = 0; iBC = 1; iTCg = 0; iBCg = 1;
 			}
 		}
 		else {
 			if ((bgIpc>30 && !startsWith(locChoices[iLoc],"Under")) || (bgIpc<30 && startsWith(locChoices[iLoc],"Under"))){
-				iTC = 0;
-				iBC = 1;
+				iTC = 0; iBC = 1; iTCg = 0; iBCg = 1;
 			}
 			else {
-				iTC = 1;
-				iBC = 0;
+				iTC = 1; iBC = 0; iTCg = 1; iBCg = 0;
 			}
 		}
 		/* Recall non-BW colors */
 		if (imageDepth==24){
-			iTCS = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.scale.font.color",colorChoices[iTC]),iTC);
-			iBCS = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.scale.outline.color",colorChoices[iBC]),iBC);
+			iTCS = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.scale.font.color",colorChoices[iTC]), iTC);
+			iBCS = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.scale.outline.color",colorChoices[iBC]), iBC);
 			if (iTCS>1) iTC = iTCS;
 			if (iBCS>1) iBC = iBCS;
 		}
-		iTCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.font.gray",grayChoices[iTC]),iTC);
-		iBCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.outline.gray",grayChoices[iBC]),iBC);
+		iTCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.font.gray",grayChoices[iTCg]), iTCg);
+		iBCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.scale.outline.gray",grayChoices[iBCg]), iBCg);
 		if (iTCg<2) iTCg = iTC;
 		if (iBCg<2) iBCg = iBC;
 		/* Reverse Black/white if it looks like it will not work with background intensity
@@ -475,7 +473,7 @@ macro "Fancy Scale Bar" {
 			Dialog.addMessage("Font size \(FS\): " + fontSize);
 			Dialog.addNumber("Outline stroke:",dOutS,1,3,"% of font size \(\"%FS\"\)");
 			if (!noShadow) {
-				Dialog.addNumber("Shadow drop: ±",dShO,1,3,"%FS");
+				Dialog.addNumber("Shadow drop: " + plusminus, dShO, 1, 3,"%FS");
 				Dialog.addNumber("Shadow shift \(+ve right\)",dShO,1,3,": %FS");
 				Dialog.addNumber("Shadow Gaussian blur:", maxOf(0.5,0.75*dShO),1,3,"%FS");
 				Dialog.addNumber("Shadow darkness \(darkest = 100%\):", 30,1,3,"% \(negative = glow\)");
@@ -619,8 +617,8 @@ macro "Fancy Scale Bar" {
 			msg = "draw a box in the image where you want the scale bar to be centered";
 			waitForUser(title, msg);
 			getSelectionBounds(newSelEX, newSelEY, newSelEWidth, newSelEHeight);
-			newSelEX = Math.constrain(newSelEX + round((newSelEWidth/2) - maxOf(lWidth,selLengthInPixels)/2),selOffsetX,imageWidth-selOffsetY-selLengthInPixels);
-			newSelEY = Math.constrain(newSelEY + round(newSelEHeight/2) + (sbHeight+fontHeight)/2,selOffsetY,imageHeight-selOffsetY-sbHeight);
+			selEX = Math.constrain(newSelEX + round((newSelEWidth/2) - maxOf(lWidth,selLengthInPixels)/2),selOffsetX,imageWidth-selOffsetY-selLengthInPixels);
+			selEY = Math.constrain(newSelEY + round(newSelEHeight/2) + (sbHeight+fontHeight)/2,selOffsetY,imageHeight-selOffsetY-sbHeight);
 			if (is("Batch Mode")==false && !diagnostic) setBatchMode("hide");	/* toggle batch mode back on */
 		} else if (selPos=="At Selection Center"){
 			selEX = Math.constrain(selEX + round((selEWidth/2) - maxOf(lWidth,selLengthInPixels)/2),selOffsetX,imageWidth-selOffsetY-selLengthInPixels);
@@ -795,8 +793,8 @@ macro "Fancy Scale Bar" {
 		/* If Overlay chosen add fancy scale bar as overlay */
 		if (endsWith(overWrite,"verlays")) {
 			/* Create shadow and outline selection masks to be used for overlay components */
-			scaleBarColorHex = getHexColorFromRGBArray(scaleBarColor);
-			outlineColorHex = getHexColorFromRGBArray(outlineColor);
+			scaleBarColorHex = getHexColorFromColorName(scaleBarColor);
+			outlineColorHex = getHexColorFromColorName(outlineColor);
 			if(!noShadow && isOpen("label_mask")) { /* Create ovShadowMask */
 				selectWindow("label_mask");
 				run("Select None");
@@ -955,7 +953,7 @@ macro "Fancy Scale Bar" {
 	else {
 		if(!transparent){
 			selectImage(activeImageID);
-			scaleBarColorHex = getHexColorFromRGBArray(scaleBarColor);
+			scaleBarColorHex = getHexColorFromColorName(scaleBarColor);
 			setColor(scaleBarColorHex);
 			if (applyOverlays) finalLabelY -= fontSize/5;
 			for (sl=startSliceNumber; sl<endSlice+1; sl++) {
@@ -1314,8 +1312,12 @@ macro "Fancy Scale Bar" {
 		   v181017-8 added off-white and off-black for use in gif transparency and also added safe exit if no color match found
 		   v191211 added Cyan
 		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference v220706 restores missing magenta
-		   REQUIRES restoreExit function.  57 Colors v230130 Added more descriptions and modified order
+		   v230130 Added more descriptions and modified order.
+		   v230908: Returns "white" array if not match is found and logs issues without exiting.
+		     57 Colors 
 		*/
+		functionL = "getColorArrayFromColorName_v230911";
+		cA = newArray(255,255,255); /* defaults to white */
 		if (colorName == "white") cA = newArray(255,255,255);
 		else if (colorName == "black") cA = newArray(0,0,0);
 		else if (colorName == "off-white") cA = newArray(245,245,245);
@@ -1328,29 +1330,29 @@ macro "Fancy Scale Bar" {
 		else if (colorName == "gray") cA = newArray(127,127,127);
 		else if (colorName == "dark_gray") cA = newArray(51,51,51);
 		else if (colorName == "red") cA = newArray(255,0,0);
-		else if (colorName == "green") cA = newArray(0,255,0); /* #00FF00 AKA Lime green */
+		else if (colorName == "green") cA = newArray(0,255,0);					/* #00FF00 AKA Lime green */
 		else if (colorName == "blue") cA = newArray(0,0,255);
 		else if (colorName == "cyan") cA = newArray(0, 255, 255);
 		else if (colorName == "yellow") cA = newArray(255,255,0);
-		else if (colorName == "magenta") cA = newArray(255,0,255); /* #FF00FF */
+		else if (colorName == "magenta") cA = newArray(255,0,255);				/* #FF00FF */
 		else if (colorName == "pink") cA = newArray(255, 192, 203);
 		else if (colorName == "violet") cA = newArray(127,0,255);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);
-		else if (colorName == "garnet") cA = newArray(120,47,64); /* #782F40 */
-		else if (colorName == "gold") cA = newArray(206,184,136); /* #CEB888 */
-		else if (colorName == "aqua_modern") cA = newArray(75,172,198); /* #4bacc6 AKA "Viking" aqua */
+		else if (colorName == "garnet") cA = newArray(120,47,64);				/* #782F40 */
+		else if (colorName == "gold") cA = newArray(206,184,136);				/* #CEB888 */
+		else if (colorName == "aqua_modern") cA = newArray(75,172,198);		/* #4bacc6 AKA "Viking" aqua */
 		else if (colorName == "blue_accent_modern") cA = newArray(79,129,189); /* #4f81bd */
-		else if (colorName == "blue_dark_modern") cA = newArray(31,73,125); /* #1F497D */
-		else if (colorName == "blue_honolulu") cA = newArray(0,118,182); /* Honolulu Blue #006db0 */
-		else if (colorName == "blue_modern") cA = newArray(58,93,174); /* #3a5dae */
-		else if (colorName == "gray_modern") cA = newArray(83,86,90); /* bright gray #53565A */
-		else if (colorName == "green_dark_modern") cA = newArray(121,133,65); /* Wasabi #798541 */
-		else if (colorName == "green_modern") cA = newArray(155,187,89); /* #9bbb59 AKA "Chelsea Cucumber" */
+		else if (colorName == "blue_dark_modern") cA = newArray(31,73,125);	/* #1F497D */
+		else if (colorName == "blue_honolulu") cA = newArray(0,118,182);		/* Honolulu Blue #006db0 */
+		else if (colorName == "blue_modern") cA = newArray(58,93,174);			/* #3a5dae */
+		else if (colorName == "gray_modern") cA = newArray(83,86,90);			/* bright gray #53565A */
+		else if (colorName == "green_dark_modern") cA = newArray(121,133,65);	/* Wasabi #798541 */
+		else if (colorName == "green_modern") cA = newArray(155,187,89);		/* #9bbb59 AKA "Chelsea Cucumber" */
 		else if (colorName == "green_modern_accent") cA = newArray(214,228,187); /* #D6E4BB AKA "Gin" */
-		else if (colorName == "green_spring_accent") cA = newArray(0,255,102); /* #00FF66 AKA "Spring Green" */
-		else if (colorName == "orange_modern") cA = newArray(247,150,70); /* #f79646 tan hide, light orange */
-		else if (colorName == "pink_modern") cA = newArray(255,105,180); /* hot pink #ff69b4 */
-		else if (colorName == "purple_modern") cA = newArray(128,100,162); /* blue-magenta, purple paradise #8064A2 */
+		else if (colorName == "green_spring_accent") cA = newArray(0,255,102);	/* #00FF66 AKA "Spring Green" */
+		else if (colorName == "orange_modern") cA = newArray(247,150,70);		/* #f79646 tan hide, light orange */
+		else if (colorName == "pink_modern") cA = newArray(255,105,180);		/* hot pink #ff69b4 */
+		else if (colorName == "purple_modern") cA = newArray(128,100,162);		/* blue-magenta, purple paradise #8064A2 */
 		else if (colorName == "jazzberry_jam") cA = newArray(165,11,94);
 		else if (colorName == "red_n_modern") cA = newArray(227,24,55);
 		else if (colorName == "red_modern") cA = newArray(192,80,77);
@@ -1359,26 +1361,26 @@ macro "Fancy Scale Bar" {
 		else if (colorName == "yellow_modern") cA = newArray(247,238,69);
 		/* Fluorescent Colors https://www.w3schools.com/colors/colors_crayola.asp */
 		else if (colorName == "radical_red") cA = newArray(255,53,94);			/* #FF355E */
-		else if (colorName == "wild_watermelon") cA = newArray(253,91,120);		/* #FD5B78 */
+		else if (colorName == "wild_watermelon") cA = newArray(253,91,120);	/* #FD5B78 */
 		else if (colorName == "shocking_pink") cA = newArray(255,110,255);		/* #FF6EFF Ultra Pink */
-		else if (colorName == "razzle_dazzle_rose") cA = newArray(238,52,210); 	/* #EE34D2 */
+		else if (colorName == "razzle_dazzle_rose") cA = newArray(238,52,210);	/* #EE34D2 */
 		else if (colorName == "hot_magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
 		else if (colorName == "outrageous_orange") cA = newArray(255,96,55);	/* #FF6037 */
 		else if (colorName == "supernova_orange") cA = newArray(255,191,63);	/* FFBF3F Supernova Neon Orange*/
-		else if (colorName == "sunglow") cA = newArray(255,204,51); 			/* #FFCC33 */
-		else if (colorName == "neon_carrot") cA = newArray(255,153,51);			/* #FF9933 */
+		else if (colorName == "sunglow") cA = newArray(255,204,51);			/* #FFCC33 */
+		else if (colorName == "neon_carrot") cA = newArray(255,153,51);		/* #FF9933 */
 		else if (colorName == "atomic_tangerine") cA = newArray(255,153,102);	/* #FF9966 */
-		else if (colorName == "laser_lemon") cA = newArray(255,255,102); 		/* #FFFF66 "Unmellow Yellow" */
-		else if (colorName == "electric_lime") cA = newArray(204,255,0); 		/* #CCFF00 */
-		else if (colorName == "screamin'_green") cA = newArray(102,255,102); 	/* #66FF66 */
-		else if (colorName == "magic_mint") cA = newArray(170,240,209); 		/* #AAF0D1 */
-		else if (colorName == "blizzard_blue") cA = newArray(80,191,230); 		/* #50BFE6 Malibu */
+		else if (colorName == "laser_lemon") cA = newArray(255,255,102);		/* #FFFF66 "Unmellow Yellow" */
+		else if (colorName == "electric_lime") cA = newArray(204,255,0);		/* #CCFF00 */
+		else if (colorName == "screamin'_green") cA = newArray(102,255,102);	/* #66FF66 */
+		else if (colorName == "magic_mint") cA = newArray(170,240,209);		/* #AAF0D1 */
+		else if (colorName == "blizzard_blue") cA = newArray(80,191,230);		/* #50BFE6 Malibu */
 		else if (colorName == "dodger_blue") cA = newArray(9,159,255);			/* #099FFF Dodger Neon Blue */
-		else restoreExit("No color match to " + colorName);
+		else IJ.log(colorName + " not found in " + functionL + ": Color defaulted to white");
 		return cA;
 	}
 	/* Hex conversion below adapted from T.Ferreira, 20010.01 https://imagej.net/doku.php?id=macro:rgbtohex */
-	function getHexColorFromRGBArray(colorNameString) {
+	function getHexColorFromColorName(colorNameString) {
 		colorArray = getColorArrayFromColorName(colorNameString);
 		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);
 		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);

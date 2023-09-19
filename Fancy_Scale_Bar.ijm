@@ -469,7 +469,7 @@ macro "Fancy Scale Bar" {
 	}
 	lWidth = getStringWidth(label);
 	labelSemiL = lWidth/2;
-	if (!noText && !sideBySide){
+	if (!noText && !sideBySide && selEType!=5){
 		stringOF = 0.9 * lWidth/selLengthInPixels;
 		if (!startsWith(selPos,"Under") && stringOF > 1) {
 			shrinkFactor = getNumber("Initial label '" + label + "' is " + stringOF + "x scale bar \(+10% margin\); shrink font by x", 1/stringOF);
@@ -660,15 +660,24 @@ macro "Fancy Scale Bar" {
 		}
 	}
 	else {  /* line label positions */
-		sSelLX = Array.sort(selLX);
-		sSelLY = Array.sort(selLY);
+		rSelLX = Array.rankPositions(selLX);
 		if (selPos=="Right of line end"){
-			selEX = minOf(sSelLX[1] + sbWidth, imageWidth - lWidth - sbWidth/2);
-			selEY = Math.constrain(selLY[indexOfArray(selLX, sSelLX[1], -1)] + fontLineWidth, fontHeight, imageHeight - fontHeight);
+			if (selLX[rSelLX[1]] + 2 * fontLineWidth>imageWidth && lineMidX>imageWidth/2) selPos=="Left of line end";
+			else {
+				selEX = minOf(selLX[rSelLX[1]] + 2 * fontLineWidth, imageWidth - lWidth - fontLineWidth);
+				selEY = Math.constrain(selLY[indexOfArray(selLX, selLX[rSelLX[1]], -1)] + 2 * fontLineWidth, fontHeight, imageHeight - fontHeight);
+			}
 		}
 		if (selPos=="Left of line end"){
-			selEX = maxOf(sSelLX[0] - sbWidth - lWidth, sbWidth);
-			selEY = Math.constrain(selLY[indexOfArray(selLX, sSelLX[0], -1)] + fontLineWidth, fontHeight, imageHeight - fontHeight);
+			selEX = selLX[rSelLX[0]] - fontLineWidth - lWidth;
+			selEY = Math.constrain(selLY[indexOfArray(selLX, selLX[rSelLX[0]], -1)], fontHeight, imageHeight - fontHeight);
+			if (selEX<0){
+				selEX = 2 * fontLineWidth;
+			}
+			selEX = maxOf(selLX[rSelLX[0]] - fontLineWidth - lWidth, 2 *fontLineWidth);
+			if (selEY<0){
+				selEX = 2 * fontLineWidth;
+			}
 		}
 	}
 	 /*  edge limits for bar - assume intent is not to annotate edge objects */
@@ -753,6 +762,7 @@ macro "Fancy Scale Bar" {
 		else {
 			if (selEType!=5) makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
 			else makeArrow(selLX[0],selLY[0],selLX[1],selLY[1],arrowStyle); /* Line location is as drawn (no offsets) */
+			if (selEType==5) print(selLX[0],selLY[0],selLX[1],selLY[1],arrowStyle);
 			Roi.setStrokeColor("white");
 			Roi.setStrokeWidth(sbHeight/2);
 			run("Add Selection...");

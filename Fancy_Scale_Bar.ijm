@@ -9,8 +9,10 @@ macro "Fancy Scale Bar" {
 	v230915: Main menu optimized for clarity.
 	v230918: Reordered code. Removed unused plugins. Prefs keys made more consistent.
 	v230919: More prefs keys added. Improved font choices. Fixed color preferences. b: simplified line labels and removed all text rotation as it was not satisfactory. Removed excess decimal places (based on pixel width).
+	v230920: Additional line-mode options. Menu compacts for smaller screens. Text overlap with arrows fixed. 
 */
-	macroL = "Fancy_Scale_Bar_v230919b.ijm";
+	macroL = "Fancy_Scale_Bar_v230920c.ijm";
+	fullMenuHeight = 988; /* pixels for v230920 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
 	micron = getInfo("micrometer.abbreviation");
@@ -144,8 +146,9 @@ macro "Fancy Scale Bar" {
 			iLoc = indexOfArray(locChoices, call("ij.Prefs.get", prefsNameKey + ".location",locChoices[6]),6);
 		}
 		else {
-			if (lineMidX>imageWidth/2) locChoices = newArray("Left of line end", "Right of Line end");
-			else locChoices = newArray("Right of Line end", "Left of line end");
+			locChoices = newArray("Start of line", "Over center");
+			if (lineMidX>imageWidth/2) locChoices = Array.concat(locChoices,"Left of line end", "Right of line end");
+			else locChoices  = Array.concat(locChoices, "Right of line end", "Left of line end");
 			iLoc = indexOfArray(locChoices, call("ij.Prefs.get", prefsNameKey + ".location",locChoices[0]), 0);
 			modeStr = "length line";
 		}
@@ -154,16 +157,20 @@ macro "Fancy Scale Bar" {
 		locChoices = newArray("Top Left", "Top Right", "Bottom Center", "Bottom Left", "Bottom Right", "Under Image Left","Under Image Right", "At Center of New Selection");
 		iLoc = indexOfArray(locChoices, call("ij.Prefs.get", prefsNameKey + ".location",locChoices[4]),4);
 	}
-	Dialog.create("Scale Bar Parameters: " + macroL);
+	if (fullMenuHeight> 0.9 * screenHeight) compactMenu = true; /* used to limit menu size for small screens */
+	else compactMenu = false;
+	if (compactMenu) menuLabel = "Scale Bar Parameters \(compact menu for low resolution screens\): " + macroL;
+	else menuLabel = "Scale Bar Parameters: " + macroL;
+	Dialog.create(menuLabel);
 		if(pixelHeight!=pixelWidth) Dialog.addMessage("Warning: Non-square pixels \(pixelHeight/pixelWidth = " + pixelHeight/pixelWidth + "\)",infoFontSize,infoWarningColor);
 		if (selEType==5){
-			Dialog.addMessage("Currently in length labeling mode: Select none or a non-straight-line selection to draw a scale bar",infoFontSize,infoColor);
+			Dialog.addMessage("Currently in length labeling mode: Select none or a non-straight-line selection to draw a scale bar",infoFontSize, infoWarningColor);
 			Dialog.addNumber("Selected line length \(" + d2s(lineLengthPx,1) + " pixels\):", sbWidth, dpSB, 10, selectedUnit);
 			Dialog.addNumber("Selected line angle \(" + degChar + " from horizontal\):", lineAngle, 2, 5, degChar);
 			Dialog.addString("Length/angle separator \(i.e. , \):", "No angle label",10);
 			Dialog.addString("Insert text here for text only", textLabel,20);
 		} else {
-			Dialog.addMessage("Currently in scale bar mode: Use the straight line selection tool to activate length labeling mode",infoFontSize+1,infoColor);
+			Dialog.addMessage("Currently in scale bar mode: Use the straight line selection tool to activate length labeling mode",infoFontSize+1,infoWarningColor);
 			dText = "Length of scale bar";
 			if (selEType>=0) dText += " \(precise length = " + sbPreciseWidthString + "\)";
 			Dialog.addNumber(dText + ":", sbWidth, dpSB, 10, selectedUnit);
@@ -215,19 +222,29 @@ macro "Fancy Scale Bar" {
 		else {
 			Dialog.addChoice("Gray tone of " + modeStr + " and text:", grayChoices, grayChoices[iTG]);
 			Dialog.addChoice("Gray tone of background:", grayChoices, grayChoices[iBG]);
-			Dialog.setInsets(-3,50,0);
-			Dialog.addMessage("Image depth is " + imageDepth + " bits: Only gray tones used unless overlays are selected below",infoFontSize,infoColor);
+			if (compactMenu){
+				Dialog.setInsets(-65,370,0);
+				Dialog.addMessage("Image depth is " + imageDepth + " bits:\nOnly gray tones used unless\noverlays are selected below",infoFontSize,infoColor);
+			}
+			else {
+				Dialog.setInsets(-3,50,0);
+				Dialog.addMessage("Image depth is " + imageDepth + " bits: Only gray tones used unless overlays are selected below",infoFontSize,infoColor);
+			}
 		}
-		Dialog.addChoice("Location of " + modeStr + ":", locChoices, locChoices[iLoc]);
 		if (selEType!=5){
+			Dialog.addChoice("Location of " + modeStr + ":", locChoices, locChoices[iLoc]);
 			Dialog.setInsets(-3,50,0); /* top,left,bottom */
 			Dialog.addMessage("'Under Image' options: Expands the frame. Overrides style options below with simple text",infoFontSize,infoColor);
 		}
-		Dialog.setInsets(50,50,50);
+		else {
+			if (compactMenu) Dialog.addChoice("Location of " + modeStr + ":", locChoices, locChoices[iLoc]);
+			else Dialog.addRadioButtonGroup("Location of " + modeStr + ":___________", locChoices, 1, locChoices.length, locChoices[iLoc]);
+		}
 		fancyStyles = newArray("Standard for busy images", "Minimal stroke and shadows", "No fancy formatting");
 		iFancy = indexOfArray(fancyStyles, call("ij.Prefs.get", prefsNameKey + ".fancyStyle",  fancyStyles[0]),0);
 		if (startsWith(locChoices[iLoc],"Under")) fancyStyle = "No fancy formatting"; /* Overrides preferences because there is no point to fancy formatting on a plain background */
-		Dialog.addRadioButtonGroup("Choose fancy style:___________",fancyStyles,1,3,fancyStyles[iFancy]);
+		if (compactMenu) Dialog.addChoice("Choose fancy style:___________", fancyStyles, fancyStyles[iFancy]);
+		else Dialog.addRadioButtonGroup("Choose fancy style:___________", fancyStyles, 1, 3, fancyStyles[iFancy]);
 		fancyStyleEffectsOptions = newArray("No text", "No shadows", "Raised", "Recessed", "Transparent");
 		if ((imageAR>=2 && selEType!=5) || startsWith(locChoices[iLoc],"Under")) sideBySide = true;
 		else sideBySide = false;
@@ -251,7 +268,7 @@ macro "Fancy Scale Bar" {
 			fancyStyleEffects = split(fancyStyleEffectsPrefs, "|");
 			for (i=0; i<fancyStyleEffects.length && i<fancyStyleEffectsOptions.length; i++)  fancyStyleEffectsDefaults[i] = fancyStyleEffects[i];
 		}
-		Dialog.setInsets(15, 0, -5);
+		Dialog.setInsets(5, 0, -8);
 		Dialog.addMessage("Text style modifiers \('Recessed' and 'Raised' do not apply to overlays, 'Under Image' not styled\):",infoFontSize,infoColor);
 		fSL = fancyStyleEffectsOptions.length;
 		fSColumns = minOf(6,fSL);
@@ -260,8 +277,15 @@ macro "Fancy Scale Bar" {
 		Dialog.addCheckboxGroup(fSRows,fSColumns,fancyStyleEffectsOptions,fancyStyleEffectsDefaults);
 		sBStyleChoices = newArray("Solid Bar", "I-Bar", "Open Arrow", "Open Arrows", "Filled Arrow", "Filled Arrows", "Notched Arrow", "Notched Arrows");
 		iSBS = indexOfArray(sBStyleChoices, call("ij.Prefs.get", prefsNameKey + ".style",sBStyleChoices[0]),0);
-		Dialog.addRadioButtonGroup("Bar styles and formatting:___________", sBStyleChoices, 2, 4, sBStyleChoices[iSBS]);
-		if (selEType==5) Dialog.addMessage("Single arrow points in the direction drawn",infoFontSize,infoColor);
+		if (compactMenu) Dialog.addChoice("Bar styles and formatting:___________", sBStyleChoices, sBStyleChoices[iSBS]);
+		else Dialog.addRadioButtonGroup("Bar styles and formatting:___________", sBStyleChoices, 2, 4, sBStyleChoices[iSBS]);
+		if (selEType==5){
+			if (compactMenu){
+				Dialog.setInsets(-33,410,-10);
+				Dialog.addMessage("Single arrow points in\nthe direction drawn",infoFontSize,infoColor);
+			} 
+			else Dialog.addMessage("Single arrow points in the direction drawn",infoFontSize,infoColor);
+		} 
 		barHThicknessChoices = newArray("Small", "Medium", "Large");
 		iHT = indexOfArray(barHThicknessChoices, call("ij.Prefs.get", prefsNameKey + ".barHeader.thickness", barHThicknessChoices[0]),0);
 		Dialog.addChoice("Arrowhead/bar header thickness",barHThicknessChoices, barHThicknessChoices[iHT]);
@@ -277,16 +301,19 @@ macro "Fancy Scale Bar" {
 		outputLabel = "Output";
 		if (imageDepth==16 || imageDepth==32){
 			newChoices = newArray("New 8-bit image"); /* Fancy style effects do not work for 16-bit images */
-			outputLabel += " \(image needs to be converted to 8-bit to display all the fancy style effects\):______________";
+			if (compactMenu) outputLabel += " \(8-bit or RGB image required for fancy effects\):";
+			else outputLabel += " \(image needs to be converted to 8-bit to display all the fancy style effects\):______________";
 		}
 		else {
 			newChoices = newArray("New image", "Add to image");
-			outputLabel += " \('Add to image' will modify the current image\):_______________________";
+			if (compactMenu) outputLabel += " \('Add to image' modifies current image\):";
+			else outputLabel += " \('Add to image' will modify the current image\):_______________________";
 		}
 		overwriteChoices = newArray("Add as overlays");
 		if (imageWidth<=23000) overwriteChoices = Array.concat(newChoices, overwriteChoices);
 		iOver = indexOfArray(overwriteChoices, call("ij.Prefs.get", prefsNameKey + ".output",overwriteChoices[0]),0);
-		Dialog.addRadioButtonGroup(outputLabel, overwriteChoices, 1, lengthOf(overwriteChoices),overwriteChoices[iOver]);
+		if (compactMenu) Dialog.addChoice(outputLabel, overwriteChoices, overwriteChoices[iOver]);
+		else Dialog.addRadioButtonGroup(outputLabel, overwriteChoices, 1, lengthOf(overwriteChoices),overwriteChoices[iOver]);
 		if (overlayN > 0 && fScaleBarOverlays > 0){
 				Dialog.setInsets(0, 235, 0);
 				Dialog.addCheckbox("Remove the " + fScaleBarOverlays + " existing named scale bar overlays", true);
@@ -309,9 +336,9 @@ macro "Fancy Scale Bar" {
 			if (lengthOf(imageDir)>50) outputD = substring(imageDir,0,25) + "..." + substring(imageDir,lengthOf(imageDir)-25);
 			else outputD = imageDir;
 			Dialog.addMessage("Files saved to " + outputD + " \('+scale' added to name\)", infoFontSize, infoColor);
-			finalOptions = Array.concat("saveTIFF", "saveJPEG", finalOptions);
-			finalOptionsChecks =Array.concat(call("ij.Prefs.get", prefsNameKey + ".output.saveTIFF", 1), call("ij.Prefs.get", prefsNameKey + ".output.saveJPEG", 1), finalOptionsChecks);
 		}
+		finalOptions = Array.concat("saveTIFF", "saveJPEG", finalOptions);
+		finalOptionsChecks =Array.concat(call("ij.Prefs.get", prefsNameKey + ".output.saveTIFF", 1), call("ij.Prefs.get", prefsNameKey + ".output.saveJPEG", 1), finalOptionsChecks);
 		Dialog.addCheckboxGroup(1, finalOptions.length, finalOptions, finalOptionsChecks);
 	Dialog.show();
 		selLengthInUnits = Dialog.getNumber;
@@ -332,8 +359,10 @@ macro "Fancy Scale Bar" {
 			scaleBarColor = Dialog.getChoice;
 			outlineColor = Dialog.getChoice;
 		}
-		selPos = Dialog.getChoice;
-		fancyStyle = Dialog.getRadioButton();
+		if (selEType!=5 || compactMenu) selPos = Dialog.getChoice;
+		else selPos = Dialog.getRadioButton();
+		if (compactMenu) fancyStyle = Dialog.getChoice();
+		else fancyStyle = Dialog.getRadioButton();
 		/* fancy style effects checkbox group order: 	"No text", "No shadows", "Raised", "Recessed", Side-by-side */
 		noText = Dialog.getCheckbox();
 		fancyStyleEffectsString = "" + d2s(noText,0);
@@ -359,13 +388,15 @@ macro "Fancy Scale Bar" {
 			noShadow = false;
 			noOutline = false;
 		}
-		sBStyle = Dialog.getRadioButton;
+		if (compactMenu) sBStyle = Dialog.getChoice;
+		else sBStyle = Dialog.getRadioButton;
 		barHThickness = Dialog.getChoice;
 		selOffsetX = Dialog.getNumber;
 		selOffsetY = Dialog.getNumber;
 		// fontStyle = Dialog.getChoice;
 		fontName = Dialog.getChoice;
-		overWrite = Dialog.getRadioButton();
+		if (compactMenu) overWrite = Dialog.getChoice();
+		else overWrite = Dialog.getRadioButton();
 		if(overlayN > 0 && fScaleBarOverlays > 0) remOverlays = Dialog.getCheckbox();
 		else remOverlays = false;
 		if(overlayN > fScaleBarOverlays) remAllOverlays = Dialog.getCheckbox();
@@ -392,12 +423,10 @@ macro "Fancy Scale Bar" {
 			scaleBarColorOv = Dialog.getChoice;
 			outlineColorOv = Dialog.getChoice;
 		}
-		if (imageDir!=""){
-			saveTIFF =  Dialog.getCheckbox();
-			call("ij.Prefs.set", prefsNameKey + ".output.saveTIFF", saveTIFF);
-			saveJPEG =  Dialog.getCheckbox();
-			call("ij.Prefs.set", prefsNameKey + ".output.saveJPEG", saveJPEG);
-		}
+		saveTIFF =  Dialog.getCheckbox();
+		call("ij.Prefs.set", prefsNameKey + ".output.saveTIFF", saveTIFF);
+		saveJPEG =  Dialog.getCheckbox();
+		call("ij.Prefs.set", prefsNameKey + ".output.saveJPEG", saveJPEG);
 		tweakF = Dialog.getCheckbox();
 		diagnostics = Dialog.getCheckbox();
 		/*    End of Main Dialog   */
@@ -461,7 +490,8 @@ macro "Fancy Scale Bar" {
 	if (sF>0) selLengthInUnits *= oSF; /* now safe to change units */
 	if(textLabel!="") label = textLabel;
 	else {
-		selLengthLabel = removeTrailingZerosAndPeriod(toString(selLengthInUnits));
+		if (selEType!=5 || (selEType==5 && trueDPMax<=0)) selLengthLabel = removeTrailingZerosAndPeriod(toString(selLengthInUnits));
+		else selLengthLabel = d2s(selLengthInUnits, trueDPMax);
 		label = selLengthLabel + " " + selectedUnit;
 	}
 	if (selEType==5 && textLabel==""){
@@ -547,11 +577,9 @@ macro "Fancy Scale Bar" {
 	tS = "" + stripKnownExtensionFromString(unCleanLabel(activeImage));
 	if (selEType!=5){
 		if (endsWith(tS, "_EmbScale")) tS = replace(tS, "_EmbScale", ""); /* just removes my preferred note for embedded scale */
-		if (!endsWith(tS, "cale")) tS = tS + "+scale";
-	} else {
-		if (endsWith(tS, "LLabel")) tS += "s";
-		else if (!endsWith(tS, "LLabels")) tS += "+LLabel";
+		if (!endsWith(tS, "cale")) tS = tS + "_scale";
 	}
+	else if (indexOf(tS, "LLabel")<0) tS += "_LLabel";
 	c=1;
 	tS0 = tS;
 	while(isOpen(tS)){
@@ -661,8 +689,12 @@ macro "Fancy Scale Bar" {
 	}
 	else {  /* line label positions */
 		rSelLX = Array.rankPositions(selLX);
+		if (selPos=="Start of line"){
+			if (selLX[0]>selLX[1]) selPos = "Right of line end";
+			else selPos = "Left of line end";
+		}
 		if (selPos=="Right of line end"){
-			if (selLX[rSelLX[1]] + 2 * fontLineWidth>imageWidth && lineMidX>imageWidth/2) selPos=="Left of line end";
+			if (selLX[rSelLX[1]] + 2 * fontLineWidth>imageWidth && lineMidX>imageWidth/2) selPos = "Left of line end";
 			else {
 				selEX = minOf(selLX[rSelLX[1]] + 2 * fontLineWidth, imageWidth - lWidth - fontLineWidth);
 				selEY = Math.constrain(selLY[indexOfArray(selLX, selLX[rSelLX[1]], -1)] + 2 * fontLineWidth, fontHeight, imageHeight - fontHeight);
@@ -678,6 +710,11 @@ macro "Fancy Scale Bar" {
 			if (selEY<0){
 				selEX = 2 * fontLineWidth;
 			}
+		}
+		else {  /* Over center */
+			selEX = Math.constrain(lineMidX - lWidth/2, 2 *fontLineWidth, imageWidth - lWidth);
+			if (abs(lineAngle)<10) selEY = Math.constrain(lineMidY - fontHeight/4, fontHeight, imageHeight-fontHeight);
+			else selEY = Math.constrain(lineMidY, fontHeight, imageHeight-fontHeight);
 		}
 	}
 	 /*  edge limits for bar - assume intent is not to annotate edge objects */
@@ -756,13 +793,13 @@ macro "Fancy Scale Bar" {
 				setOption("BlackBackground", false);
 				run("Convert to Mask");
 			}
+			run("Select None");
 			selectImage(tempID);
 		}
 		if (sBStyle=="Solid Bar" && selEType!=5) fillRect(selEX, selEY, selLengthInPixels, sbHeight); /* Rectangle drawn to produce thicker bar */
 		else {
 			if (selEType!=5) makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
 			else makeArrow(selLX[0],selLY[0],selLX[1],selLY[1],arrowStyle); /* Line location is as drawn (no offsets) */
-			if (selEType==5) print(selLX[0],selLY[0],selLX[1],selLY[1],arrowStyle);
 			Roi.setStrokeColor("white");
 			Roi.setStrokeWidth(sbHeight/2);
 			run("Add Selection...");
@@ -806,6 +843,12 @@ macro "Fancy Scale Bar" {
 			selectWindow("label_mask");
 			getSelectionFromMask("text_mask");
 			safeColornameFill("white");
+			selectWindow("outline_template");
+			if (is("Inverting LUT")) run("Invert LUT");
+			o_tBG = getPixel(0,0);
+			getSelectionFromMask("label_mask");
+			if (o_tBG==0) safeColornameFill("black");
+			else safeColornameFill("white");
 			run("Select None");
 		}
 		else {
@@ -924,10 +967,15 @@ macro "Fancy Scale Bar" {
 						else makeArrow(selLX[0],selLY[0],selLX[1],selLY[1],arrowStyle); /* Line location is as drawn (no offsets) */
 						if(sBStyle=="Solid Bar") Roi.setStrokeWidth(sbHeight);
 						else Roi.setStrokeWidth(sbHeight/2);
-						run("Fill"); /* safeColornameFill does not work here */
+						run("Fill"); /* safeColornameFill does not work here - fill only one arrow head! */
 					}
 					run("Select None");
 					if (!noText && (imageDepth==16 || imageDepth==32)) writeLabel7(fontName, fontSize, scaleBarColor, label, finalLabelX, finalLabelY, true); /* force anti-aliasing */
+					if (!noText){
+						getSelectionFromMask("outline_text");
+						safeColornameFill(outlineColor);
+						run("Select None");
+					}
 				}
 				if (raised || recessed){
 					outlineRGBs = getColorArrayFromColorName(outlineColor);
@@ -992,7 +1040,6 @@ macro "Fancy Scale Bar" {
 					run("Select None");
 				}
 				else {
-					if (!noText) writeLabel7(fontName, fontSize, scaleBarColor, label, finalLabelX, finalLabelY, true);
 					if (sBStyle=="Solid Bar" && selEType!=5) fillRect(selEX, selEY, selLengthInPixels, sbHeight); /* Rectangle drawn to produce thicker bar */
 					else {
 						if (selEType!=5) makeArrow(selEX,selEY,selEX+selLengthInPixels,selEY,arrowStyle);
@@ -1001,6 +1048,7 @@ macro "Fancy Scale Bar" {
 						else Roi.setStrokeWidth(sbHeight/2);
 						run("Fill");
 					}
+					if (!noText) writeLabel7(fontName, fontSize, scaleBarColor, label, finalLabelX, finalLabelY, true);
 					run("Select None");
 				}
 				if (allSlices) sl = endSlice+1;
@@ -1010,10 +1058,8 @@ macro "Fancy Scale Bar" {
 	}
 	restoreSettings();
 	setSlice(startSliceNumber);
-	if (imageDir!=""){
-		if (saveJPEG) safeSaveAndClose("jpeg", imageDir, tS, false);
-		if (saveTIFF) safeSaveAndClose("tiff", imageDir, tS, false);
-	}
+	if (saveJPEG) safeSaveAndClose("jpeg", imageDir, tS, false);
+	if (saveTIFF) safeSaveAndClose("tiff", imageDir, tS, false);
 	setBatchMode("exit & display"); /* exit batch mode */
 	if (applyOverlays) Overlay.selectable(true);
 	beep();beep();beep();
@@ -1656,10 +1702,11 @@ macro "Fancy Scale Bar" {
 	}
 	function safeColornameFill(colorName) {
 	/* Requires function getColorArrayFromColorName
-		v230406: 1st version pjl */
+		v230406: 1st version Peter J. Lee.  v230920 Switched to setColor.
+		*/
 		orFGC = getValue("color.foreground");
 		colorArray = getColorArrayFromColorName(colorName);
-		setForegroundColor(colorArray[0], colorArray[1], colorArray[2]);
+		setColor(colorArray[0], colorArray[1], colorArray[2]);
 		fill();
 		setForegroundColor(orFGC);
 	}
@@ -1668,8 +1715,9 @@ macro "Fancy Scale Bar" {
 			v230812: Uses full dialog which should save time for non-saves, includes options to change the directory and filetype.
 			v230814: Close by imageID not filename. Added option to override closeImageIfSaved.
 			v230915: Saves if there is no change in path rather than getting stuck in loop.
+			v230920: Allows empty path string.
 		*/
-		functionL = "safeSaveAndClose_v230815";
+		functionL = "safeSaveAndClose_v230920";
 		imageID = getImageID();
 		fS = File.separator;
 		filetypes = newArray("tiff","png","jpeg");
@@ -1680,19 +1728,25 @@ macro "Fancy Scale Bar" {
 			if (lastIndexOf(fileSaveName,".")>fileSaveName.length-5) fileSaveName = substring(fileSaveName,0,lastIndexOf(fileSaveName,".")+1) + extension;
 			else fileSaveName += "." + extension;
 		}
-		if(endsWith(path,fS)) path = substring(path,0,path.length-1);
-		fullPath = path + fS + fileSaveName;
+		if (path!=""){
+			if(endsWith(path,fS)) path = substring(path,0,path.length-1);
+			fullPath = path + fS + fileSaveName;
+		}
+		else fullPath = "";
 		newSave = false;
-		if (!File.exists(fullPath)){
+		if (!File.exists(fullPath) && fullPath!=""){
 			saveAs(filetype, fullPath);
 			if (File.exists(fullPath)) newSave = true;
-		} 
-		else {
+		}
+		if (!newSave) {
 			Dialog.create("Options: " + functionL);
-				Dialog.addMessage("File: " + fileSaveName + " already exits in\n" + path);
-				Dialog.addMessage("If no changes are made below, the existing file will be overwritten");
+				if (path!=""){
+					Dialog.addMessage("File: " + fileSaveName + " already exists in\n" + path);
+					Dialog.addMessage("If no changes are made below, the existing file will be overwritten");
+				}
 				Dialog.addString("Change the filename?", fileSaveName, fileSaveName.length+5);
-				Dialog.addDirectory("Change the director?", path);
+				if (path=="") path = File.directory;
+				Dialog.addDirectory("Change the directory?", path);
 				Dialog.addRadioButtonGroup("Change the filetype?", newArray("tiff","png","jpeg"),1,3,filetype);
 				Dialog.addCheckbox("Don't save file",false);
 				Dialog.addCheckbox("Close image \(imageID: " + imageID + ") after successful save", closeImageIfSaved);

@@ -9,9 +9,10 @@ macro "Fancy Scale Bar" {
 	v230915: Main menu optimized for clarity.
 	v230918: Reordered code. Removed unused plugins. Prefs keys made more consistent.
 	v230919: More prefs keys added. Improved font choices. Fixed color preferences. b: simplified line labels and removed all text rotation as it was not satisfactory. Removed excess decimal places (based on pixel width).
-	v230920: Additional line-mode options. Menu compacts for smaller screens. Text overlap with arrows fixed. 
+	v230920: Additional line-mode options. Menu compacts for smaller screens. Text overlap with arrows fixed.
+	v230922: In line-mode the text label and measurements can be combined and extra line end option added with tweaks to text position to minimize overlaps. RegEx also corrected in font function.
 */
-	macroL = "Fancy_Scale_Bar_v230920c.ijm";
+	macroL = "Fancy_Scale_Bar_v230922.ijm";
 	fullMenuHeight = 988; /* pixels for v230920 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -146,9 +147,9 @@ macro "Fancy Scale Bar" {
 			iLoc = indexOfArray(locChoices, call("ij.Prefs.get", prefsNameKey + ".location",locChoices[6]),6);
 		}
 		else {
-			locChoices = newArray("Start of line", "Over center");
-			if (lineMidX>imageWidth/2) locChoices = Array.concat(locChoices,"Left of line end", "Right of line end");
-			else locChoices  = Array.concat(locChoices, "Right of line end", "Left of line end");
+			locChoices = newArray("Over center");
+			if (lineMidX>imageWidth/2) locChoices = Array.concat(locChoices,"Left of line start", "Right of line start","Left of line end", "Right of line end");
+			else locChoices  = Array.concat(locChoices, "Right of line start", "Left of line start", "Right of line end", "Left of line end");
 			iLoc = indexOfArray(locChoices, call("ij.Prefs.get", prefsNameKey + ".location",locChoices[0]), 0);
 			modeStr = "length line";
 		}
@@ -166,9 +167,9 @@ macro "Fancy Scale Bar" {
 		if (selEType==5){
 			Dialog.addMessage("Currently in length labeling mode: Select none or a non-straight-line selection to draw a scale bar",infoFontSize, infoWarningColor);
 			Dialog.addNumber("Selected line length \(" + d2s(lineLengthPx,1) + " pixels\):", sbWidth, dpSB, 10, selectedUnit);
-			Dialog.addNumber("Selected line angle \(" + degChar + " from horizontal\):", lineAngle, 2, 5, degChar);
+			Dialog.addString("Selected line angle \(" + lineAngle + degChar + " from horizontal\):", d2s(lineAngle, 2), 5);
 			Dialog.addString("Length/angle separator \(i.e. , \):", "No angle label",10);
-			Dialog.addString("Insert text here for text only", textLabel,20);
+			Dialog.addString("Text label \(end with ':' to add length/angle otherwise text only)", textLabel,20);
 		} else {
 			Dialog.addMessage("Currently in scale bar mode: Use the straight line selection tool to activate length labeling mode",infoFontSize+1,infoWarningColor);
 			dText = "Length of scale bar";
@@ -343,7 +344,7 @@ macro "Fancy Scale Bar" {
 	Dialog.show();
 		selLengthInUnits = Dialog.getNumber;
 		if (selEType==5){
-			angleLabel = Dialog.getNumber;
+			angleLabel = Dialog.getString;
 			angleSeparator = Dialog.getString;
 			textLabel = Dialog.getString;
 		}
@@ -488,13 +489,14 @@ macro "Fancy Scale Bar" {
 	if (noShadow && noOutline && !raised && !recessed) notFancy = true;
 	selLengthInPixels = selLengthInUnits / pixelWidth;
 	if (sF>0) selLengthInUnits *= oSF; /* now safe to change units */
-	if(textLabel!="") label = textLabel;
-	else {
+	if (textLabel!="") label = textLabel; /* textLabel is only in menu if in line mode */
+	if (textLabel=="" || endsWith(textLabel, ":") || endsWith(textLabel, ": ")) {
 		if (selEType!=5 || (selEType==5 && trueDPMax<=0)) selLengthLabel = removeTrailingZerosAndPeriod(toString(selLengthInUnits));
 		else selLengthLabel = d2s(selLengthInUnits, trueDPMax);
-		label = selLengthLabel + " " + selectedUnit;
+		if (endsWith(textLabel,":") || endsWith(textLabel,": ")) label += " " + selLengthLabel + " " + selectedUnit;
+		else label = selLengthLabel + " " + selectedUnit;
 	}
-	if (selEType==5 && textLabel==""){
+	if (selEType==5 && (textLabel=="" || endsWith(textLabel, ":") || endsWith(textLabel, ": "))){
 		if (angleSeparator!="No angle label") label += angleSeparator + " " + angleLabel + degChar;
 	}
 	lWidth = getStringWidth(label);
@@ -689,29 +691,38 @@ macro "Fancy Scale Bar" {
 	}
 	else {  /* line label positions */
 		rSelLX = Array.rankPositions(selLX);
-		if (selPos=="Start of line"){
-			if (selLX[0]>selLX[1]) selPos = "Right of line end";
-			else selPos = "Left of line end";
+		if (endsWith(selPos,"tart")){
+			iXY1 = 0; iXY2 = 1;
+		} else {
+			iXY1 = 1; iXY2 = 0;
 		}
-		if (selPos=="Right of line end"){
-			if (selLX[rSelLX[1]] + 2 * fontLineWidth>imageWidth && lineMidX>imageWidth/2) selPos = "Left of line end";
+		if (startsWith(selPos,"Right")){
+			if (selLX[iXY1] + 2 * fontLineWidth>imageWidth && lineMidX>imageWidth/2) selPos = "Left of line end";
 			else {
-				selEX = minOf(selLX[rSelLX[1]] + 2 * fontLineWidth, imageWidth - lWidth - fontLineWidth);
-				selEY = Math.constrain(selLY[indexOfArray(selLX, selLX[rSelLX[1]], -1)] + 2 * fontLineWidth, fontHeight, imageHeight - fontHeight);
+				selEX = minOf(selLX[iXY1] + 2 * fontLineWidth, imageWidth - lWidth - fontLineWidth);
+				if (selLX[iXY1]>selLX[iXY2]) selEY = Math.constrain(selLY[iXY1]+fontHeight/2, fontHeight, imageHeight - fontHeight);
+				else {
+					selEY = Math.constrain(selLY[iXY1]+fontHeight, fontHeight, imageHeight - fontHeight);
+					selEX = minOf(selEX-fontSize, imageWidth - lWidth - fontLineWidth); 
+				} 
 			}
 		}
-		if (selPos=="Left of line end"){
-			selEX = selLX[rSelLX[0]] - fontLineWidth - lWidth;
-			selEY = Math.constrain(selLY[indexOfArray(selLX, selLX[rSelLX[0]], -1)], fontHeight, imageHeight - fontHeight);
+		if (startsWith(selPos,"Left")){
+			selEX = selLX[iXY1] - fontLineWidth - lWidth;
+			if (selLX[iXY1]>selLX[iXY2]){
+				selEY = Math.constrain(selLY[iXY1]+fontHeight, fontHeight, imageHeight - fontHeight);
+				selEX = minOf(selEX + 5 * fontSize, imageWidth - lWidth - fontLineWidth); 
+			} 
+			else selEY = Math.constrain(selLY[iXY1]-fontHeight/2, fontHeight, imageHeight - fontHeight);
 			if (selEX<0){
 				selEX = 2 * fontLineWidth;
 			}
-			selEX = maxOf(selLX[rSelLX[0]] - fontLineWidth - lWidth, 2 *fontLineWidth);
+			selEX = maxOf(selLX[iXY1] - fontLineWidth - lWidth, 2 *fontLineWidth);
 			if (selEY<0){
 				selEX = 2 * fontLineWidth;
 			}
 		}
-		else {  /* Over center */
+		else if (selPos=="Over center"){
 			selEX = Math.constrain(lineMidX - lWidth/2, 2 *fontLineWidth, imageWidth - lWidth);
 			if (abs(lineAngle)<10) selEY = Math.constrain(lineMidY - fontHeight/4, fontHeight, imageHeight-fontHeight);
 			else selEY = Math.constrain(lineMidY, fontHeight, imageHeight-fontHeight);
@@ -1461,16 +1472,18 @@ macro "Fancy Scale Bar" {
   	function getFontChoiceList() {
 		/*	v180723 first version
 			v180828 Changed order of favorites. v190108 Longer list of favorites. v230209 Minor optimization.
-			v230919 You can add a list of fonts that do not produce good results with the macro.
+			v230919 You can add a list of fonts that do not produce good results with the macro. 230921 more exclusions.
 		*/
 		systemFonts = getFontList();
 		IJFonts = newArray("SansSerif", "Serif", "Monospaced");
 		fontNameChoices = Array.concat(IJFonts,systemFonts);
-		blackFonts = Array.filter(fontNameChoices, "(.*[bB]l.*k)");
-		eBFonts = Array.filter(fontNameChoices,  "(.*[Ee]xtra[Bb]old)");
-		fontNameChoices = Array.concat(blackFonts, eBFonts, fontNameChoices); /* 'Black' and Extra and Extra Bold fonts work best */
-		faveFontList = newArray("Your favorite fonts here", "Archivo Black", "Arial Black", "Lato Black", "Merriweather Black", "Noto Sans Black", "Open Sans ExtraBold", "Roboto Black", "Alegreya Black", "Alegreya Sans Black", "Tahoma Bold", "Calibri Bold", "Helvetica", "SansSerif", "Calibri", "Roboto", "Tahoma", "Times New Roman Bold", "Times Bold", "Goldman Sans Black", "Goldman Sans", "Serif");
-		offFontList = newArray("Poppins.*", "Fira.*", "Montserrat.*", "Alegreya SC Black", "Libre.*", "Olympia.*"); /* These don't work so well. Use a ".*" to remove families */
+		blackFonts = Array.filter(fontNameChoices, "([A-Za-z]+.*[bB]l.*k)");
+		eBFonts = Array.filter(fontNameChoices,  "([A-Za-z]+.*[Ee]xtra.*[Bb]old)");
+		uBFonts = Array.filter(fontNameChoices,  "([A-Za-z]+.*[Uu]ltra.*[Bb]old)");
+		fontNameChoices = Array.concat(blackFonts, eBFonts, uBFonts, fontNameChoices); /* 'Black' and Extra and Extra Bold fonts work best */
+		faveFontList = newArray("Your favorite fonts here", "Arial Black", "Myriad Pro Black", "Myriad Pro Black Cond", "Noto Sans Blk", "Noto Sans Disp Cond Blk", "Open Sans ExtraBold", "Roboto Black", "Alegreya Black", "Alegreya Sans Black", "Tahoma Bold", "Calibri Bold", "Helvetica", "SansSerif", "Calibri", "Roboto", "Tahoma", "Times New Roman Bold", "Times Bold", "Goldman Sans Black", "Goldman Sans", "Serif");
+		/* Some fonts or font families don't work well with ASC macros, typically they do not support all useful symbols, they can be excluded here using the .* regular expression */
+		offFontList = newArray("Alegreya SC Black", "Archivo.*", "Arial Rounded.*", "Bodon.*", "Cooper.*", "Eras.*", "Fira.*", "Gill Sans.*", "Lato.*", "Libre.*", "Lucida.*",  "Merriweather.*", "Montserrat.*", "Nunito.*", "Olympia.*", "Poppins.*", "Rockwell.*", "Tw Cen.*", "Wingdings.*", "ZWAdobe.*"); /* These don't work so well. Use a ".*" to remove families */
 		faveFontListCheck = newArray(faveFontList.length);
 		for (i=0,counter=0; i<faveFontList.length; i++) {
 			for (j=0; j<fontNameChoices.length; j++) {

@@ -11,8 +11,9 @@ macro "Fancy Scale Bar" {
 	v230919: More prefs keys added. Improved font choices. Fixed color preferences. b: simplified line labels and removed all text rotation as it was not satisfactory. Removed excess decimal places (based on pixel width).
 	v230920: Additional line-mode options. Menu compacts for smaller screens. Text overlap with arrows fixed.
 	v230922: In line-mode the text label and measurements can be combined and extra line end option added with tweaks to text position to minimize overlaps. RegEx also corrected in font function.
+	v230929: Improved line label position section. Line label style saved separately from scaleBar style.
 */
-	macroL = "Fancy_Scale_Bar_v230922.ijm";
+	macroL = "Fancy_Scale_Bar_v230929.ijm";
 	fullMenuHeight = 988; /* pixels for v230920 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -31,7 +32,7 @@ macro "Fancy Scale Bar" {
 	getStatistics(areaPix, meanInt, minInt, maxInt, stdInt);
 	activeImage = getTitle();
 	imageDir = getDir("image");
-	activeImageID = getImageID();
+	orImageID = getImageID();
 	imageDepth = bitDepth();
 	if(imageDepth!=24){
 		if (imageDepth<8 || imageDepth>16){
@@ -166,10 +167,12 @@ macro "Fancy Scale Bar" {
 		if(pixelHeight!=pixelWidth) Dialog.addMessage("Warning: Non-square pixels \(pixelHeight/pixelWidth = " + pixelHeight/pixelWidth + "\)",infoFontSize,infoWarningColor);
 		if (selEType==5){
 			Dialog.addMessage("Currently in length labeling mode: Select none or a non-straight-line selection to draw a scale bar",infoFontSize, infoWarningColor);
-			Dialog.addNumber("Selected line length \(" + d2s(lineLengthPx,1) + " pixels\):", sbWidth, dpSB, 10, selectedUnit);
+			Dialog.addNumber("Selected line length \(" + d2s(lineLengthPx, trueDPMax) + " pixels\):", sbWidth, trueDPMax, 10, selectedUnit);
 			Dialog.addString("Selected line angle \(" + lineAngle + degChar + " from horizontal\):", d2s(lineAngle, 2), 5);
 			Dialog.addString("Length/angle separator \(i.e. , \):", "No angle label",10);
-			Dialog.addString("Text label \(end with ':' to add length/angle otherwise text only)", textLabel,20);
+			Dialog.addString("Text label \(end with ':' of '=' to add length/angle\)", textLabel,20);
+			Dialog.setInsets(-5, 100, 5);
+			Dialog.addMessage("Leave the 'Text label' blank if you only want to show the measurements",infoFontSize, infoColor);
 		} else {
 			Dialog.addMessage("Currently in scale bar mode: Use the straight line selection tool to activate length labeling mode",infoFontSize+1,infoWarningColor);
 			dText = "Length of scale bar";
@@ -277,7 +280,8 @@ macro "Fancy Scale Bar" {
 		if (fSColumns*fSRows<fSL) fSRows +=1;
 		Dialog.addCheckboxGroup(fSRows,fSColumns,fancyStyleEffectsOptions,fancyStyleEffectsDefaults);
 		sBStyleChoices = newArray("Solid Bar", "I-Bar", "Open Arrow", "Open Arrows", "Filled Arrow", "Filled Arrows", "Notched Arrow", "Notched Arrows");
-		iSBS = indexOfArray(sBStyleChoices, call("ij.Prefs.get", prefsNameKey + ".style",sBStyleChoices[0]),0);
+		if (selEType!=5) iSBS = indexOfArray(sBStyleChoices, call("ij.Prefs.get", prefsNameKey + ".style", sBStyleChoices[0]), 0);
+		else iSBS = indexOfArray(sBStyleChoices, call("ij.Prefs.get", prefsNameKey + ".lineLabelStyle", sBStyleChoices[2]), 2);
 		if (compactMenu) Dialog.addChoice("Bar styles and formatting:___________", sBStyleChoices, sBStyleChoices[iSBS]);
 		else Dialog.addRadioButtonGroup("Bar styles and formatting:___________", sBStyleChoices, 2, 4, sBStyleChoices[iSBS]);
 		if (selEType==5){
@@ -490,13 +494,13 @@ macro "Fancy Scale Bar" {
 	selLengthInPixels = selLengthInUnits / pixelWidth;
 	if (sF>0) selLengthInUnits *= oSF; /* now safe to change units */
 	if (textLabel!="") label = textLabel; /* textLabel is only in menu if in line mode */
-	if (textLabel=="" || endsWith(textLabel, ":") || endsWith(textLabel, ": ")) {
+	if (textLabel=="" || endsWith(textLabel, ":") || endsWith(textLabel, ": ") || endsWith(textLabel, "=") || endsWith(textLabel, "= ")) {
 		if (selEType!=5 || (selEType==5 && trueDPMax<=0)) selLengthLabel = removeTrailingZerosAndPeriod(toString(selLengthInUnits));
 		else selLengthLabel = d2s(selLengthInUnits, trueDPMax);
 		if (endsWith(textLabel,":") || endsWith(textLabel,": ")) label += " " + selLengthLabel + " " + selectedUnit;
 		else label = selLengthLabel + " " + selectedUnit;
 	}
-	if (selEType==5 && (textLabel=="" || endsWith(textLabel, ":") || endsWith(textLabel, ": "))){
+	if (selEType==5 && (textLabel=="" || endsWith(textLabel, ":") || endsWith(textLabel, ": ") || endsWith(textLabel, "=") || endsWith(textLabel, "= "))){
 		if (angleSeparator!="No angle label") label += angleSeparator + " " + angleLabel + degChar;
 	}
 	lWidth = getStringWidth(label);
@@ -594,7 +598,7 @@ macro "Fancy Scale Bar" {
 		removeOverlaysByName("SB"); /* ImageJ scale bars */
 	}
 	if (startsWith(overWrite,"New")){
-		selectImage(activeImageID);	
+		selectImage(orImageID);	
 		run("Select None");
 		run("Duplicate...", "title="+tS+" duplicate");
 		if (startsWith(overWrite,"New 8") || startsWith(overWrite,"New R")){
@@ -606,6 +610,7 @@ macro "Fancy Scale Bar" {
 		activeImageID = getImageID();
 		imageDepth = bitDepth();
 	}
+	else activeImageID = orImageID;
 	if (startsWith(selPos,"Under")) {
 		expH = fontHeight + 2*selOffsetY;
 		if (!sideBySide) expH += 4*sbHeight;
@@ -616,7 +621,8 @@ macro "Fancy Scale Bar" {
 	 /* save last used settings in user in preferences */
 	// call("ij.Prefs.set", prefsNameKey + ".font.style", fontStyle);
 	call("ij.Prefs.set", prefsNameKey + ".font", fontName);
-	call("ij.Prefs.set", prefsNameKey + ".style", sBStyle);
+	if (selEType!=5) call("ij.Prefs.set", prefsNameKey + ".style", sBStyle);
+	else call("ij.Prefs.set", prefsNameKey + ".lineLabelStyle", sBStyle);
 	call("ij.Prefs.set", prefsNameKey + ".barHeightPC",sbHeightPC);
 	call("ij.Prefs.set", prefsNameKey + ".fancyStyle", fancyStyle);
 	call("ij.Prefs.set", prefsNameKey + ".fancyStyleEffects", fancyStyleEffectsString);
@@ -699,33 +705,25 @@ macro "Fancy Scale Bar" {
 		if (startsWith(selPos,"Right")){
 			if (selLX[iXY1] + 2 * fontLineWidth>imageWidth && lineMidX>imageWidth/2) selPos = "Left of line end";
 			else {
-				selEX = minOf(selLX[iXY1] + 2 * fontLineWidth, imageWidth - lWidth - fontLineWidth);
-				if (selLX[iXY1]>selLX[iXY2]) selEY = Math.constrain(selLY[iXY1]+fontHeight/2, fontHeight, imageHeight - fontHeight);
+				finalLabelX  = Math.constrain(selLX[iXY1] + 2 * fontLineWidth, selOffsetX, imageWidth - lWidth - fontLineWidth);
+				if (selLX[iXY1]>selLX[iXY2]) finalLabelY = Math.constrain(selLY[iXY1]+fontHeight/2, fontHeight, imageHeight - fontHeight);
 				else {
-					selEY = Math.constrain(selLY[iXY1]+fontHeight, fontHeight, imageHeight - fontHeight);
-					selEX = minOf(selEX-fontSize, imageWidth - lWidth - fontLineWidth); 
+					finalLabelY = Math.constrain(selLY[iXY1]+fontHeight, fontHeight, imageHeight - fontHeight);
+					finalLabelX  = Math.constrain(selEX-fontSize, selOffsetX, imageWidth - lWidth - fontLineWidth); 
 				} 
 			}
 		}
-		if (startsWith(selPos,"Left")){
-			selEX = selLX[iXY1] - fontLineWidth - lWidth;
+		else if (startsWith(selPos,"Left")){
+			finalLabelX  = Math.constrain(selLX[iXY1] - fontLineWidth - lWidth, selOffsetX, imageWidth - lwidth);
 			if (selLX[iXY1]>selLX[iXY2]){
-				selEY = Math.constrain(selLY[iXY1]+fontHeight, fontHeight, imageHeight - fontHeight);
-				selEX = minOf(selEX + 5 * fontSize, imageWidth - lWidth - fontLineWidth); 
+				finalLabelY = Math.constrain(selLY[iXY1] + fontHeight, fontHeight + fontLineWidth, imageHeight - fontHeight);
 			} 
-			else selEY = Math.constrain(selLY[iXY1]-fontHeight/2, fontHeight, imageHeight - fontHeight);
-			if (selEX<0){
-				selEX = 2 * fontLineWidth;
-			}
-			selEX = maxOf(selLX[iXY1] - fontLineWidth - lWidth, 2 *fontLineWidth);
-			if (selEY<0){
-				selEX = 2 * fontLineWidth;
-			}
+			else finalLabelY = Math.constrain(selLY[iXY1]-fontHeight/2, fontHeight + fontLineWidth, imageHeight - fontHeight);
 		}
-		else if (selPos=="Over center"){
-			selEX = Math.constrain(lineMidX - lWidth/2, 2 *fontLineWidth, imageWidth - lWidth);
-			if (abs(lineAngle)<10) selEY = Math.constrain(lineMidY - fontHeight/4, fontHeight, imageHeight-fontHeight);
-			else selEY = Math.constrain(lineMidY, fontHeight, imageHeight-fontHeight);
+		else {
+			finalLabelX = Math.constrain(lineMidX - lWidth/2, selOffsetX, imageWidth - lWidth);
+			finalLabelY = Math.constrain(lineMidY + fontHeight/2, fontHeight, imageHeight-fontHeight);
+			if (abs(lineAngle)<10) finalLabelY -= fontHeight; /* for horizontal lines literally Over center" */
 		}
 	}
 	 /*  edge limits for bar - assume intent is not to annotate edge objects */
@@ -751,7 +749,7 @@ macro "Fancy Scale Bar" {
 		else finalLabelX = selEX + spaceWidth + selLengthInPixels;
 	}
 	else if (selEType!=5){
-		selEX = maxOf(minOf(selEX,maxSelEX),selOffsetX);
+		selEX = Math.constrain(selEX, selOffsetX, maxSelEX);
 		/* stop text overrun */
 		stringOver = (lWidth-selLengthInPixels*0.8);
 		endPx = selEX+lWidth;
@@ -764,11 +762,6 @@ macro "Fancy Scale Bar" {
 		textXOffset = round((selLengthInPixels - getStringWidth(label))/2);
 		finalLabelX = selEX + textXOffset;
 		finalLabelY = textYcoord;
-	}
-	else {
-		maxLabelEx = imageWidth-(selOffsetX + label.length);
-		finalLabelX = maxOf(minOf(selEX,maxLabelEx),selOffsetX);
-		finalLabelY = maxOf(selOffsetY+fontSize, minOf(imageHeight-selOffsetY,selEY));
 	}
 	if (startsWith(sBStyle,"Solid")) arrowStyle = "headless";
 	else if (startsWith(sBStyle,"I-Bar")) arrowStyle = "bar";
@@ -798,7 +791,7 @@ macro "Fancy Scale Bar" {
 		if (!noText){
 			tempID = getImageID;
 			newImage("text_mask", "8-bit black", imageWidth, imageHeight, 1);
-			writeLabel7(fontName, fontSize, "white", label,finalLabelX, finalLabelY, false);
+			writeLabel7(fontName, fontSize, "white", label, finalLabelX, finalLabelY, false);
 			if(!is("binary")){
 				setThreshold(0, 128);
 				setOption("BlackBackground", false);
@@ -1068,6 +1061,11 @@ macro "Fancy Scale Bar" {
 		/* End simple-Text fancy scale bar section */
 	}
 	restoreSettings();
+	if (selEType==5){ /* Restore original line to original image */
+		selectImage(orImageID);
+		makeLine(selLX[0], selLY[0], selLX[1], selLY[1]);
+		selectImage(activeImageID);
+	} 
 	setSlice(startSliceNumber);
 	if (saveJPEG) safeSaveAndClose("jpeg", imageDir, tS, false);
 	if (saveTIFF) safeSaveAndClose("tiff", imageDir, tS, false);
@@ -1786,7 +1784,8 @@ macro "Fancy Scale Bar" {
 		}
 	}
 	function sensibleScales(pixelW, inUnit, targetLength){
-		/* v230808: 1st version */
+		/* v230808: 1st version REQUIRES indexOfArray function
+			v230926: Removed exit, just logs without change */
 		kUnits = newArray("m", "mm", getInfo("micrometer.abbreviation"), "nm", "pm");
 		if (inUnit=="inches"){
 			inUnit = "mm";
@@ -1795,7 +1794,7 @@ macro "Fancy Scale Bar" {
 		}
 		if(startsWith(inUnit,"micro") || endsWith(inUnit,"ons") || inUnit=="um" || inUnit=="µm") inUnit = kUnits[2];
 		iInUnit = indexOfArray(kUnits,inUnit,-1);
-		if (iInUnit<0) restoreExit("Scale unit \(" + inUnit + "\) not in unitChoices");
+		if (iInUnit<0) IJ.log("Scale unit \(" + inUnit + "\) not in unitChoices for sensible scale function, so units not optimized");
 		while (pixelW * targetLength > 500) {
 			pixelW /= 1000;
 			iInUnit -= 1;

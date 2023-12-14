@@ -11,9 +11,11 @@ macro "Fancy Scale Bar" {
 	v230919: More prefs keys added. Improved font choices. Fixed color preferences. b: simplified line labels and removed all text rotation as it was not satisfactory. Removed excess decimal places (based on pixel width).
 	v230920: Additional line-mode options. Menu compacts for smaller screens. Text overlap with arrows fixed.
 	v230922: In line-mode the text label and measurements can be combined and extra line end option added with tweaks to text position to minimize overlaps. RegEx also corrected in font function.
-	v230929: Improved line label position section. Line label style saved separately from scaleBar style.
+	v230929: Improved line label position section. Line label style saved separately from scaleBar style. F1 : Replaced function: pad.
+	v231024: Tweak to offset option in main dialog.
+	v231209: Overlay shadows are now transparent and use the "darkness" preference for the opacity.
 */
-	macroL = "Fancy_Scale_Bar_v230929.ijm";
+	macroL = "Fancy_Scale_Bar_v231209.ijm";
 	fullMenuHeight = 988; /* pixels for v230920 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -294,8 +296,10 @@ macro "Fancy Scale Bar" {
 		barHThicknessChoices = newArray("Small", "Medium", "Large");
 		iHT = indexOfArray(barHThicknessChoices, call("ij.Prefs.get", prefsNameKey + ".barHeader.thickness", barHThicknessChoices[0]),0);
 		Dialog.addChoice("Arrowhead/bar header thickness",barHThicknessChoices, barHThicknessChoices[iHT]);
-		Dialog.addNumber("X offset from edge \(minimum\)", selOffsetX,0,1,"pixels");
-		Dialog.addNumber("Y offsetfrom edge \(minimum\)", selOffsetY,0,1,"pixels \(" + divChar + "2 for \"Under\" locations");
+		xOffsetString = "Default: " + selOffsetX + " px, " + round(selOffsetX/2) + " 'under' locations, " + round(selOffsetX/10) + " for selections";
+		yOffsetString = "Default: " + selOffsetY + " px, " + round(selOffsetY/2) + " 'under' locations, " + round(selOffsetY/10) + " for selections";
+		Dialog.addString("X pixel min offset from edge \(leave for defaults\)", xOffsetString, 37);
+		Dialog.addString("Y pixel min offset from edge \(leave for defaults\)", yOffsetString, 37);
 		fontNameChoice = getFontChoiceList();
 		fontChoiceText = "Font name:";
 		if (indexOfArrayThatContains(fontNameChoice,"Black",-1)<0 && indexOfArrayThatContains(fontNameChoice,"ExtraBold",-1)<0)
@@ -328,11 +332,13 @@ macro "Fancy Scale Bar" {
 				Dialog.addCheckbox("Remove all " + overlayN + " existing overlays \(simple text is unnamed\)", remAllOverlays);
 		}
 		if (imageDepth!=24){
-			Dialog.setInsets(5, 75, 0); /* top,left,bottom */
+			Dialog.setInsets(5, 0, 0); /* top,left,bottom */
 			Dialog.addChoice("Overlay color of " + modeStr + " and text:", colorChoices, colorChoices[iTC]);
-			Dialog.setInsets(0, 75, 5); /* top,left,bottom */
+			Dialog.setInsets(0, 0, 5); /* top,left,bottom */
 			Dialog.addChoice("Overlay outline (background) color:", colorChoices, colorChoices[iBC]);
 		}
+		ovShadowOpacity = call("ij.Prefs.get", prefsNameKey + ".ovShadowOpacity", 50);
+		Dialog.addSlider("Overlay shadow opacity \(if overlay selected above\)", 0, 100, ovShadowOpacity);
 		if (slices>1) Dialog.addString("Slice range for labeling \(1-"+slices+"\):", startSliceNumber+"-"+slices, 20);
 		else if (channels>1) Dialog.addMessage("All "+channels+" channels will be identically labeled.", infoFontSize, warningColor);
 		finalOptions = newArray("Tweak formatting?","Diagnostic mode?");
@@ -396,8 +402,14 @@ macro "Fancy Scale Bar" {
 		if (compactMenu) sBStyle = Dialog.getChoice;
 		else sBStyle = Dialog.getRadioButton;
 		barHThickness = Dialog.getChoice;
-		selOffsetX = Dialog.getNumber;
-		selOffsetY = Dialog.getNumber;
+		selOffsetXString = Dialog.getString;
+		selOffsetYString = Dialog.getString;
+		if (selOffsetXString!=xOffsetString) selOffsetX = parseInt(selOffsetXString);
+		else if (startsWith(selPos, "Under")) selOffsetX = round(selOffsetX/2);
+		else if (indexOf(selPos, "election")>=0) selOffsetX = round(selOffsetX/10);
+		if (selOffsetYString!=yOffsetString) selOffsetY = parseInt(selOffsetYString);
+		else if (startsWith(selPos, "Under")) selOffsetY = round(selOffsetY/2);
+		else if (indexOf(selPos, "election")>=0) selOffsetY = round(selOffsetY/10);
 		// fontStyle = Dialog.getChoice;
 		fontName = Dialog.getChoice;
 		if (compactMenu) overWrite = Dialog.getChoice();
@@ -428,6 +440,8 @@ macro "Fancy Scale Bar" {
 			scaleBarColorOv = Dialog.getChoice;
 			outlineColorOv = Dialog.getChoice;
 		}
+		ovShadowOpacity = Dialog.getNumber;
+		call("ij.Prefs.set", prefsNameKey + ".ovShadowOpacity", ovShadowOpacity);
 		saveTIFF =  Dialog.getCheckbox();
 		call("ij.Prefs.set", prefsNameKey + ".output.saveTIFF", saveTIFF);
 		saveJPEG =  Dialog.getCheckbox();
@@ -891,14 +905,9 @@ macro "Fancy Scale Bar" {
 				if (allSlices) sl=0;
 				if (!noShadow && isOpen("ovShadowMask")) {
 					getSelectionFromMask("ovShadowMask");
-					List.setMeasurements;
-					bgGray = List.getValue("Mean");
-					List.clear();
-					if (imageDepth==16 || imageDepth==32) bgGray = round(bgGray/256);
-					grayHex = toHex(round(bgGray*(100-shadowDarkness)/100));
-					shadowHex = "#" + ""+pad(grayHex) + ""+pad(grayHex) + ""+pad(grayHex);
+					shadowHex = "#" + "" + String.pad(toHex(255 * ovShadowOpacity/100), 2) + "000000";
 					setSelectionName("Scale bar shadow");
-					run("Add Selection...", "fill="+shadowHex);
+					run("Add Selection...", "fill=" + shadowHex);
 				}
 				if (isOpen("outline_template")){
 					getSelectionFromMask("outline_template");
@@ -1055,7 +1064,7 @@ macro "Fancy Scale Bar" {
 					if (!noText) writeLabel7(fontName, fontSize, scaleBarColor, label, finalLabelX, finalLabelY, true);
 					run("Select None");
 				}
-				if (allSlices) sl = endSlice+1;
+				if (allSlices) sl = endSlice + 1;
 			}
 		}
 		/* End simple-Text fancy scale bar section */
@@ -1071,9 +1080,9 @@ macro "Fancy Scale Bar" {
 	if (saveTIFF) safeSaveAndClose("tiff", imageDir, tS, false);
 	setBatchMode("exit & display"); /* exit batch mode */
 	if (applyOverlays) Overlay.selectable(true);
-	beep();beep();beep();
+	beep(); beep(); beep();
 	call("java.lang.System.gc");
-	showStatus("Fancy Scale Bar Added");
+	showStatus("Fancy Scale Bar Added", "flash image green");
 	/* Changelog
 	v161008 Centered scale bar in new selection 8/9/2016 and tweaked manual location 8/10/2016.
 	v161012 adds unified ASC function list and add 100 µm diameter human hair. v161031 adds "glow" option and sharpens shadow/glow edge.
@@ -1449,16 +1458,12 @@ macro "Fancy Scale Bar" {
 	}
 	/* Hex conversion below adapted from T.Ferreira, 20010.01 https://imagej.net/doku.php?id=macro:rgbtohex */
 	function getHexColorFromColorName(colorNameString) {
+		/* v231207: Uses IJ String.pad instead of function: pad */
 		colorArray = getColorArrayFromColorName(colorNameString);
 		 r = toHex(colorArray[0]); g = toHex(colorArray[1]); b = toHex(colorArray[2]);
-		 hexName= "#" + ""+pad(r) + ""+pad(g) + ""+pad(b);
+		 hexName= "#" + "" + String.pad(r, 2) + "" + String.pad(g, 2) + "" + String.pad(b, 2);
 		 return hexName;
-	}
-	function pad(n) {
-	  /* This version by Tiago Ferreira 6/6/2022 eliminates the toString macro function */
-	  if (lengthOf(n)==1) n= "0"+n; return n;
-	  if (lengthOf(""+n)==1) n= "0"+n; return n;
-	}
+	}	
 	function setBackgroundFromColorName(colorName) {
 		colorArray = getColorArrayFromColorName(colorName);
 		setBackgroundColor(colorArray[0], colorArray[1], colorArray[2]);
@@ -1906,27 +1911,28 @@ macro "Fancy Scale Bar" {
 	+ v220128 add loops that allow removal of multiple duplication.
 	+ v220131 fixed so that suffix cleanup works even if extensions are included.
 	+ v220616 Minor index range fix that does not seem to have an impact if macro is working as planned. v220715 added 8-bit to unwanted dupes. v220812 minor changes to micron and Ångström handling
+	+ v231005 Replaced superscript abbreviations that did not work.
 	*/
 		/* Remove bad characters */
-		string= replace(string, fromCharCode(178), "\\^2"); /* superscript 2 */
-		string= replace(string, fromCharCode(179), "\\^3"); /* superscript 3 UTF-16 (decimal) */
-		string= replace(string, fromCharCode(0xFE63) + fromCharCode(185), "\\^-1"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
-		string= replace(string, fromCharCode(0xFE63) + fromCharCode(178), "\\^-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
-		string= replace(string, fromCharCode(181)+"m", "um"); /* micron units */
-		string= replace(string, getInfo("micrometer.abbreviation"), "um"); /* micron units */
-		string= replace(string, fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
-		string= replace(string, fromCharCode(0x212B), "Angstrom"); /* the other Ångström unit symbol */
-		string= replace(string, fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
-		string= replace(string, fromCharCode(0x2009), "_"); /* Replace thin spaces  */
-		string= replace(string, "%", "pc"); /* % causes issues with html listing */
-		string= replace(string, " ", "_"); /* Replace spaces - these can be a problem with image combination */
+		string = string.replace(fromCharCode(178), "sup2"); /* superscript 2 */
+		string = string.replace(fromCharCode(179), "sup3"); /* superscript 3 UTF-16 (decimal) */
+		string = string.replace(fromCharCode(0xFE63) + fromCharCode(185), "sup-1"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
+		string = string.replace(fromCharCode(0xFE63) + fromCharCode(178), "sup-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
+		string = string.replace(fromCharCode(181)+"m", "um"); /* micron units */
+		string = string.replace(getInfo("micrometer.abbreviation"), "um"); /* micron units */
+		string = string.replace(fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
+		string = string.replace(fromCharCode(0x212B), "Angstrom"); /* the other Ångström unit symbol */
+		string = string.replace(fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
+		string = string.replace(fromCharCode(0x2009), "_"); /* Replace thin spaces  */
+		string = string.replace("%", "pc"); /* % causes issues with html listing */
+		string = string.replace(" ", "_"); /* Replace spaces - these can be a problem with image combination */
 		/* Remove duplicate strings */
 		unwantedDupes = newArray("8bit","8-bit","lzw");
 		for (i=0; i<lengthOf(unwantedDupes); i++){
 			iLast = lastIndexOf(string,unwantedDupes[i]);
 			iFirst = indexOf(string,unwantedDupes[i]);
 			if (iFirst!=iLast) {
-				string = substring(string,0,iFirst) + substring(string,iFirst + lengthOf(unwantedDupes[i]));
+				string = string.substring(0,iFirst) + string.substring(iFirst + lengthOf(unwantedDupes[i]));
 				i=-1; /* check again */
 			}
 		}
@@ -1934,11 +1940,11 @@ macro "Fancy Scale Bar" {
 		for (i=0; i<lengthOf(unwantedDbls); i++){
 			iFirst = indexOf(string,unwantedDbls[i]);
 			if (iFirst>=0) {
-				string = substring(string,0,iFirst) + substring(string,iFirst + lengthOf(unwantedDbls[i])/2);
+				string = string.substring(0,iFirst) + string.substring(string,iFirst + lengthOf(unwantedDbls[i])/2);
 				i=-1; /* check again */
 			}
 		}
-		string= replace(string, "_\\+", "\\+"); /* Clean up autofilenames */
+		string = string.replace("_\\+", "\\+"); /* Clean up autofilenames */
 		/* cleanup suffixes */
 		unwantedSuffixes = newArray(" ","_","-","\\+"); /* things you don't wasn't to end a filename with */
 		extStart = lastIndexOf(string,".");

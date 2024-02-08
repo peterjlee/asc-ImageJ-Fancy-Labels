@@ -14,9 +14,9 @@ macro "Fancy Scale Bar" {
 	v230929: Improved line label position section. Line label style saved separately from scaleBar style. F1 : Replaced function: pad.
 	v231024: Tweak to offset option in main dialog.
 	v231209: Overlay shadows are now transparent and use the "darkness" preference for the opacity.
-	v240123: Attempted tweaks of side-by-side positioning within manual selection. Changed some names for clarity (because I was getting confused). Changed intensity to visual luminosity for raised/indented decision.
+	v240123: Attempted tweaks of side-by-side positioning within manual selection. Changed some names for clarity (because I was getting confused). Changed intensity to visual luminosity for raised/indented decision. F1: updated function unCleanLabel.
 */
-	macroL = "Fancy_Scale_Bar_v240123.ijm";
+	macroL = "Fancy_Scale_Bar_v240123-f1.ijm";
 	fullMenuHeight = 988; /* pixels for v230920 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -1910,13 +1910,14 @@ macro "Fancy Scale Bar" {
 	+ v220131 fixed so that suffix cleanup works even if extensions are included.
 	+ v220616 Minor index range fix that does not seem to have an impact if macro is working as planned. v220715 added 8-bit to unwanted dupes. v220812 minor changes to micron and Ångström handling
 	+ v231005 Replaced superscript abbreviations that did not work.
+	+ v240124 Replace _+_ with +.
 	*/
 		/* Remove bad characters */
 		string = string.replace(fromCharCode(178), "sup2"); /* superscript 2 */
 		string = string.replace(fromCharCode(179), "sup3"); /* superscript 3 UTF-16 (decimal) */
 		string = string.replace(fromCharCode(0xFE63) + fromCharCode(185), "sup-1"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string = string.replace(fromCharCode(0xFE63) + fromCharCode(178), "sup-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
-		string = string.replace(fromCharCode(181)+"m", "um"); /* micron units */
+		string = string.replace(fromCharCode(181) + "m", "um"); /* micron units */
 		string = string.replace(getInfo("micrometer.abbreviation"), "um"); /* micron units */
 		string = string.replace(fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
 		string = string.replace(fromCharCode(0x212B), "Angstrom"); /* the other Ångström unit symbol */
@@ -1925,33 +1926,34 @@ macro "Fancy Scale Bar" {
 		string = string.replace("%", "pc"); /* % causes issues with html listing */
 		string = string.replace(" ", "_"); /* Replace spaces - these can be a problem with image combination */
 		/* Remove duplicate strings */
-		unwantedDupes = newArray("8bit","8-bit","lzw");
+		unwantedDupes = newArray("8bit", "8-bit", "lzw");
 		for (i=0; i<lengthOf(unwantedDupes); i++){
-			iLast = lastIndexOf(string,unwantedDupes[i]);
-			iFirst = indexOf(string,unwantedDupes[i]);
+			iLast = lastIndexOf(string, unwantedDupes[i]);
+			iFirst = indexOf(string, unwantedDupes[i]);
 			if (iFirst!=iLast) {
-				string = string.substring(0,iFirst) + string.substring(iFirst + lengthOf(unwantedDupes[i]));
-				i=-1; /* check again */
+				string = string.substring(0, iFirst) + string.substring(iFirst + lengthOf(unwantedDupes[i]));
+				i = -1; /* check again */
 			}
 		}
-		unwantedDbls = newArray("_-","-_","__","--","\\+\\+");
+		unwantedDbls = newArray("_-", "-_", "__", "--", "\\+\\+");
 		for (i=0; i<lengthOf(unwantedDbls); i++){
-			iFirst = indexOf(string,unwantedDbls[i]);
+			iFirst = indexOf(string, unwantedDbls[i]);
 			if (iFirst>=0) {
-				string = string.substring(0,iFirst) + string.substring(string,iFirst + lengthOf(unwantedDbls[i])/2);
-				i=-1; /* check again */
+				string = string.substring(0, iFirst) + string.substring(string, iFirst + lengthOf(unwantedDbls[i]) / 2);
+				i = -1; /* check again */
 			}
 		}
 		string = string.replace("_\\+", "\\+"); /* Clean up autofilenames */
+		string = string.replace("\\+_", "\\+"); /* Clean up autofilenames */
 		/* cleanup suffixes */
-		unwantedSuffixes = newArray(" ","_","-","\\+"); /* things you don't wasn't to end a filename with */
-		extStart = lastIndexOf(string,".");
+		unwantedSuffixes = newArray(" ", "_", "-", "\\+"); /* things you don't wasn't to end a filename with */
+		extStart = lastIndexOf(string, ".");
 		sL = lengthOf(string);
 		if (sL-extStart<=4 && extStart>0) extIncl = true;
 		else extIncl = false;
 		if (extIncl){
-			preString = substring(string,0,extStart);
-			extString = substring(string,extStart);
+			preString = substring(string, 0, extStart);
+			extString = substring(string, extStart);
 		}
 		else {
 			preString = string;
@@ -1959,12 +1961,12 @@ macro "Fancy Scale Bar" {
 		}
 		for (i=0; i<lengthOf(unwantedSuffixes); i++){
 			sL = lengthOf(preString);
-			if (endsWith(preString,unwantedSuffixes[i])) {
-				preString = substring(preString,0,sL-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
+			if (endsWith(preString, unwantedSuffixes[i])) {
+				preString = substring(preString, 0, sL-lengthOf(unwantedSuffixes[i])); /* cleanup previous suffix */
 				i=-1; /* check one more time */
 			}
 		}
-		if (!endsWith(preString,"_lzw") && !endsWith(preString,"_lzw.")) preString = replace(preString, "_lzw", ""); /* Only want to keep this if it is at the end */
+		if (!endsWith(preString, "_lzw") && !endsWith(preString, "_lzw.")) preString = replace(preString, "_lzw", ""); /* Only want to keep this if it is at the end */
 		string = preString + extString;
 		/* End of suffix cleanup */
 		return string;

@@ -14,9 +14,9 @@ macro "Fancy Scale Bar" {
 	v230929: Improved line label position section. Line label style saved separately from scaleBar style. F1 : Replaced function: pad.
 	v231024: Tweak to offset option in main dialog.
 	v231209: Overlay shadows are now transparent and use the "darkness" preference for the opacity.
-	v240123: Attempted tweaks of side-by-side positioning within manual selection. Changed some names for clarity (because I was getting confused). Changed intensity to visual luminosity for raised/indented decision. F1: updated function unCleanLabel.
+	v240123: Attempted tweaks of side-by-side positioning within manual selection. Changed some names for clarity (because I was getting confused). Changed intensity to visual luminosity for raised/indented decision. F1: updated function unCleanLabel. F2: Updated sensibleScales function.
 */
-	macroL = "Fancy_Scale_Bar_v240123-f1.ijm";
+	macroL = "Fancy_Scale_Bar_v240123-f2.ijm";
 	fullMenuHeight = 988; /* pixels for v230920 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -1788,7 +1788,9 @@ macro "Fancy Scale Bar" {
 	}
 	function sensibleScales(pixelW, inUnit, targetLength){
 		/* v230808: 1st version REQUIRES indexOfArray function
-			v230926: Removed exit, just logs without change */
+			v230926: Removed exit, just logs without change
+			v240209: Does not require indexOfArray function. Now return original units if kUnit match not found.
+		*/
 		kUnits = newArray("m", "mm", getInfo("micrometer.abbreviation"), "nm", "pm");
 		if (inUnit=="inches"){
 			inUnit = "mm";
@@ -1796,19 +1798,23 @@ macro "Fancy Scale Bar" {
 			IJ.log("Inches converted to mm units");
 		}
 		if(startsWith(inUnit,"micro") || endsWith(inUnit,"ons") || inUnit=="um" || inUnit=="µm") inUnit = kUnits[2];
-		iInUnit = indexOfArray(kUnits,inUnit,-1);
-		if (iInUnit<0) IJ.log("Scale unit \(" + inUnit + "\) not in unitChoices for sensible scale function, so units not optimized");
-		while (pixelW * targetLength > 500) {
-			pixelW /= 1000;
-			iInUnit -= 1;
-			inUnit = kUnits[iInUnit];
+		for (i=0, iInUnit=-1; i<kUnits.length; i++)
+			if (inUnit==kUnits[i]) iInUnit = i;
+		if (iInUnit<0)
+			IJ.log("Scale unit \(" + inUnit + "\) not in unitChoices for sensible scale function, so units not optimized");
+		else { 
+			while (pixelW * targetLength > 500) {
+				pixelW /= 1000;
+				iInUnit -= 1;
+				inUnit = kUnits[iInUnit];
+			}
+			while (pixelW * targetLength <0.1){
+				pixelW *= 1000;
+				iInUnit += 1;
+				inUnit = kUnits[iInUnit];				
+			}
 		}
-		while (pixelW * targetLength <0.1){
-			pixelW *= 1000;
-			iInUnit += 1;
-			inUnit = kUnits[iInUnit];				
-		}
-		outArray = Array.concat(pixelW,inUnit);
+		outArray = Array.concat(pixelW, inUnit);
 		return outArray;
 	}
 	function setScaleFromCZSemHeader() {

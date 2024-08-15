@@ -15,6 +15,7 @@ macro "Fancy Slice Labels" {
 		+ v211022 Updated color choices  v220310-11 Added warning if some slices had no label (TIF-lzw does not store labels). f2: updated pad function f3: updated colors
 		+ v220727 Minor format changes f1-f3: updated colors
 		+ v230418-9: Simplified. Replaced inner shadow with raised/recessed. Font autoshrunk per slice if text overflows margins. Centers adjusted per slice. F1: Updated indexOf functions. F2: getColorArrayFromColorName_v230908.  F7 : Replaced function: pad. F8: Updated getColorFromColorName function (012324). F9: updated function unCleanLabel.
+		+ v240709: Updated color selection.
 	 */
 	macroL = "Fancy_Slice_Labels_v230419-f9.ijm";
 	if(nImages<1) exit("This macro \(" + macroL + "\) requires at least one image to be open");
@@ -127,10 +128,11 @@ macro "Fancy Slice Labels" {
 		Dialog.addCheckboxGroup(1,fancyStyleEffectsOptions.length,fancyStyleEffectsOptions,fancyStyleEffectsDefaults);
 		grayChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		colorChoicesStd = newArray("red", "green", "blue", "cyan", "magenta", "yellow", "pink", "orange", "violet");
-		colorChoicesMod = newArray("garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
+		colorChoicesMod = newArray("aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
 		colorChoicesNeon = newArray("jazzberry_jam", "radical_red", "wild_watermelon", "outrageous_orange", "supernova_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "dodger_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
+		colorChoicesFSU = newArray("garnet", "gold", "stadium_night", "westcott_water", "vault_garnet", "legacy_blue", "plaza_brick", "vault_gold");
 		if (imageDepth==24){
-			colorChoices = Array.concat(grayChoices, colorChoicesStd, colorChoicesMod, colorChoicesNeon);
+			colorChoices = Array.concat(grayChoices, colorChoicesStd, colorChoicesMod, colorChoicesNeon, colorChoicesFSU);
 			iTC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.sliceLabels.text.color",colorChoices[0]),0);
 			iOC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.sliceLabels.outline.color",colorChoices[1]),1);
 		} 
@@ -574,7 +576,7 @@ macro "Fancy Slice Labels" {
 		/*  ImageJ macro default file encoding (ANSI or UTF-8) varies with platform so non-ASCII characters may vary: hence the need to always use fromCharCode instead of special characters.
 		v180611 added "degreeC"
 		v200604	fromCharCode(0x207B) removed as superscript hyphen not working reliably
-		v220630 added degrees v220812 Changed Ångström unit code
+		v220630 added degrees v220812 Changed Ã…ngstrÃ¶m unit code
 		v231005 Weird Excel characters added, micron unit correction */
 		string= replace(string, "\\^2", fromCharCode(178)); /* superscript 2 */
 		string= replace(string, "\\^3", fromCharCode(179)); /* superscript 3 UTF-16 (decimal) */
@@ -587,17 +589,17 @@ macro "Fancy Slice Labels" {
 		string= replace(string, "\\^-^1", "-" + fromCharCode(185)); /* superscript -1 */
 		string= replace(string, "\\^-^2", "-" + fromCharCode(178)); /* superscript -2 */
 		string= replace(string, "(?<![A-Za-z0-9])u(?=m)", fromCharCode(181)); /* micron units */
-		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(0x212B)); /* Ångström unit symbol */
+		string= replace(string, "\\b[aA]ngstrom\\b", fromCharCode(0x212B)); /* Ã…ngstrÃ¶m unit symbol */
 		string= replace(string, "  ", " "); /* Replace double spaces with single spaces */
 		string= replace(string, "_", " "); /* Replace underlines with space as thin spaces (fromCharCode(0x2009)) not working reliably  */
 		string= replace(string, "px", "pixels"); /* Expand pixel abbreviation */
 		string= replace(string, "degreeC", fromCharCode(0x00B0) + "C"); /* Degree symbol for dialog boxes */
 		// string = replace(string, " " + fromCharCode(0x00B0), fromCharCode(0x2009) + fromCharCode(0x00B0)); /* Replace normal space before degree symbol with thin space */
-		// string= replace(string, " °", fromCharCode(0x2009) + fromCharCode(0x00B0)); /* Replace normal space before degree symbol with thin space */
+		// string= replace(string, " Â°", fromCharCode(0x2009) + fromCharCode(0x00B0)); /* Replace normal space before degree symbol with thin space */
 		string= replace(string, "sigma", fromCharCode(0x03C3)); /* sigma for tight spaces */
 		string= replace(string, "plusminus", fromCharCode(0x00B1)); /* plus or minus */
 		string= replace(string, "degrees", fromCharCode(0x00B0)); /* plus or minus */
-		if (indexOf(string,"mý")>1) string = substring(string, 0, indexOf(string,"mý")-1) + getInfo("micrometer.abbreviation") + fromCharCode(178);
+		if (indexOf(string,"mÃ½")>1) string = substring(string, 0, indexOf(string,"mÃ½")-1) + getInfo("micrometer.abbreviation") + fromCharCode(178);
 		return string;
 	}
 	function closeImageByTitle(windowTitle) {  /* Cannot be used with tables */
@@ -681,64 +683,74 @@ macro "Fancy Slice Labels" {
 		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference v220706 restores missing magenta
 		   v230130 Added more descriptions and modified order.
 		   v230908: Returns "white" array if not match is found and logs issues without exiting.
-		   v240123: Removed duplicate entries: Now 53 unique colors 
+		   v240123: Removed duplicate entries: Now 53 unique colors.
+		   v240709: Added 2024 FSU-Branding Colors. Some reorganization. Now 60 unique colors.
 		*/
-		functionL = "getColorArrayFromColorName_v240123";
-		cA = newArray(255,255,255); /* defaults to white */
-		if (colorName == "white") cA = newArray(255,255,255);
-		else if (colorName == "black") cA = newArray(0,0,0);
-		else if (colorName == "off-white") cA = newArray(245,245,245);
-		else if (colorName == "off-black") cA = newArray(10,10,10);
-		else if (colorName == "light_gray") cA = newArray(200,200,200);
-		else if (colorName == "gray") cA = newArray(127,127,127);
-		else if (colorName == "dark_gray") cA = newArray(51,51,51);
-		else if (colorName == "red") cA = newArray(255,0,0);
-		else if (colorName == "green") cA = newArray(0,255,0);					/* #00FF00 AKA Lime green */
-		else if (colorName == "blue") cA = newArray(0,0,255);
+		functionL = "getColorArrayFromColorName_v240709";
+		cA = newArray(255, 255, 255); /* defaults to white */
+		if (colorName == "white") cA = newArray(255, 255, 255);
+		else if (colorName == "black") cA = newArray(0, 0, 0);
+		else if (colorName == "off-white") cA = newArray(245, 245, 245);
+		else if (colorName == "off-black") cA = newArray(10, 10, 10);
+		else if (colorName == "light_gray") cA = newArray(200, 200, 200);
+		else if (colorName == "gray") cA = newArray(127, 127, 127);
+		else if (colorName == "dark_gray") cA = newArray(51, 51, 51);
+		else if (colorName == "red") cA = newArray(255, 0, 0);
+		else if (colorName == "green") cA = newArray(0, 255, 0);						/* #00FF00 AKA Lime green */
+		else if (colorName == "blue") cA = newArray(0, 0, 255);
 		else if (colorName == "cyan") cA = newArray(0, 255, 255);
-		else if (colorName == "yellow") cA = newArray(255,255,0);
-		else if (colorName == "magenta") cA = newArray(255,0,255);				/* #FF00FF */
+		else if (colorName == "yellow") cA = newArray(255, 255, 0);
+		else if (colorName == "magenta") cA = newArray(255, 0, 255);					/* #FF00FF */
 		else if (colorName == "pink") cA = newArray(255, 192, 203);
-		else if (colorName == "violet") cA = newArray(127,0,255);
+		else if (colorName == "violet") cA = newArray(127, 0, 255);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);
-		else if (colorName == "garnet") cA = newArray(120,47,64);				/* #782F40 */
-		else if (colorName == "gold") cA = newArray(206,184,136);				/* #CEB888 */
-		else if (colorName == "aqua_modern") cA = newArray(75,172,198);		/* #4bacc6 AKA "Viking" aqua */
-		else if (colorName == "blue_accent_modern") cA = newArray(79,129,189); /* #4f81bd */
-		else if (colorName == "blue_dark_modern") cA = newArray(31,73,125);	/* #1F497D */
-		else if (colorName == "blue_honolulu") cA = newArray(0,118,182);		/* Honolulu Blue #006db0 */
-		else if (colorName == "blue_modern") cA = newArray(58,93,174);			/* #3a5dae */
-		else if (colorName == "gray_modern") cA = newArray(83,86,90);			/* bright gray #53565A */
-		else if (colorName == "green_dark_modern") cA = newArray(121,133,65);	/* Wasabi #798541 */
-		else if (colorName == "green_modern") cA = newArray(155,187,89);		/* #9bbb59 AKA "Chelsea Cucumber" */
-		else if (colorName == "green_modern_accent") cA = newArray(214,228,187); /* #D6E4BB AKA "Gin" */
-		else if (colorName == "green_spring_accent") cA = newArray(0,255,102);	/* #00FF66 AKA "Spring Green" */
-		else if (colorName == "orange_modern") cA = newArray(247,150,70);		/* #f79646 tan hide, light orange */
-		else if (colorName == "pink_modern") cA = newArray(255,105,180);		/* hot pink #ff69b4 */
-		else if (colorName == "purple_modern") cA = newArray(128,100,162);		/* blue-magenta, purple paradise #8064A2 */
-		else if (colorName == "jazzberry_jam") cA = newArray(165,11,94);
-		else if (colorName == "red_n_modern") cA = newArray(227,24,55);
-		else if (colorName == "red_modern") cA = newArray(192,80,77);
-		else if (colorName == "tan_modern") cA = newArray(238,236,225);
-		else if (colorName == "violet_modern") cA = newArray(76,65,132);
-		else if (colorName == "yellow_modern") cA = newArray(247,238,69);
-		/* Fluorescent Colors https://www.w3schools.com/colors/colors_crayola.asp */
-		else if (colorName == "radical_red") cA = newArray(255,53,94);			/* #FF355E */
-		else if (colorName == "wild_watermelon") cA = newArray(253,91,120);	/* #FD5B78 */
-		else if (colorName == "shocking_pink") cA = newArray(255,110,255);		/* #FF6EFF Ultra Pink */
-		else if (colorName == "razzle_dazzle_rose") cA = newArray(238,52,210);	/* #EE34D2 */
-		else if (colorName == "hot_magenta") cA = newArray(255,0,204);			/* #FF00CC AKA Purple Pizzazz */
-		else if (colorName == "outrageous_orange") cA = newArray(255,96,55);	/* #FF6037 */
-		else if (colorName == "supernova_orange") cA = newArray(255,191,63);	/* FFBF3F Supernova Neon Orange*/
-		else if (colorName == "sunglow") cA = newArray(255,204,51);			/* #FFCC33 */
-		else if (colorName == "neon_carrot") cA = newArray(255,153,51);		/* #FF9933 */
-		else if (colorName == "atomic_tangerine") cA = newArray(255,153,102);	/* #FF9966 */
-		else if (colorName == "laser_lemon") cA = newArray(255,255,102);		/* #FFFF66 "Unmellow Yellow" */
-		else if (colorName == "electric_lime") cA = newArray(204,255,0);		/* #CCFF00 */
-		else if (colorName == "screamin'_green") cA = newArray(102,255,102);	/* #66FF66 */
-		else if (colorName == "magic_mint") cA = newArray(170,240,209);		/* #AAF0D1 */
-		else if (colorName == "blizzard_blue") cA = newArray(80,191,230);		/* #50BFE6 Malibu */
-		else if (colorName == "dodger_blue") cA = newArray(9,159,255);			/* #099FFF Dodger Neon Blue */
+			/* Excel Modern  + */
+		else if (colorName == "aqua_modern") cA = newArray(75, 172, 198);			/* #4bacc6 AKA "Viking" aqua */
+		else if (colorName == "blue_accent_modern") cA = newArray(79, 129, 189);	/* #4f81bd */
+		else if (colorName == "blue_dark_modern") cA = newArray(31, 73, 125);		/* #1F497D */
+		else if (colorName == "blue_honolulu") cA = newArray(0, 118, 182);			/* Honolulu Blue #006db0 */
+		else if (colorName == "blue_modern") cA = newArray(58, 93, 174);			/* #3a5dae */
+		else if (colorName == "gray_modern") cA = newArray(83, 86, 90);				/* bright gray #53565A */
+		else if (colorName == "green_dark_modern") cA = newArray(121, 133, 65);		/* Wasabi #798541 */
+		else if (colorName == "green_modern") cA = newArray(155, 187, 89);			/* #9bbb59 AKA "Chelsea Cucumber" */
+		else if (colorName == "green_modern_accent") cA = newArray(214, 228, 187); 	/* #D6E4BB AKA "Gin" */
+		else if (colorName == "green_spring_accent") cA = newArray(0, 255, 102);	/* #00FF66 AKA "Spring Green" */
+		else if (colorName == "orange_modern") cA = newArray(247, 150, 70);			/* #f79646 tan hide, light orange */
+		else if (colorName == "pink_modern") cA = newArray(255, 105, 180);			/* hot pink #ff69b4 */
+		else if (colorName == "purple_modern") cA = newArray(128, 100, 162);		/* blue-magenta, purple paradise #8064A2 */
+		else if (colorName == "red_n_modern") cA = newArray(227, 24, 55);
+		else if (colorName == "red_modern") cA = newArray(192, 80, 77);
+		else if (colorName == "tan_modern") cA = newArray(238, 236, 225);
+		else if (colorName == "violet_modern") cA = newArray(76, 65, 132);
+		else if (colorName == "yellow_modern") cA = newArray(247, 238, 69);
+			/* FSU */
+		else if (colorName == "garnet") cA = newArray(120, 47, 64);					/* #782F40 */
+		else if (colorName == "gold") cA = newArray(206, 184, 136);					/* #CEB888 */
+		else if (colorName == "gulf_sands") cA = newArray(223, 209, 167);				/* #DFD1A7 */
+		else if (colorName == "stadium_night") cA = newArray(16, 24, 32);				/* #101820 */
+		else if (colorName == "westcott_water") cA = newArray(92, 184, 178);			/* #5CB8B2 */
+		else if (colorName == "vault_garnet") cA = newArray(166, 25, 46);				/* #A6192E */
+		else if (colorName == "legacy_blue") cA = newArray(66, 85, 99);				/* #425563 */
+		else if (colorName == "plaza_brick") cA = newArray(66, 85, 99);				/* #572932  */
+		else if (colorName == "vault_gold") cA = newArray(255, 199, 44);				/* #FFC72C  */
+		   /* Fluorescent Colors https://www.w3schools.com/colors/colors_crayola.asp   */
+		else if (colorName == "radical_red") cA = newArray(255, 53, 94);			/* #FF355E */
+		else if (colorName == "jazzberry_jam") cA = newArray(165, 11, 94);
+		else if (colorName == "wild_watermelon") cA = newArray(253, 91, 120);		/* #FD5B78 */
+		else if (colorName == "shocking_pink") cA = newArray(255, 110, 255);		/* #FF6EFF Ultra Pink */
+		else if (colorName == "razzle_dazzle_rose") cA = newArray(238, 52, 210);	/* #EE34D2 */
+		else if (colorName == "hot_magenta") cA = newArray(255, 0, 204);			/* #FF00CC AKA Purple Pizzazz */
+		else if (colorName == "outrageous_orange") cA = newArray(255, 96, 55);		/* #FF6037 */
+		else if (colorName == "supernova_orange") cA = newArray(255, 191, 63);		/* FFBF3F Supernova Neon Orange*/
+		else if (colorName == "sunglow") cA = newArray(255, 204, 51);				/* #FFCC33 */
+		else if (colorName == "neon_carrot") cA = newArray(255, 153, 51);			/* #FF9933 */
+		else if (colorName == "atomic_tangerine") cA = newArray(255, 153, 102);		/* #FF9966 */
+		else if (colorName == "laser_lemon") cA = newArray(255, 255, 102);			/* #FFFF66 "Unmellow Yellow" */
+		else if (colorName == "electric_lime") cA = newArray(204, 255, 0);			/* #CCFF00 */
+		else if (colorName == "screamin'_green") cA = newArray(102, 255, 102);		/* #66FF66 */
+		else if (colorName == "magic_mint") cA = newArray(170, 240, 209);			/* #AAF0D1 */
+		else if (colorName == "blizzard_blue") cA = newArray(80, 191, 230);		/* #50BFE6 Malibu */
+		else if (colorName == "dodger_blue") cA = newArray(9, 159, 255);			/* #099FFF Dodger Neon Blue */
 		else IJ.log(colorName + " not found in " + functionL + ": Color defaulted to white");
 		return cA;
 	}
@@ -853,7 +865,7 @@ macro "Fancy Slice Labels" {
 		string= replace(string,"alpha ", fromCharCode(0x03B1)+" ");
 		string= replace(string,"Alpha ", fromCharCode(0x0391)+" ");
 		string= replace(string,"beta ", fromCharCode(0x03B2)+" "); /* Lower case beta */
-		string= replace(string,"Beta ", fromCharCode(0x0392)+" "); /* ß CAPITAL */
+		string= replace(string,"Beta ", fromCharCode(0x0392)+" "); /* ÃŸ CAPITAL */
 		string= replace(string,"gamma ", fromCharCode(0x03B3)+" "); /* MATHEMATICAL SMALL GAMMA */
 		string= replace(string,"Gamma ", fromCharCode(0xD835)+" "); /* MATHEMATICAL BOLD CAPITAL  GAMMA */
 		string= replace(string,"delta ", fromCharCode(0x1E9F)+" "); /*  SMALL LETTER DELTA */
@@ -870,7 +882,7 @@ macro "Fancy Slice Labels" {
 		string= replace(string,"Kappa ", fromCharCode(0x0196)+" "); /* GREEK CAPITAL LETTER KAPPA */
 		string= replace(string,"lambda ", fromCharCode(0x03BB)+" "); /* GREEK SMALL LETTER LAMDA */
 		string= replace(string,"Lambda ", fromCharCode(0x039B)+" "); /* GREEK CAPITAL LETTER LAMDA */
-		string= replace(string,"mu ", fromCharCode(0x03BC)+" "); /* µ GREEK SMALL LETTER MU */
+		string= replace(string,"mu ", fromCharCode(0x03BC)+" "); /* Âµ GREEK SMALL LETTER MU */
 		string= replace(string,"Mu ", fromCharCode(0x039C)+" "); /* GREEK CAPITAL LETTER MU */
 		string= replace(string,"nu ", fromCharCode(0x03BD)+" "); /*  GREEK SMALL LETTER NU */
 		string= replace(string,"Nu ", fromCharCode( 0x039D)+" "); /*  GREEK CAPITAL LETTER NU */
@@ -897,9 +909,9 @@ macro "Fancy Slice Labels" {
 		string= replace(string,">= ", fromCharCode(0x2265)+" "); /* GREATER-THAN OR EQUAL TO */
 		string= replace(string,"<= ", fromCharCode(0x2264)+" "); /* LESS-THAN OR EQUAL TO */
 		string= replace(string,"xx ", fromCharCode(0x00D7)+" "); /* MULTIPLICATION SIGN */
-		string= replace(string,"copyright ", fromCharCode(0x00A9)+" "); /* © */
+		string= replace(string,"copyright ", fromCharCode(0x00A9)+" "); /* Â© */
 		string= replace(string,"ro ", fromCharCode(0x00AE)+" "); /* registered sign */
-		string= replace(string,"tm ", fromCharCode(0x2122)+" "); /* ™ */
+		string= replace(string,"tm ", fromCharCode(0x2122)+" "); /* â„¢ */
 		string= replace(string,"parallelto ", fromCharCode(0x2225)+" "); /* PARALLEL TO  note CANNOT use "|" key */
 		// string= replace(string,"perpendicularto ", fromCharCode(0x27C2)+" "); /* PERPENDICULAR note CANNOT use "|" key */
 		string= replace(string,"degree ", fromCharCode(0x00B0)+" "); /* Degree */
@@ -916,7 +928,7 @@ macro "Fancy Slice Labels" {
 	+ v220126 added getInfo("micrometer.abbreviation").
 	+ v220128 add loops that allow removal of multiple duplication.
 	+ v220131 fixed so that suffix cleanup works even if extensions are included.
-	+ v220616 Minor index range fix that does not seem to have an impact if macro is working as planned. v220715 added 8-bit to unwanted dupes. v220812 minor changes to micron and Ångström handling
+	+ v220616 Minor index range fix that does not seem to have an impact if macro is working as planned. v220715 added 8-bit to unwanted dupes. v220812 minor changes to micron and Ã…ngstrÃ¶m handling
 	+ v231005 Replaced superscript abbreviations that did not work.
 	+ v240124 Replace _+_ with +.
 	*/
@@ -927,8 +939,8 @@ macro "Fancy Slice Labels" {
 		string = string.replace(fromCharCode(0xFE63) + fromCharCode(178), "sup-2"); /* Small hyphen substituted for superscript minus as 0x207B does not display in table */
 		string = string.replace(fromCharCode(181) + "m", "um"); /* micron units */
 		string = string.replace(getInfo("micrometer.abbreviation"), "um"); /* micron units */
-		string = string.replace(fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
-		string = string.replace(fromCharCode(0x212B), "Angstrom"); /* the other Ångström unit symbol */
+		string = string.replace(fromCharCode(197), "Angstrom"); /* Ã…ngstrÃ¶m unit symbol */
+		string = string.replace(fromCharCode(0x212B), "Angstrom"); /* the other Ã…ngstrÃ¶m unit symbol */
 		string = string.replace(fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
 		string = string.replace(fromCharCode(0x2009), "_"); /* Replace thin spaces  */
 		string = string.replace("%", "pc"); /* % causes issues with html listing */

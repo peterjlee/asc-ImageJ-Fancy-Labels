@@ -16,8 +16,9 @@ macro "Fancy Scale Bar" {
 	v231209: Overlay shadows are now transparent and use the "darkness" preference for the opacity.
 	v240123: Attempted tweaks of side-by-side positioning within manual selection. Changed some names for clarity (because I was getting confused). Changed intensity to visual luminosity for raised/indented decision. F1: updated function unCleanLabel. F2: Updated sensibleScales function.
 	v240313: Added spaces after commas. F1: Update safeSaveAndClose.
+	v240709: Color selection update.
 */
-	macroL = "Fancy_Scale_Bar_v240123-f1.ijm";
+	macroL = "Fancy_Scale_Bar_v240709.ijm";
 	fullMenuHeight = 988; /* pixels for v230920 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -195,9 +196,10 @@ macro "Fancy Scale Bar" {
 		Dialog.addNumber("Thickness of " + modeStr + " :", call("ij.Prefs.get", prefsNameKey + ".barHeightPC", 70), 0, 3, "% of '!' character width");
 		grayChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		colorChoicesStd = newArray("red", "green", "blue", "cyan", "magenta", "yellow", "pink", "orange", "violet");
-		colorChoicesMod = newArray("garnet", "gold", "aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
+		colorChoicesMod = newArray("aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
 		colorChoicesNeon = newArray("jazzberry_jam", "radical_red", "wild_watermelon", "outrageous_orange", "supernova_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "dodger_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
-		colorChoices = Array.concat(grayChoices, colorChoicesStd, colorChoicesMod, colorChoicesNeon);
+		colorChoicesFSU = newArray("garnet", "gold", "stadium_night", "westcott_water", "vault_garnet", "legacy_blue", "plaza_brick", "vault_gold");
+		colorChoices = Array.concat(grayChoices, colorChoicesStd, colorChoicesMod, colorChoicesNeon, colorChoicesFSU);
 		if (startsWith(fancyStyle, "No")){
 			if ((bgIpc>50 && !startsWith(locChoices[iLoc], "Under")) || (bgIpc<50 && startsWith(locChoices[iLoc], "Under"))){
 				iTC = 1; iBC = 0; iTG = 1; iBG = 0;
@@ -1402,9 +1404,10 @@ macro "Fancy Scale Bar" {
 		   v211022 all names lower-case, all spaces to underscores v220225 Added more hash value comments as a reference v220706 restores missing magenta
 		   v230130 Added more descriptions and modified order.
 		   v230908: Returns "white" array if not match is found and logs issues without exiting.
-		   v240123: Removed duplicate entries: Now 53 unique colors 
+		   v240123: Removed duplicate entries: Now 53 unique colors.
+		   v240709: Added 2024 FSU-Branding Colors. Some reorganization. Now 60 unique colors.
 		*/
-		functionL = "getColorArrayFromColorName_v240123";
+		functionL = "getColorArrayFromColorName_v240709";
 		cA = newArray(255, 255, 255); /* defaults to white */
 		if (colorName == "white") cA = newArray(255, 255, 255);
 		else if (colorName == "black") cA = newArray(0, 0, 0);
@@ -1422,8 +1425,7 @@ macro "Fancy Scale Bar" {
 		else if (colorName == "pink") cA = newArray(255, 192, 203);
 		else if (colorName == "violet") cA = newArray(127, 0, 255);
 		else if (colorName == "orange") cA = newArray(255, 165, 0);
-		else if (colorName == "garnet") cA = newArray(120, 47, 64);					/* #782F40 */
-		else if (colorName == "gold") cA = newArray(206, 184, 136);					/* #CEB888 */
+			/* Excel Modern  + */
 		else if (colorName == "aqua_modern") cA = newArray(75, 172, 198);			/* #4bacc6 AKA "Viking" aqua */
 		else if (colorName == "blue_accent_modern") cA = newArray(79, 129, 189);	/* #4f81bd */
 		else if (colorName == "blue_dark_modern") cA = newArray(31, 73, 125);		/* #1F497D */
@@ -1437,14 +1439,24 @@ macro "Fancy Scale Bar" {
 		else if (colorName == "orange_modern") cA = newArray(247, 150, 70);			/* #f79646 tan hide, light orange */
 		else if (colorName == "pink_modern") cA = newArray(255, 105, 180);			/* hot pink #ff69b4 */
 		else if (colorName == "purple_modern") cA = newArray(128, 100, 162);		/* blue-magenta, purple paradise #8064A2 */
-		else if (colorName == "jazzberry_jam") cA = newArray(165, 11, 94);
 		else if (colorName == "red_n_modern") cA = newArray(227, 24, 55);
 		else if (colorName == "red_modern") cA = newArray(192, 80, 77);
 		else if (colorName == "tan_modern") cA = newArray(238, 236, 225);
 		else if (colorName == "violet_modern") cA = newArray(76, 65, 132);
 		else if (colorName == "yellow_modern") cA = newArray(247, 238, 69);
+			/* FSU */
+		else if (colorName == "garnet") cA = newArray(120, 47, 64);					/* #782F40 */
+		else if (colorName == "gold") cA = newArray(206, 184, 136);					/* #CEB888 */
+		else if (colorName == "gulf_sands") cA = newArray(223, 209, 167);				/* #DFD1A7 */
+		else if (colorName == "stadium_night") cA = newArray(16, 24, 32);				/* #101820 */
+		else if (colorName == "westcott_water") cA = newArray(92, 184, 178);			/* #5CB8B2 */
+		else if (colorName == "vault_garnet") cA = newArray(166, 25, 46);				/* #A6192E */
+		else if (colorName == "legacy_blue") cA = newArray(66, 85, 99);				/* #425563 */
+		else if (colorName == "plaza_brick") cA = newArray(66, 85, 99);				/* #572932  */
+		else if (colorName == "vault_gold") cA = newArray(255, 199, 44);				/* #FFC72C  */
 		   /* Fluorescent Colors https://www.w3schools.com/colors/colors_crayola.asp   */
 		else if (colorName == "radical_red") cA = newArray(255, 53, 94);			/* #FF355E */
+		else if (colorName == "jazzberry_jam") cA = newArray(165, 11, 94);
 		else if (colorName == "wild_watermelon") cA = newArray(253, 91, 120);		/* #FD5B78 */
 		else if (colorName == "shocking_pink") cA = newArray(255, 110, 255);		/* #FF6EFF Ultra Pink */
 		else if (colorName == "razzle_dazzle_rose") cA = newArray(238, 52, 210);	/* #EE34D2 */
@@ -1458,7 +1470,7 @@ macro "Fancy Scale Bar" {
 		else if (colorName == "electric_lime") cA = newArray(204, 255, 0);			/* #CCFF00 */
 		else if (colorName == "screamin'_green") cA = newArray(102, 255, 102);		/* #66FF66 */
 		else if (colorName == "magic_mint") cA = newArray(170, 240, 209);			/* #AAF0D1 */
-		else if (colorName == "blizzard_blue") cA = newArray(80, 191, 230);			/* #50BFE6 Malibu */
+		else if (colorName == "blizzard_blue") cA = newArray(80, 191, 230);		/* #50BFE6 Malibu */
 		else if (colorName == "dodger_blue") cA = newArray(9, 159, 255);			/* #099FFF Dodger Neon Blue */
 		else IJ.log(colorName + " not found in " + functionL + ": Color defaulted to white");
 		return cA;

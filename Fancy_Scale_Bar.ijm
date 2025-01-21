@@ -16,9 +16,9 @@ macro "Fancy Scale Bar" {
 	v231209: Overlay shadows are now transparent and use the "darkness" preference for the opacity.
 	v240123: Attempted tweaks of side-by-side positioning within manual selection. Changed some names for clarity (because I was getting confused). Changed intensity to visual luminosity for raised/indented decision. F1: updated function unCleanLabel. F2: Updated sensibleScales function.
 	v240313: Added spaces after commas. F1: Update safeSaveAndClose.
-	v240709: Color selection update.
+	v240709: Color selection update. F1: Update functions.
 */
-	macroL = "Fancy_Scale_Bar_v240709.ijm";
+	macroL = "Fancy_Scale_Bar_v240709-f1.ijm";
 	fullMenuHeight = 988; /* pixels for v230920 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -1175,7 +1175,6 @@ macro "Fancy Scale Bar" {
 		if (valueExp>=4) dP = -1; /* Scientific Notation */
 		return dP;
 	}
-	}
 	function checkForPlugin(pluginName) {
 		/* v161102 changed to true-false
 			v180831 some cleanup
@@ -1728,12 +1727,13 @@ macro "Fancy Scale Bar" {
 		}
 		return string;
 	}
-	function restoreExit(message){ /* Make a clean exit from a macro, restoring previous settings */
-		/* 9/9/2017 added Garbage clean up suggested by Luc LaLonde - LBNL */
+	function restoreExit(message){ /* v220316
+		NOTE: REQUIRES previous run of saveSettings	*/
 		restoreSettings(); /* Restore previous settings before exiting */
 		setBatchMode("exit & display"); /* Probably not necessary if exiting gracefully but otherwise harmless */
 		call("java.lang.System.gc");
-		exit(message);
+		if (message!="") exit(message);
+		else exit;
 	}
 	function safeColornameFill(colorName) {
 	/* Requires function getColorArrayFromColorName

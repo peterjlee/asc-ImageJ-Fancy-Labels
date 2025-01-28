@@ -22,9 +22,9 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		v220823 Gray indices refer to grayChoices only; f1-color update. F2: Updated indexOf functions. F3: getColorArrayFromColorName_v230908.  F8 : Replaced function: pad. F9: Updated getColorFromColorName function (012324). F10: updated function unCleanLabel.
 		v240709 Updated colors.
 		v250124 Added bottom and top center options to locations. Added simple formatting options. Replaced inner-shadow option with raised/embossed.
-		v250127 Added semi-Fancy option and transparent overlay shadows. Restored missing "Center of Selection" option to text locations.
+		v250127 Added semi-Fancy option and transparent overlay shadows. Restored missing "Center of Selection" option to text locations. Updated functions to match Fancy Scalebar macro.
 	 */
-	macroL = "Fancy_Text_Labels_v250127.ijm";
+	macroL = "Fancy_Text_Labels_v250127-f1.ijm";
 	requires("1.47r");
 	originalImage = getTitle();
 	if (matches(originalImage, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + originalImage + " ?");
@@ -536,7 +536,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 			/* Create drop shadow if desired */
 			if (shadowDrop!=0 || shadowDisp!=0 || shadowBlur!=0) {
 				showStatus("Creating drop shadow for labels . . . ");
-				createShadowDropFromMask7(active_Label_Mask, shadowDrop, shadowDisp, shadowBlur, shadowDarkness, outlineStroke);
+				createShadowDropFromMask7Safe(active_Label_Mask, shadowDrop, shadowDisp, shadowBlur, shadowDarkness, outlineStroke);
 			}
 			for (s=0; s<remSlices+1; s++) {
 				showProgress(-s/remSlices);
@@ -694,9 +694,17 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		return string;
 	}
 	function closeImageByTitle(windowTitle) {  /* Cannot be used with tables */
-        if (isOpen(windowTitle)) {
-		selectWindow(windowTitle);
-        close();
+		/* v181002: reselects original image at end if open
+		   v200925: uses "while" instead of if so it can also remove duplicates
+		   v230411:	checks to see if any images open first.
+		*/
+		if(nImages>0){
+			oIID = getImageID();
+			while (isOpen(windowTitle)) {
+				selectWindow(windowTitle);
+				close();
+			}
+			if (isOpen(oIID)) selectImage(oIID);
 		}
 	}
 	function createConvolverMatrix(effect, thickness){
@@ -729,100 +737,39 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		matrixText += "\n";
 		return matrixText;
 	}
-	function toChar(string) {
-		/* v180612 first version
-			v1v180627 Expanded
-			v200428 removed "symbol" prefix */
-		string= replace(string, "Angstrom", fromCharCode(0x212B)); /* ANGSTROM SIGN */
-		string= replace(string, "alpha", fromCharCode(0x03B1));
-		string= replace(string, "Alpha", fromCharCode(0x0391));
-		string= replace(string, "beta", fromCharCode(0x03B2)); /* Lower case beta */
-		string= replace(string, "Beta", fromCharCode(0x0392)); /* ß CAPITAL */
-		string= replace(string, "gamma", fromCharCode(0x03B3)); /* MATHEMATICAL SMALL GAMMA */
-		string= replace(string, "Gamma", fromCharCode(0xD835)); /* MATHEMATICAL BOLD CAPITAL  GAMMA */
-		string= replace(string, "delta", fromCharCode(0x1E9F)); /*  SMALL LETTER DELTA */
-		string= replace(string, "Delta", fromCharCode(0x0394)); /*  CAPITAL LETTER DELTA */
-		string= replace(string, "epsilon", fromCharCode(0x03B5)); /* GREEK SMALL LETTER EPSILON */
-		string= replace(string, "Epsilon", fromCharCode(0x0395)); /* GREEK CAPITAL LETTER EPSILON */
-		string= replace(string, "zeta", fromCharCode(0x03B6)); /* GREEK SMALL LETTER ZETA */
-		string= replace(string, "Zeta", fromCharCode(0x0396)); /* GREEK CAPITAL LETTER ZETA */
-		string= replace(string, "theta", fromCharCode(0x03B8)); /* GREEK SMALL LETTER THETA */
-		string= replace(string, "Theta", fromCharCode(0x0398)); /* GREEK CAPITAL LETTER THETA */
-		string= replace(string, "iota", fromCharCode(0x03B9)); /* GREEK SMALL LETTER IOTA */
-		string= replace(string, "Iota", fromCharCode(0x0196)); /* GREEK CAPITAL LETTER IOTA */
-		string= replace(string, "kappa", fromCharCode(0x03BA)); /* GREEK SMALL LETTER KAPPA */
-		string= replace(string, "Kappa", fromCharCode(0x0196)); /* GREEK CAPITAL LETTER KAPPA */
-		string= replace(string, "lambda", fromCharCode(0x03BB)); /* GREEK SMALL LETTER LAMDA */
-		string= replace(string, "Lambda", fromCharCode(0x039B)); /* GREEK CAPITAL LETTER LAMDA */
-		string= replace(string, "mu", fromCharCode(0x03BC)); /* µ GREEK SMALL LETTER MU */
-		string= replace(string, "Mu", fromCharCode(0x039C)); /* GREEK CAPITAL LETTER MU */
-		string= replace(string, "nu", fromCharCode(0x03BD)); /*  GREEK SMALL LETTER NU */
-		string= replace(string, "Nu", fromCharCode( 0x039D)); /*  GREEK CAPITAL LETTER NU */
-		string= replace(string, "xi", fromCharCode(0x03BE)); /* GREEK SMALL LETTER XI */
-		string= replace(string, "Xi", fromCharCode(0x039E)); /* GREEK CAPITAL LETTER XI */
-		string= replace(string, "pi", fromCharCode(0x03C0)); /* GREEK SMALL LETTER Pl */
-		string= replace(string, "Pi", fromCharCode(0x03A0)); /* GREEK CAPITAL LETTER Pl */
-		string= replace(string, "rho", fromCharCode(0x03C1)); /* GREEK SMALL LETTER RHO */
-		string= replace(string, "Rho", fromCharCode(0x03A1)); /* GREEK CAPITAL LETTER RHO */
-		string= replace(string, "sigma", fromCharCode(0x03C3)); /* GREEK SMALL LETTER SIGMA */
-		string= replace(string, "Sigma", fromCharCode(0x03A3)); /* GREEK CAPITAL LETTER SIGMA */
-		string= replace(string, "phi", fromCharCode(0x03C6)); /* GREEK SMALL LETTER PHI */
-		string= replace(string, "Phi", fromCharCode(0x03A6)); /* GREEK CAPITAL LETTER PHI */
-		string= replace(string, "omega", fromCharCode(0x03C9)); /* GREEK SMALL LETTER OMEGA */
-		string= replace(string, "Omega", fromCharCode(0x03A9)); /* GREEK CAPITAL LETTER OMEGA */
-		string= replace(string, "eta", fromCharCode(0x03B7)); /*  GREEK SMALL LETTER ETA */
-		string= replace(string, "Eta", fromCharCode(0x0397)); /*  GREEK CAPITAL LETTER ETA */
-		string= replace(string, "sub2", fromCharCode(0x2082)); /*  subscript 2 */
-		string= replace(string, "sub3", fromCharCode(0x2083)); /*  subscript 3 */
-		string= replace(string, "sub4", fromCharCode(0x2084)); /*  subscript 4 */
-		string= replace(string, "sub5", fromCharCode(0x2085)); /*  subscript 5 */
-		string= replace(string, "sup2", fromCharCode(0x00B2)); /*  superscript 2 */
-		string= replace(string, "sup3", fromCharCode(0x00B3)); /*  superscript 3 */
-		string= replace(string, ">=", fromCharCode(0x2265)); /* GREATER-THAN OR EQUAL TO */
-		string= replace(string, "<=", fromCharCode(0x2264)); /* LESS-THAN OR EQUAL TO */
-		string= replace(string, "xx", fromCharCode(0x00D7)); /* MULTIPLICATION SIGN */
-		string= replace(string, "copyright=", fromCharCode(0x00A9)); /* © */
-		string= replace(string, "ro", fromCharCode(0x00AE)); /* registered sign */
-		string= replace(string, "tm", fromCharCode(0x2122)); /* ™ */
-		string= replace(string, "parallelto", fromCharCode(0x2225)); /* PARALLEL TO  note CANNOT use "|" key */
-		// string= replace(string, "perpendicularto", fromCharCode(0x27C2)); /* PERPENDICULAR note CANNOT use "|" key */
-		string= replace(string, "degree", fromCharCode(0x00B0)); /* Degree */
-		string= replace(string, "degreeC", fromCharCode(0x00B0)+fromCharCode(0x2009) + "C"); /* Degree C */
-		string= replace(string, "arrow-up", fromCharCode(0x21E7)); /* 'UPWARDS WHITE ARROW */
-		string= replace(string, "arrow-down", fromCharCode(0x21E9)); /* 'DOWNWARDS WHITE ARROW */
-		string= replace(string, "arrow-left", fromCharCode(0x21E6)); /* 'LEFTWARDS WHITE ARROW */
-		string= replace(string, "arrow-right", fromCharCode(0x21E8)); /* 'RIGHTWARDS WHITE ARROW */
-		return string;
-	}
-	function createShadowDropFromMask7(mask, oShadowDrop, oShadowDisp, oShadowBlur, oShadowDarkness, oStroke) {
+	function createShadowDropFromMask7Safe(mask, oShadowDrop, oShadowDisp, oShadowBlur, oShadowDarkness, oStroke) {
 		/* Requires previous run of: imageDepth = bitDepth();
 		because this version works with different bitDepths
 		v161115 calls five variables: drop, displacement blur and darkness
-		v180627 adds mask label to variables	*/
+		v180627 adds mask label to variables
+		v230405	resets background color after application
+		v230418 removed '&'s		*/
 		showStatus("Creating drop shadow for labels . . . ");
 		newImage("shadow", "8-bit black", imageWidth, imageHeight, 1);
 		getSelectionFromMask(mask);
 		getSelectionBounds(selMaskX, selMaskY, selMaskWidth, selMaskHeight);
 		setSelectionLocation(selMaskX + oShadowDisp, selMaskY + oShadowDrop);
-		setBackgroundColor(255,255,255);
-		if (oStroke>0) run("Enlarge...", "enlarge=&oStroke pixel"); /* Adjust shadow size so that shadow extends beyond stroke thickness */
+		orBG = Color.background;
+		Color.setBackground("white");
+		if (oStroke>0) run("Enlarge...", "enlarge=" + oStroke + " pixel"); /* Adjust shadow size so that shadow extends beyond stroke thickness */
 		run("Clear");
 		run("Select None");
 		if (oShadowBlur>0) {
-			run("Gaussian Blur...", "sigma=&oShadowBlur");
-			run("Unsharp Mask...", "radius=&oShadowBlur mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
+			run("Gaussian Blur...", "sigma=" + oShadowBlur);
+			run("Unsharp Mask...", "radius=" + oShadowBlur + " mask=0.4"); /* Make Gaussian shadow edge a little less fuzzy */
 		}
 		/* Now make sure shadow or glow does not impact outline */
 		getSelectionFromMask(mask);
-		if (oStroke>0) run("Enlarge...", "enlarge=&oStroke pixel");
-		setBackgroundColor(0,0,0);
+		if (oStroke>0) run("Enlarge...", "enlarge=" + oStroke + " pixel");
+		Color.setBackground("black");
 		run("Clear");
 		run("Select None");
 		/* The following are needed for different bit depths */
 		if (imageDepth==16 || imageDepth==32) run(imageDepth + "-bit");
 		run("Enhance Contrast...", "saturated=0 normalize");
 		divider = (100 / abs(oShadowDarkness));
-		run("Divide...", "value=&divider");
+		run("Divide...", "value=" + divider);
+		Color.setBackground(orBG);
 	}
   	function getFontChoiceList() {
 		/*	v180723 first version
@@ -959,6 +906,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		else IJ.log(colorName + " not found in " + functionL + ": Color defaulted to white");
 		return cA;
 	}
+	/* Hex conversion below adapted from T.Ferreira, 20010.01 https://imagej.net/doku.php?id=macro:rgbtohex */
 	function getHexColorFromColorName(colorNameString) {
 		/* v231207: Uses IJ String.pad instead of function: pad */
 		colorArray = getColorArrayFromColorName(colorNameString);
@@ -1013,7 +961,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		string = string.replace(fromCharCode(197), "Angstrom"); /* Ångström unit symbol */
 		string = string.replace(fromCharCode(0x212B), "Angstrom"); /* the other Ångström unit symbol */
 		string = string.replace(fromCharCode(0x2009) + fromCharCode(0x00B0), "deg"); /* replace thin spaces degrees combination */
-		string = string.replace(fromCharCode(0x2009), "_"); /* Replace thin spaces  */
+		string = string.replace(fromCharCode(0x2009), "_"); /* Replace thin spaces */
 		string = string.replace("%", "pc"); /* % causes issues with html listing */
 		string = string.replace(" ", "_"); /* Replace spaces - these can be a problem with image combination */
 		/* Remove duplicate strings */
@@ -1062,7 +1010,7 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		/* End of suffix cleanup */
 		return string;
 	}
-	function writeLabel_CFXY(label,labelColor,labelFontName, labelFontSize,labelX,labelY){
+	function writeLabel_CFXY(label, labelColor, labelFontName, labelFontSize, labelX, labelY){
 		setFont(labelFontName, labelFontSize, "antialiased");
 		setColorFromColorName(labelColor);
 		drawString(label, labelX, labelY);

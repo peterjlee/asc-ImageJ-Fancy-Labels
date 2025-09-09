@@ -23,8 +23,9 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		v240709 Updated colors.
 		v250124 Added bottom and top center options to locations. Added simple formatting options. Replaced inner-shadow option with raised/embossed.
 		v250127 Added semi-Fancy option and transparent overlay shadows. Restored missing "Center of Selection" option to text locations. Updated functions to match Fancy Scalebar macro.
+		v250530 Corrects fancy.textlabel to fancy.textLabels.
 	 */
-	macroL = "Fancy_Text_Labels_v250127-f1.ijm";
+	macroL = "Fancy_Text_Labels_v250530.ijm";
 	requires("1.47r");
 	originalImage = getTitle();
 	if (matches(originalImage, ".*Ramp.*")==1) showMessageWithCancel("Title contains \"Ramp\"", "Do you want to label" + originalImage + " ?");
@@ -155,10 +156,10 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 		colorChoicesNeon = newArray("jazzberry_jam", "radical_red", "wild_watermelon", "outrageous_orange", "supernova_orange", "atomic_tangerine", "neon_carrot", "sunglow", "laser_lemon", "electric_lime", "screamin'_green", "magic_mint", "blizzard_blue", "dodger_blue", "shocking_pink", "razzle_dazzle_rose", "hot_magenta");
 		colorChoicesFSU = newArray("garnet", "gold", "stadium_night", "westcott_water", "vault_garnet", "legacy_blue", "plaza_brick", "vault_gold");
 		colorChoices = Array.concat(grayChoices, colorChoicesStd, colorChoicesMod, colorChoicesNeon, colorChoicesFSU);
-		iTC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.textLabels.font.color",colorChoices[0]),0);
-		iBC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.textLabels.outline.color",colorChoices[1]),1);
-		iTCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.textLabels.font.gray",grayChoices[0]),0);
-		iBCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.textLabels.outline.gray",grayChoices[1]),1);
+		iTC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.textLabels.font.color", colorChoices[0]), 0);
+		iBC = indexOfArray(colorChoices, call("ij.Prefs.get", "fancy.textLabels.outline.color", colorChoices[1]), 1);
+		iTCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.textLabels.font.gray", grayChoices[0]), 0);
+		iBCg = indexOfArray(grayChoices, call("ij.Prefs.get", "fancy.textLabels.outline.gray", grayChoices[1]), 1);
 		if (imageDepth==24){
 			Dialog.addChoice("Text color:", colorChoices, colorChoices[iTC]);
 			Dialog.addChoice("Outline \(background\) color:", colorChoices, colorChoices[iBC]);
@@ -303,8 +304,8 @@ macro "Add Multiple Lines of Fancy Text To Image" {
 	call("ij.Prefs.set", "fancy.textLabels.location", textLocChoice);
 	call("ij.Prefs.set", "fancy.textLabels.output", overWrite);
 	if (imageDepth==24){
-		call("ij.Prefs.set", "fancy.textlabel.font.color", fontColor);
-		call("ij.Prefs.set", "fancy.textlabel.outline.color", outlineColor);
+		call("ij.Prefs.set", "fancy.textLabels.font.color", fontColor);
+		call("ij.Prefs.set", "fancy.textLabels.outline.color", outlineColor);
 	}
 	else {
 		call("ij.Prefs.set", "fancy.textLabels.font.gray", fontColor);

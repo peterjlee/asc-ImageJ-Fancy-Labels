@@ -17,8 +17,9 @@ macro "Fancy Scale Bar" {
 	v240123: Attempted tweaks of side-by-side positioning within manual selection. Changed some names for clarity (because I was getting confused). Changed intensity to visual luminosity for raised/indented decision. F1: updated function unCleanLabel. F2: Updated sensibleScales function.
 	v240313: Added spaces after commas. F1: Update safeSaveAndClose.
 	v240709: Color selection update. F1: Update functions.
+	v250530: Just add default sb thickness in dialog.
 */
-	macroL = "Fancy_Scale_Bar_v240709-f1.ijm";
+	macroL = "Fancy_Scale_Bar_v250530.ijm";
 	fullMenuHeight = 988; /* pixels for v230920 */
 	requires("1.52i"); /* Utilizes Overlay.setPosition(0) from IJ >1.52i */
 	saveSettings(); /* To restore settings at the end */
@@ -69,8 +70,8 @@ macro "Fancy Scale Bar" {
 	/* End simple text default options */
 	startSliceNumber = getSliceNumber();
 	remSlices = slices-startSliceNumber;
-	if (selEType==5) sbFontSize = maxOf(10, round((imageHeight+imageWidth)/90)); /* set minimum default font size as 12 */
-	else sbFontSize = maxOf(12, round((minOf(imageHeight, imageWidth))/30)); /* set minimum default font size as 12 */
+	if (selEType==5) sbFontSize = maxOf(10, round((imageHeight + imageWidth) / 90)); /* set minimum default font size as 12 */
+	else sbFontSize = maxOf(12, round((minOf(imageHeight, imageWidth)) / 30)); /* set minimum default font size as 12 */
 	getVoxelSize(pixelWidth, pixelHeight, pixelDepth, selectedUnit);
 	pixelAR = pixelWidth/pixelHeight;
 	sensibleScale = sensibleScales(pixelWidth, selectedUnit, sbFontSize*10);
@@ -193,7 +194,7 @@ macro "Fancy Scale Bar" {
 		}
 		Dialog.addChoice("Override unit with new choice?", newUnits, newUnits[0]);
 		Dialog.addNumber("Font size \(\"FS\"\):", sbFontSize, 0, 4, "");
-		Dialog.addNumber("Thickness of " + modeStr + " :", call("ij.Prefs.get", prefsNameKey + ".barHeightPC", 70), 0, 3, "% of '!' character width");
+		Dialog.addNumber("Thickness of " + modeStr + " \(default 70\):", call("ij.Prefs.get", prefsNameKey + ".barHeightPC", 70), 0, 3, "% of '!' character width");
 		grayChoices = newArray("white", "black", "off-white", "off-black", "light_gray", "gray", "dark_gray");
 		colorChoicesStd = newArray("red", "green", "blue", "cyan", "magenta", "yellow", "pink", "orange", "violet");
 		colorChoicesMod = newArray("aqua_modern", "blue_accent_modern", "blue_dark_modern", "blue_modern", "blue_honolulu", "gray_modern", "green_dark_modern", "green_modern", "green_modern_accent", "green_spring_accent", "orange_modern", "pink_modern", "purple_modern", "red_n_modern", "red_modern", "tan_modern", "violet_modern", "yellow_modern");
